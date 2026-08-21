@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+import shutil
+import tempfile
 from typing import Any
 
 from reader.preview.result import PreviewResult
@@ -128,12 +130,15 @@ class Win32OfficeBackend:
         with _com_scope():
             app = None
             document = None
+            export_dir = Path(tempfile.mkdtemp(prefix="reader-office-"))
+            keep_export_dir = False
             try:
                 app = Dispatch(progid)
                 document = _open_document(app, suffix, src)
-                pdf_path = src.with_name(f"{src.stem}.reader.pdf")
+                pdf_path = export_dir / f"{src.stem}.reader.pdf"
                 try:
                     _export_pdf(document, suffix, pdf_path)
+                    keep_export_dir = True
                     return PreviewResult(
                         html="",
                         status_label="Office 预览",
@@ -141,7 +146,7 @@ class Win32OfficeBackend:
                         pdf_path=pdf_path,
                     )
                 except Exception:
-                    html_path = src.with_name(f"{src.stem}.reader.html")
+                    html_path = export_dir / f"{src.stem}.reader.html"
                     _save_html(document, suffix, html_path)
                     return PreviewResult(
                         html=html_path.read_text(encoding="utf-8", errors="ignore"),
@@ -151,3 +156,5 @@ class Win32OfficeBackend:
             finally:
                 _close_document(document, suffix)
                 _quit_app(app)
+                if not keep_export_dir:
+                    shutil.rmtree(export_dir, ignore_errors=True)
