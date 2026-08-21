@@ -137,6 +137,8 @@ class PreviewExecutor(QObject):
             str, tuple[_WorkerOutput | None, Exception | None]
         ] = {}
         self._cancelled: set[str] = set()
+        self._owner_registry: list[PreviewExecutor] | None = None
+        self._release_requested = False
 
     def submit(
         self,
@@ -170,14 +172,36 @@ class PreviewExecutor(QObject):
             output, _error = pending
             if output is not None:
                 _cleanup_dir(output.artifact_dir)
+        self._release_if_idle()
 
     def take_completion(
         self, document_id: str
     ) -> tuple[_WorkerOutput | None, Exception | None] | None:
-        return self._pending.pop(document_id, None)
+        completion = self._pending.pop(document_id, None)
+        self._release_if_idle()
+        return completion
 
     def active_count(self) -> int:
         return len(self._workers) + len(self._pending)
+
+    def set_owner_registry(self, registry: list[PreviewExecutor]) -> None:
+        self._owner_registry = registry
+
+    def release_when_idle(self) -> None:
+        self._release_requested = True
+        self._release_if_idle()
+
+    def _release_if_idle(self) -> None:
+        if not self._release_requested or self.active_count() != 0:
+            return
+        if self._owner_registry is not None:
+            try:
+                self._owner_registry.remove(self)
+            except ValueError:
+                pass
+            self._owner_registry = None
+        self._release_requested = False
+        self.deleteLater()
 
     @Slot(str, object, object)
     def _worker_completed(
@@ -200,6 +224,7 @@ class PreviewExecutor(QObject):
         if worker is not None:
             worker.signals.deleteLater()
             del worker
+        self._release_if_idle()
 
 
 @dataclass
@@ -251,6 +276,7 @@ class MainWindow(QMainWindow):
         self._viewer_factory = viewer_factory or _default_viewer
         self._office = office or Win32OfficeBackend()
         app = QApplication.instance()
+        self._owns_executor = executor is None
         if executor is None:
             self._executor = PreviewExecutor(
                 thread_pool=thread_pool,
@@ -262,6 +288,7 @@ class MainWindow(QMainWindow):
                     owners = []
                     setattr(app, "_reader_preview_executors", owners)
                 owners.append(self._executor)
+                self._executor.set_owner_registry(owners)
         else:
             self._executor = executor
         self._executor.completed.connect(
@@ -359,22 +386,33 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def _preview_completed(self, document_id: str) -> None:
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+
+        page_is_valid = self._tabs.indexOf(document.page) >= 0
+        if self._closing or not page_is_valid:
+            completion = self._executor.take_completion(document_id)
+            if completion is not None:
+                output, _error = completion
+                if output is not None:
+                    _cleanup_dir(output.artifact_dir)
+            return
+
         completion = self._executor.take_completion(document_id)
         if completion is None:
             return
         output, error = completion
-        document = self._documents.get(document_id)
-        if document is None or self._closing:
-            if output is not None:
-                _cleanup_dir(output.artifact_dir)
-            return
 
         if error is not None:
             content: QWidget = QLabel(str(error))
             content.setObjectName("previewContent")
             status = f"预览失败：{document.path.name}"
+        elif output is None:
+            content = QLabel("未返回预览结果")
+            content.setObjectName("previewContent")
+            status = f"预览失败：{document.path.name}"
         else:
-            assert output is not None
             result = output.result
             if result.kind == "error":
                 content = QLabel(result.error or "error")
@@ -424,6 +462,8 @@ class MainWindow(QMainWindow):
             self._executor.completed.disconnect(self._preview_completed)
         except (RuntimeError, TypeError):
             pass
+        if self._owns_executor:
+            self._executor.release_when_idle()
         super().closeEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:

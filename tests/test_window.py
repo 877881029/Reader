@@ -124,6 +124,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
 
     assert time.monotonic() - before < 0.25
     assert window.tab_count() == 1
+    assert window.tab_title(0) == "slow.md"
     assert "正在加载" in page_text(window, 0)
     assert started.wait(1)
     assert worker_thread_ids != [threading.get_ident()]
@@ -282,6 +283,63 @@ def test_new_window_action_and_single_ipc_owner(reader_app):
     assert first._executor is app._executor
     assert app._windows[-1]._executor is app._executor
     assert app._executor.thread_pool.maxThreadCount() == 1
+
+
+def test_shared_executor_delivers_each_result_only_to_owner_window(
+    reader_app, qtbot, tmp_path: Path
+):
+    app, _ipc = reader_app
+    first_path = tmp_path / "first.md"
+    second_path = tmp_path / "second.pptx"
+    first_path.write_text("first", encoding="utf-8")
+    second_path.write_bytes(b"pptx")
+    source_pdf = tmp_path / "second-source.pdf"
+    source_pdf.write_bytes(b"%PDF second")
+    first_started = threading.Event()
+    release_first = threading.Event()
+    pinned: list[Path] = []
+
+    def first_preview(_path: Path, office=None) -> PreviewResult:
+        first_started.set()
+        assert release_first.wait(3)
+        return builtin_result("WINDOW ONE")
+
+    def second_preview(_path: Path, office=None) -> PreviewResult:
+        return PreviewResult(
+            html="",
+            status_label="Office 预览",
+            kind="pdf",
+            pdf_path=source_pdf,
+        )
+
+    def second_viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        assert result.pdf_path is not None
+        pinned.append(result.pdf_path)
+        return QLabel("WINDOW TWO")
+
+    first = app.new_window()
+    second = app.new_window()
+    first._preview_fn = first_preview
+    first._cache_factory = FakeCache
+    first._viewer_factory = label_viewer
+    second._preview_fn = second_preview
+    second._cache_factory = FakeCache
+    second._viewer_factory = second_viewer
+
+    first.open_paths([str(first_path)])
+    assert first_started.wait(1)
+    second.open_paths([str(second_path)])
+    assert "正在加载" in page_text(first, 0)
+    assert "正在加载" in page_text(second, 0)
+
+    release_first.set()
+
+    qtbot.waitUntil(lambda: "WINDOW ONE" in page_text(first, 0))
+    qtbot.waitUntil(lambda: "WINDOW TWO" in page_text(second, 0))
+    assert first.tab_title(0) == "first.md"
+    assert second.tab_title(0) == "second.pptx"
+    assert pinned[0].exists()
+    assert pinned[0] != source_pdf
 
 
 def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
@@ -559,7 +617,7 @@ def test_viewer_reentrancy_close_discards_widget_and_artifact(qtbot, tmp_path: P
     assert not pinned[0].exists()
 
 
-def test_close_window_while_preview_runs_discards_late_result(qtbot, tmp_path: Path):
+def test_close_window_while_preview_runs_discards_late_result(qapp, qtbot, tmp_path: Path):
     source = tmp_path / "late.md"
     source.write_text("late", encoding="utf-8")
     started = threading.Event()
@@ -582,6 +640,8 @@ def test_close_window_while_preview_runs_discards_late_result(qtbot, tmp_path: P
         cache_factory=FakeCache,
         viewer_factory=viewer,
     )
+    executor = window._executor
+    registry = qapp._reader_preview_executors
     window.show()
     window.open_paths([str(source)])
     assert started.wait(1)
@@ -589,7 +649,8 @@ def test_close_window_while_preview_runs_discards_late_result(qtbot, tmp_path: P
     window.close()
     release.set()
 
-    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    qtbot.waitUntil(lambda: executor.active_count() == 0)
+    qtbot.waitUntil(lambda: executor not in registry)
     assert viewer_calls == []
 
 
@@ -620,6 +681,46 @@ def test_error_result_uses_label_without_viewer(qtbot, tmp_path: Path):
 
     qtbot.waitUntil(lambda: "render failed" in page_text(window, 0))
     assert viewer_called is False
+
+
+def test_missing_worker_output_becomes_target_tab_error(qtbot, tmp_path: Path):
+    source = tmp_path / "missing-output.md"
+    source.write_text("x", encoding="utf-8")
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocked_preview(_path: Path, office=None) -> PreviewResult:
+        started.set()
+        assert release.wait(3)
+        return builtin_result()
+
+    window = make_window(blocked_preview)
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+    assert started.wait(1)
+    document_id = next(iter(window._documents))
+    window._executor._pending[document_id] = (None, None)
+
+    try:
+        window._preview_completed(document_id)
+        assert "未返回预览结果" in page_text(window, 0)
+    finally:
+        release.set()
+        qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+
+
+def test_idle_standalone_executor_leaves_qapp_registry(qapp, qtbot):
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(viewer_factory=label_viewer)
+    executor = window._executor
+    registry = qapp._reader_preview_executors
+    assert executor in registry
+    window.show()
+
+    window.close()
+
+    qtbot.waitUntil(lambda: executor not in registry)
 
 
 def test_drop_opens_multiple_local_files(qtbot, tmp_path: Path):

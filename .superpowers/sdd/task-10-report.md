@@ -147,3 +147,45 @@ worker 自身不创建任何 QWidget。窗口关闭测试在 worker 仍阻塞时
 
 - QWebEngineView/Chromium 仍按要求不在 offscreen 测试中实例化；默认 factory 的 base URL 计算和注入接口已自动测试。
 - 真实 Office COM 仍依赖装有 Office 的交互式 Windows 环境；本次自动测试覆盖 Office backend contract、worker 串行化和临时 artifact 消费，没有启动真实 Office 应用。
+
+---
+
+## 共享 completion Critical 修复（2026-08-21）
+
+### 根因
+
+ReaderApp 的多个 MainWindow 共享同一个 `PreviewExecutor.completed` 广播信号。旧 `_preview_completed()` 在确认 document id 归属前调用 `take_completion()`，因此连接顺序靠前但不拥有该 document 的窗口会先取走 completion；若结果带私有 PDF artifact，还会把另一窗口需要的副本清理掉。
+
+### RED
+
+先增加确定性双窗口测试：第一窗口先创建并保持打开，其 worker 阻塞；第二窗口任务排队。释放第一任务后，两个 completion 按串行 pool 完成。旧实现表现为第一窗口显示正确内容，但第一窗口随后取走第二窗口 completion，第二窗口一直停留在 loading。
+
+同时增加缺失 worker output 错误页和独立 executor registry 回收测试：
+
+```text
+$env:QT_QPA_PLATFORM='offscreen'; python -m pytest tests/test_window.py::test_shared_executor_delivers_each_result_only_to_owner_window tests/test_window.py::test_missing_worker_output_becomes_target_tab_error tests/test_window.py::test_idle_standalone_executor_leaves_qapp_registry -v
+```
+
+结果：`3 failed`，分别对应共享 completion 被错误消费、`assert output is not None`、qapp registry 永久保留独立 executor。
+
+### GREEN
+
+- `_preview_completed()` 先查本窗口 `_documents`；非 owner 不调用 `take_completion()`，直接返回。
+- owner 在 take 前检查 closing/page identity；只有 owner 可以消费或清理对应 completion。
+- 缺失 output 不再 assert，而是在目标 tab 显示“未返回预览结果”错误页。
+- 独立 MainWindow 的 executor 记录 qapp registry；窗口关闭时请求 idle release。无任务则立即移除并 `deleteLater()`，有运行任务则由 completion GUI slot 在 registry/pending 清零后安全移除。
+- closeEvent 仍只遍历并 cancel 当前窗口自己的 document ids。
+- 增加文件名 tab title 断言。
+
+定向 RED 三测试修复后：`3 passed in 3.29s`。
+
+### Artifact 隔离证据
+
+双窗口测试让第二窗口返回 PDF。修复后两个窗口分别从 loading 变为 `WINDOW ONE` / `WINDOW TWO`，第二窗口 viewer 收到的 per-document 私有 PDF 仍存在且不同于源 PDF，证明第一窗口既未消费 completion，也未删除另一窗口 artifact。
+
+### 最终验证
+
+- `tests/test_window.py`：26 passed in 7.35s
+- `tests/test_office.py tests/test_ipc.py tests/test_cache.py`：32 passed in 2.57s
+- 全量：90 passed in 11.03s
+- IDE lint：无诊断
