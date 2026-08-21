@@ -1,30 +1,42 @@
 from __future__ import annotations
 
+import gc
 import platform
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QUrl
+from PySide6.QtCore import QMimeData, QThread, QUrl
 from PySide6.QtWidgets import QLabel
 
 from reader.preview.result import PreviewResult
 
 
 class FakeIpc:
+    active = False
+
     def __init__(self) -> None:
         self.become_calls = 0
         self.closed = False
         self.on_paths = None
+        self.owns_server = False
 
     def become_server(self, on_paths):
         self.become_calls += 1
         self.on_paths = on_paths
+        if FakeIpc.active:
+            return False
+        FakeIpc.active = True
+        self.owns_server = True
         return True
 
     def close(self) -> None:
         self.closed = True
+        if self.owns_server:
+            FakeIpc.active = False
+            self.owns_server = False
 
 
 class FakeCache:
@@ -45,7 +57,7 @@ class FakeCache:
             raise OSError("cache unavailable")
 
 
-def label_viewer(result: PreviewResult) -> QLabel:
+def label_viewer(result: PreviewResult, _source_path: Path | None = None) -> QLabel:
     label = QLabel(result.error or result.html)
     label.setObjectName("previewContent")
     return label
@@ -87,6 +99,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     started = threading.Event()
     release = threading.Event()
     worker_thread_ids: list[int] = []
+    viewer_thread_ids: list[QThread] = []
 
     def blocked_preview(_path: Path, office=None) -> PreviewResult:
         worker_thread_ids.append(threading.get_ident())
@@ -94,7 +107,17 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
         assert release.wait(3)
         return builtin_result()
 
-    window = make_window(blocked_preview)
+    def thread_checking_viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        viewer_thread_ids.append(QThread.currentThread())
+        return label_viewer(result)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=blocked_preview,
+        cache_factory=FakeCache,
+        viewer_factory=thread_checking_viewer,
+    )
     qtbot.addWidget(window)
     before = time.monotonic()
     window.open_paths([str(path)])
@@ -104,9 +127,16 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     assert "正在加载" in page_text(window, 0)
     assert started.wait(1)
     assert worker_thread_ids != [threading.get_ident()]
+    assert window._executor.thread_pool.maxThreadCount() == 1
+    assert window._executor.active_count() == 1
+    gc.collect()
+    assert window._executor.active_count() == 1
 
     release.set()
     qtbot.waitUntil(lambda: "ready" in page_text(window, 0))
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    gc.collect()
+    assert viewer_thread_ids == [window.thread()]
     assert "内置预览" in window.status_text()
 
 
@@ -198,7 +228,7 @@ def test_late_result_after_close_cannot_overwrite_shifted_tab(qtbot, tmp_path: P
     window.close_tab(0)
 
     release.set()
-    qtbot.wait(100)
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
     assert window.tab_count() == 1
     assert window.focus_path() == str(fast.resolve())
     assert "FAST" in page_text(window, 0)
@@ -237,6 +267,7 @@ def test_close_last_tab_keeps_visible_empty_window(qtbot, tmp_path: Path):
 
     assert window.tab_count() == 0
     assert window.isVisible()
+    assert window.tab_title(0) == ""
 
 
 def test_new_window_action_and_single_ipc_owner(reader_app):
@@ -247,6 +278,10 @@ def test_new_window_action_and_single_ipc_owner(reader_app):
 
     assert app.window_count() == 2
     assert ipc.become_calls == 1
+    assert app.is_primary_instance() is True
+    assert first._executor is app._executor
+    assert app._windows[-1]._executor is app._executor
+    assert app._executor.thread_pool.maxThreadCount() == 1
 
 
 def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
@@ -263,6 +298,328 @@ def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
     assert app.window_count() == 1
     assert window.tab_count() == 1
     qtbot.waitUntil(lambda: "IPC" in page_text(window, 0))
+
+
+def test_closing_last_window_drops_count_and_releases_ipc(reader_app, qtbot):
+    from reader.app import ReaderApp
+
+    app, first_ipc = reader_app
+    window = app.new_window()
+
+    window.close()
+
+    qtbot.waitUntil(lambda: app.window_count() == 0)
+    assert first_ipc.closed is True
+
+    second_ipc = FakeIpc()
+    second = ReaderApp(app._qapp, ipc=second_ipc)
+    try:
+        assert second.is_primary_instance() is True
+        assert second_ipc.become_calls == 1
+    finally:
+        second.close_all()
+
+
+def test_destroyed_last_window_releases_real_single_instance(
+    qapp, qtbot, monkeypatch, tmp_path: Path
+):
+    import reader.ipc as ipc_module
+    from reader.app import ReaderApp
+
+    monkeypatch.setattr(
+        ipc_module,
+        "SERVER_NAME",
+        f"{ipc_module.SERVER_NAME}.window.{uuid.uuid4().hex}",
+    )
+    monkeypatch.setattr(ipc_module, "LOCK_DIR", tmp_path / "locks")
+    first = ReaderApp(qapp)
+    second = None
+    try:
+        assert first.is_primary_instance() is True
+        window = first.new_window()
+        window.close()
+        qtbot.waitUntil(lambda: first.window_count() == 0)
+
+        second = ReaderApp(qapp)
+        assert second.is_primary_instance() is True
+    finally:
+        if second is not None:
+            second.close_all()
+        first.close_all()
+
+
+def test_viewer_receives_source_path_and_html_base(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow, _html_base_url
+
+    source = tmp_path / "source" / "page.md"
+    source.parent.mkdir()
+    source.write_text("body", encoding="utf-8")
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    seen: list[tuple[Path, Path | None]] = []
+
+    def viewer(result: PreviewResult, source_path: Path) -> QLabel:
+        seen.append((source_path, result.asset_dir))
+        return label_viewer(result)
+
+    result = PreviewResult(
+        html="<img src='image.png'>",
+        status_label="内置预览",
+        asset_dir=assets,
+    )
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: result,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+
+    qtbot.waitUntil(lambda: bool(seen))
+    assert seen == [(source.resolve(), assets)]
+    assert _html_base_url(result, source.resolve()) == QUrl.fromLocalFile(str(assets.resolve()) + "/")
+    no_assets = builtin_result()
+    assert _html_base_url(no_assets, source.resolve()) == QUrl.fromLocalFile(
+        str(source.parent.resolve()) + "/"
+    )
+
+
+def test_pdf_is_pinned_until_tab_closes(qtbot, tmp_path: Path):
+    source = tmp_path / "deck.pptx"
+    source.write_bytes(b"pptx")
+    cached_pdf = tmp_path / "cache-slot" / "preview.pdf"
+    cached_pdf.parent.mkdir()
+    cached_pdf.write_bytes(b"%PDF pinned")
+    cache = FakeCache(
+        hit=PreviewResult(
+            html="",
+            status_label="Office 预览",
+            kind="pdf",
+            pdf_path=cached_pdf,
+        )
+    )
+    pinned: list[Path] = []
+
+    def viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        assert result.pdf_path is not None
+        pinned.append(result.pdf_path)
+        return QLabel("PDF")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: pytest.fail("cache hit must skip preview"),
+        cache_factory=lambda: cache,
+        viewer_factory=viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+
+    qtbot.waitUntil(lambda: bool(pinned))
+    assert pinned[0] != cached_pdf
+    assert pinned[0].read_bytes() == b"%PDF pinned"
+    cached_pdf.unlink()
+    assert pinned[0].exists()
+
+    window.close_tab(0)
+
+    qtbot.waitUntil(lambda: not pinned[0].exists())
+
+
+def test_pdf_pin_consumes_owned_office_temp_dir(qtbot, tmp_path: Path):
+    source = tmp_path / "office.pptx"
+    source.write_bytes(b"pptx")
+    office_dir = tmp_path / "office-export"
+    office_dir.mkdir()
+    office_pdf = office_dir / "office.pdf"
+    office_pdf.write_bytes(b"%PDF office")
+    pinned: list[Path] = []
+
+    def viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        assert result.pdf_path is not None
+        pinned.append(result.pdf_path)
+        return QLabel("PDF")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: PreviewResult(
+            html="",
+            status_label="Office 预览",
+            kind="pdf",
+            asset_dir=office_dir,
+            pdf_path=office_pdf,
+        ),
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+
+    qtbot.waitUntil(lambda: bool(pinned))
+    assert pinned[0].exists()
+    assert not office_dir.exists()
+
+
+def test_failed_pdf_pin_cleans_owned_office_temp_dir(qtbot, tmp_path: Path):
+    source = tmp_path / "broken-office.pptx"
+    source.write_bytes(b"pptx")
+    office_dir = tmp_path / "broken-office-export"
+    office_dir.mkdir()
+    missing_pdf = office_dir / "missing.pdf"
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: PreviewResult(
+            html="",
+            status_label="Office 预览",
+            kind="pdf",
+            asset_dir=office_dir,
+            pdf_path=missing_pdf,
+        ),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert "正在加载" not in page_text(window, 0)
+    assert not office_dir.exists()
+
+
+def test_window_close_cleans_loaded_pdf_pin(qtbot, tmp_path: Path):
+    source = tmp_path / "loaded.pptx"
+    source.write_bytes(b"pptx")
+    cached_pdf = tmp_path / "cache.pdf"
+    cached_pdf.write_bytes(b"%PDF")
+    pinned: list[Path] = []
+
+    def viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        assert result.pdf_path is not None
+        pinned.append(result.pdf_path)
+        return QLabel("PDF")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: pytest.fail("cache hit must skip preview"),
+        cache_factory=lambda: FakeCache(
+            hit=PreviewResult(
+                html="",
+                status_label="Office 预览",
+                kind="pdf",
+                pdf_path=cached_pdf,
+            )
+        ),
+        viewer_factory=viewer,
+    )
+    window.show()
+    window.open_paths([str(source)])
+    qtbot.waitUntil(lambda: bool(pinned))
+    assert pinned[0].exists()
+
+    window.close()
+
+    qtbot.waitUntil(lambda: not pinned[0].exists())
+
+
+def test_viewer_reentrancy_close_discards_widget_and_artifact(qtbot, tmp_path: Path):
+    source = tmp_path / "close-during-viewer.pptx"
+    source.write_bytes(b"pptx")
+    pdf = tmp_path / "preview.pdf"
+    pdf.write_bytes(b"%PDF")
+    cache = FakeCache(
+        hit=PreviewResult(html="", status_label="Office 预览", kind="pdf", pdf_path=pdf)
+    )
+    pinned: list[Path] = []
+    window_holder = []
+
+    def closing_viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        assert result.pdf_path is not None
+        pinned.append(result.pdf_path)
+        window_holder[0].close_tab(0)
+        return QLabel("orphan")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: pytest.fail("cache hit must skip preview"),
+        cache_factory=lambda: cache,
+        viewer_factory=closing_viewer,
+    )
+    window_holder.append(window)
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert window.tab_count() == 0
+    assert pinned
+    assert not pinned[0].exists()
+
+
+def test_close_window_while_preview_runs_discards_late_result(qtbot, tmp_path: Path):
+    source = tmp_path / "late.md"
+    source.write_text("late", encoding="utf-8")
+    started = threading.Event()
+    release = threading.Event()
+    viewer_calls: list[Path] = []
+
+    def preview_fn(_path: Path, office=None) -> PreviewResult:
+        started.set()
+        assert release.wait(3)
+        return builtin_result("late")
+
+    def viewer(result: PreviewResult, source_path: Path) -> QLabel:
+        viewer_calls.append(source_path)
+        return label_viewer(result)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+    )
+    window.show()
+    window.open_paths([str(source)])
+    assert started.wait(1)
+
+    window.close()
+    release.set()
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert viewer_calls == []
+
+
+def test_error_result_uses_label_without_viewer(qtbot, tmp_path: Path):
+    source = tmp_path / "error.md"
+    source.write_text("x", encoding="utf-8")
+    viewer_called = False
+
+    def viewer(_result: PreviewResult, _source_path: Path) -> QLabel:
+        nonlocal viewer_called
+        viewer_called = True
+        return QLabel()
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None: PreviewResult(
+            html="",
+            status_label="预览失败",
+            kind="error",
+            error="render failed",
+        ),
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+
+    qtbot.waitUntil(lambda: "render failed" in page_text(window, 0))
+    assert viewer_called is False
 
 
 def test_drop_opens_multiple_local_files(qtbot, tmp_path: Path):

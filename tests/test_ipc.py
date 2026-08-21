@@ -88,6 +88,37 @@ def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyP
     assert created[0].wait_calls >= 3
 
 
+def test_send_paths_retries_transient_connect_failure(monkeypatch: pytest.MonkeyPatch):
+    class FakeSocket:
+        attempts = 0
+
+        def __init__(self) -> None:
+            FakeSocket.attempts += 1
+            self.connected = FakeSocket.attempts >= 2
+            self.frame = bytearray()
+
+        def connectToServer(self, _name: str) -> None:
+            return None
+
+        def waitForConnected(self, _ms: int) -> bool:
+            return self.connected
+
+        def write(self, data: bytes) -> int:
+            self.frame.extend(data)
+            return len(data)
+
+        def bytesToWrite(self) -> int:
+            return 0
+
+        def disconnectFromServer(self) -> None:
+            return None
+
+    monkeypatch.setattr(ipc_module, "QLocalSocket", FakeSocket)
+
+    assert SingleInstance.send_paths(["C:/tmp/retry.md"]) is True
+    assert FakeSocket.attempts == 2
+
+
 def test_rejects_active_instance_without_remove(monkeypatch: pytest.MonkeyPatch, tmp_path):
     _patch_unique_server(monkeypatch, tmp_path)
 

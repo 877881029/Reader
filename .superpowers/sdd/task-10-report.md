@@ -65,3 +65,85 @@ $env:QT_QPA_PLATFORM='offscreen'; python -m pytest tests/test_window.py -v
 
 - 自动测试按授权使用注入的 QLabel viewer，没有在 offscreen 环境实例化 Chromium；产品默认路径仍是 QWebEngineView。
 - Office COM 的真实应用联调依赖本机 Office，当前由既有 Office backend 单元测试和后台 fake preview 线程测试覆盖，未执行真实 Office 自动化。
+
+---
+
+## 审查修复追加记录（2026-08-21）
+
+### 修复范围
+
+- 新增 GUI-affine `PreviewExecutor` owner。`_WorkerSignals` 在 GUI 线程创建并以 executor 为 parent；worker `setAutoDelete(False)`，由 executor registry 强引用。
+- worker completion 到 executor、executor 到 MainWindow 均显式使用 `Qt.QueuedConnection`。executor 在 GUI slot 中移除 registry、`deleteLater()` signals 并释放 worker 最后一个 Python 强引用。
+- 独立 MainWindow 创建专用 `QThreadPool(maxThreadCount=1)`；ReaderApp 创建一个 executor 并由所有窗口共享，串行化 PreviewCache 和 Office COM 工作。
+- executor 保管尚未被 GUI 消费的 completion。关闭 tab/窗口会 cancel active 或 pending job；worker 迟到时只清理结果，不创建 widget。
+- viewer factory 接口调整为 `(PreviewResult, source_path)`。默认 HTML viewer 使用 `asset_dir` 目录 URL；没有 `asset_dir` 时使用源文件 parent 目录 URL。
+- 所有 PDF 在 worker 内复制到 `reader-document-*` 私有目录，再向 GUI 发布。缓存 slot 删除后标签副本仍存在；关闭 tab、窗口、reentrant viewer 丢弃和取消路径都会清理私有目录。
+- Office PDF result 现在用 `asset_dir` 标记 export temp dir。pin 成功后只在原 PDF 确实位于该目录下时消费该目录，避免删除任意外部路径。
+- viewer factory 返回后再次按 document id/page identity 检查；标签已关闭时 `deleteLater()` 新 widget 并清理 artifact，不再 assert page layout 存活。
+- 最后窗口 `destroyed` 后 ReaderApp 移除窗口并关闭 IPC；`close_all()` 不再预先清空窗口列表。`is_primary_instance()` 暴露 `become_server()` 结果。
+- 低成本修复包括 error-kind QLabel、空 tab title 断言，以及用 executor completion 条件替代固定 sleep。
+
+### 审查修复 TDD：RED
+
+先扩展 `tests/test_window.py` 和 `tests/test_office.py`，随后运行：
+
+```text
+$env:QT_QPA_PLATFORM='offscreen'; python -m pytest tests/test_window.py tests/test_office.py -v
+```
+
+结果为 `9 failed, 19 passed, 2 errors`。预期失败明确暴露：
+
+- MainWindow 没有可靠 executor/worker registry；
+- ReaderApp 无 primary 状态且最后窗口销毁不释放 IPC；
+- viewer 无 source/baseUrl 接口；
+- PDF 未 pin，cache 原文件仍直接交给 viewer；
+- reentrant close 和窗口关闭迟到 completion 无安全清理；
+- Office PDF 未标记 export `asset_dir`。
+
+### 审查修复 TDD：GREEN
+
+实现 owner/registry、串行 executor、artifact pin 和窗口生命周期后：
+
+```text
+$env:QT_QPA_PLATFORM='offscreen'; python -m pytest tests/test_window.py tests/test_office.py -v
+29 passed in 6.44s
+```
+
+继续补强 Office 临时目录消费、pin 失败清理、已加载 PDF 的窗口关闭清理、真实 `SingleInstance`/`QLockFile` 释放测试后，最终窗口定向测试为 `23 passed in 7.43s`；真实单实例锁释放测试单独运行 `1 passed in 2.65s`。
+
+### 线程与析构证据
+
+`test_open_paths_returns_while_preview_worker_is_blocked` 在 worker 阻塞期间执行 `gc.collect()`，registry 仍持有 worker；completion 后等待 registry/pending 清零，再执行 `gc.collect()`。viewer factory 记录 `QThread.currentThread()`，断言与 MainWindow GUI thread 相同。
+
+worker 自身不创建任何 QWidget。窗口关闭测试在 worker 仍阻塞时关闭 MainWindow，随后释放 worker，并以 executor `active_count()==0` 为确定完成条件；viewer 调用次数保持零。
+
+### PDF 生命周期证据
+
+- cache hit PDF 会先复制到私有目录；删除 cache slot 原 PDF 后，viewer 使用的 copy 仍存在。
+- close tab 后等待并确认私有 PDF 被删除。
+- Office-owned export 目录在 pin 成功后被消费，私有 copy 保留。
+- PDF pin 复制失败时也会清理已确认归属 Office 的 export 目录；该边界测试先 RED 后 GREEN。
+- viewer factory 内 reentrant close tab 后，返回的 orphan widget 被 `deleteLater()`，私有 artifact 被清理。
+
+### IPC 生命周期证据
+
+- fake IPC 使用排他 owner 状态验证：首个 ReaderApp 最后窗口销毁并释放 server 后，第二个 ReaderApp 才能成为 primary。
+- 真实 `SingleInstance` 使用唯一 server name 和独立 lock dir 验证：最后窗口销毁后，后续 ReaderApp 能重新获得 `QLocalServer` 和 `QLockFile`。
+
+### 审查修复验证
+
+- `tests/test_window.py`：23 passed
+- `tests/test_office.py tests/test_ipc.py tests/test_cache.py`：32 passed
+- 首轮全量（补真实锁测试前）：83 passed in 9.94s
+- 最终全量：87 passed in 10.78s
+- IDE lint：相关改动文件无诊断
+- `git diff --check`：无空白错误
+
+### 全量验证期间的 IPC 稳定性修复
+
+最终全量验证曾两次在既有 `SingleInstance.send_paths()` 首次连接处失败，而对应 IPC 用例单独运行立即通过，证据指向 Windows `QLocalServer` 刚 listen 后的瞬时连接失败。先增加 `test_send_paths_retries_transient_connect_failure`，确认旧实现 RED；随后将 send 路径改为最多三次创建 socket/连接、短间隔重试。IPC 文件全量 `10 passed in 1.36s`，最终项目全量 `87 passed in 10.78s`。
+
+### 剩余顾虑
+
+- QWebEngineView/Chromium 仍按要求不在 offscreen 测试中实例化；默认 factory 的 base URL 计算和注入接口已自动测试。
+- 真实 Office COM 仍依赖装有 Office 的交互式 Windows 环境；本次自动测试覆盖 Office backend contract、worker 串行化和临时 artifact 消费，没有启动真实 Office 应用。

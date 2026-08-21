@@ -15,6 +15,7 @@ SERVER_NAME = "Reader.SingleInstance.v1"
 LOCK_DIR = Path(tempfile.gettempdir()) / "reader-single-instance-locks"
 _LOCK_TIMEOUT_MS = 0
 _CONNECT_TIMEOUT_MS = 1000
+_CONNECT_ATTEMPTS = 3
 _WRITE_TIMEOUT_MS = 1000
 _READ_SLICE_TIMEOUT_MS = 100
 _READ_TOTAL_TIMEOUT_MS = 5000
@@ -143,9 +144,17 @@ class SingleInstance:
 
     @staticmethod
     def send_paths(paths: list[str]) -> bool:
-        sock = QLocalSocket()
-        sock.connectToServer(SERVER_NAME)
-        if not sock.waitForConnected(_CONNECT_TIMEOUT_MS):
+        sock: QLocalSocket | None = None
+        for attempt in range(_CONNECT_ATTEMPTS):
+            candidate = QLocalSocket()
+            candidate.connectToServer(SERVER_NAME)
+            if candidate.waitForConnected(_CONNECT_TIMEOUT_MS):
+                sock = candidate
+                break
+            candidate.disconnectFromServer()
+            if attempt + 1 < _CONNECT_ATTEMPTS:
+                time.sleep(0.025)
+        if sock is None:
             return False
 
         payload = json.dumps([str(p) for p in paths], ensure_ascii=False).encode("utf-8")

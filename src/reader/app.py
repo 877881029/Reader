@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from reader.ipc import SingleInstance
-from reader.shell.window import MainWindow
+from reader.shell.window import MainWindow, PreviewExecutor
 
 APP_USER_MODEL_ID = "Reader.Desktop"
 
@@ -25,8 +25,10 @@ class ReaderApp:
     def __init__(self, qapp: QApplication, *, ipc: SingleInstance | None = None) -> None:
         self._qapp = qapp
         self._windows: list[MainWindow] = []
-        self._ipc = ipc or SingleInstance()
-        self._ipc.become_server(self._on_ipc_paths)
+        self._executor = PreviewExecutor(parent=qapp)
+        self._ipc = ipc if ipc is not None else SingleInstance()
+        self._is_primary = self._ipc.become_server(self._on_ipc_paths)
+        self._ipc_closed = False
 
     def _on_ipc_paths(self, paths: list[str]) -> None:
         window = self._windows[-1] if self._windows else self.new_window()
@@ -39,21 +41,36 @@ class ReaderApp:
         window.activateWindow()
 
     def new_window(self) -> MainWindow:
-        window = MainWindow(on_new_window=self.new_window)
-        window.destroyed.connect(lambda *_args, target=window: self._drop(target))
+        window = MainWindow(
+            on_new_window=self.new_window,
+            executor=self._executor,
+        )
+        window_id = id(window)
+        window.destroyed.connect(
+            lambda *_args, target_id=window_id: self._drop(target_id)
+        )
         self._windows.append(window)
         window.show()
         return window
 
-    def _drop(self, window: MainWindow) -> None:
-        self._windows = [item for item in self._windows if item is not window]
+    def _drop(self, window_id: int) -> None:
+        self._windows = [item for item in self._windows if id(item) != window_id]
+        if not self._windows:
+            self._close_ipc()
+
+    def _close_ipc(self) -> None:
+        if self._ipc_closed:
+            return
+        self._ipc.close()
+        self._ipc_closed = True
+
+    def is_primary_instance(self) -> bool:
+        return self._is_primary
 
     def window_count(self) -> int:
         return len(self._windows)
 
     def close_all(self) -> None:
-        windows = list(self._windows)
-        self._windows.clear()
-        for window in windows:
+        for window in list(self._windows):
             window.close()
-        self._ipc.close()
+        self._close_ipc()

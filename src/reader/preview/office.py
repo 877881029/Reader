@@ -143,6 +143,7 @@ class Win32OfficeBackend:
                         html="",
                         status_label="Office 预览",
                         kind="pdf",
+                        asset_dir=export_dir,
                         pdf_path=pdf_path,
                     )
                 except Exception:

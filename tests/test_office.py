@@ -140,6 +140,7 @@ def test_export_docx_pdf_success_and_cleanup(tmp_path, monkeypatch):
     assert result.kind == "pdf"
     assert result.status_label == "Office 预览"
     assert result.pdf_path is not None
+    assert result.asset_dir == result.pdf_path.parent
     assert result.pdf_path.read_bytes().startswith(b"%PDF")
     assert doc.pdf_calls and doc.pdf_calls[0][1] == 17
     assert doc.closed == 1
