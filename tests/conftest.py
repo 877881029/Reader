@@ -1,5 +1,12 @@
+import sys
 from pathlib import Path
+
 import pytest
+from PySide6.QtWidgets import QApplication
+
+
+_app = QApplication.instance() or QApplication(sys.argv)
+
 
 @pytest.fixture
 def tmp_file(tmp_path: Path):
