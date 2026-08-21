@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import struct
 import sys
+import time
+import uuid
 from typing import Any
 
 import pytest
 from PySide6.QtCore import QCoreApplication
-
 import reader.ipc as ipc_module
 from reader.ipc import SERVER_NAME, SingleInstance
 
@@ -17,56 +19,30 @@ def test_server_name_is_v1():
     assert SERVER_NAME == "Reader.SingleInstance.v1"
 
 
-def test_existing_server_detected_without_remove_server(monkeypatch: pytest.MonkeyPatch):
-    class FakeSignal:
-        def connect(self, _callback: Any) -> None:
-            return None
-
-    class FakeServer:
-        listen_calls = 0
-
-        def __init__(self) -> None:
-            self.newConnection = FakeSignal()
-
-        def listen(self, _name: str) -> bool:
-            FakeServer.listen_calls += 1
+def _wait_until(predicate, timeout_s: float = 2.0) -> bool:
+    end = time.monotonic() + timeout_s
+    while time.monotonic() < end:
+        _app.processEvents()
+        if predicate():
             return True
-
-    class FakeSocket:
-        connect_calls = 0
-
-        def connectToServer(self, _name: str) -> None:
-            FakeSocket.connect_calls += 1
-
-        def waitForConnected(self, _ms: int) -> bool:
-            return True
-
-        def disconnectFromServer(self) -> None:
-            return None
-
-    removed: list[str] = []
-
-    def fake_remove(name: str) -> bool:
-        removed.append(name)
-        return True
-
-    monkeypatch.setattr(ipc_module, "QLocalServer", FakeServer)
-    monkeypatch.setattr(ipc_module, "QLocalSocket", FakeSocket)
-    monkeypatch.setattr(FakeServer, "removeServer", staticmethod(fake_remove), raising=False)
-
-    inst = SingleInstance()
-    assert inst.become_server(lambda _paths: None) is False
-    assert FakeSocket.connect_calls == 1
-    assert FakeServer.listen_calls == 0
-    assert removed == []
+        time.sleep(0.01)
+    return predicate()
 
 
-def test_send_paths_transfers_json_list(monkeypatch: pytest.MonkeyPatch):
+def _patch_unique_server(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    name = f"{SERVER_NAME}.{uuid.uuid4().hex}"
+    monkeypatch.setattr(ipc_module, "SERVER_NAME", name)
+    monkeypatch.setattr(ipc_module, "LOCK_DIR", tmp_path)
+    return name
+
+
+def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyPatch):
     class FakeSocket:
         def __init__(self) -> None:
             self.connected = False
-            self.sent = bytearray()
-            self._bytes_to_write = 0
+            self.write_calls: list[bytes] = []
+            self._bytes_pending = [9, 4, 1, 0]
+            self.wait_calls = 0
 
         def connectToServer(self, _name: str) -> None:
             self.connected = True
@@ -75,17 +51,19 @@ def test_send_paths_transfers_json_list(monkeypatch: pytest.MonkeyPatch):
             return self.connected
 
         def write(self, data: bytes) -> int:
-            self.sent.extend(data)
-            self._bytes_to_write = 0
+            self.write_calls.append(bytes(data))
             return len(data)
 
         def flush(self) -> None:
             return None
 
         def bytesToWrite(self) -> int:
-            return self._bytes_to_write
+            if self.wait_calls >= len(self._bytes_pending):
+                return 0
+            return self._bytes_pending[self.wait_calls]
 
         def waitForBytesWritten(self, _ms: int) -> bool:
+            self.wait_calls += 1
             return True
 
         def disconnectFromServer(self) -> None:
@@ -100,53 +78,148 @@ def test_send_paths_transfers_json_list(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(ipc_module, "QLocalSocket", fake_socket_factory)
 
-    payload = [f"C:/tmp/{i:05d}.md" for i in range(2000)]
+    payload = ["C:/tmp/a.md"]
     assert SingleInstance.send_paths(payload) is True
     assert len(created) == 1
-    decoded = json.loads(created[0].sent.decode("utf-8"))
+    frame = b"".join(created[0].write_calls)
+    payload_len = struct.unpack(">I", frame[:4])[0]
+    decoded = json.loads(frame[4 : 4 + payload_len].decode("utf-8"))
     assert decoded == payload
+    assert created[0].wait_calls >= 3
 
 
-def test_read_connection_waits_for_complete_json(monkeypatch: pytest.MonkeyPatch):
-    class FakeSocket:
-        def __init__(self, chunks: list[bytes]) -> None:
-            self._chunks = chunks
-            self._idx = 0
-            self.disconnected = False
+def test_rejects_active_instance_without_remove(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    _patch_unique_server(monkeypatch, tmp_path)
 
-        def readAll(self) -> bytes:
-            if self._idx >= len(self._chunks):
-                return b""
-            chunk = self._chunks[self._idx]
-            self._idx += 1
-            return chunk
+    class FakeLock:
+        def __init__(self, _path: str) -> None:
+            pass
 
-        def waitForReadyRead(self, _ms: int) -> bool:
-            return self._idx < len(self._chunks)
+        def setStaleLockTime(self, _ms: int) -> None:
+            return None
 
-        def disconnectFromServer(self) -> None:
-            self.disconnected = True
+        def tryLock(self, _ms: int) -> bool:
+            return False
 
+        def unlock(self) -> None:
+            return None
+
+    class FakeServer:
+        listen_calls = 0
+
+        def __init__(self) -> None:
+            self.newConnection = type("S", (), {"connect": lambda *_: None})()
+
+        def listen(self, _name: str) -> bool:
+            FakeServer.listen_calls += 1
+            return True
+
+    removed: list[str] = []
+    monkeypatch.setattr(ipc_module, "QLockFile", FakeLock)
+    monkeypatch.setattr(ipc_module, "QLocalServer", FakeServer)
+    monkeypatch.setattr(FakeServer, "removeServer", staticmethod(lambda name: removed.append(name)), raising=False)
+
+    inst = SingleInstance()
+    assert inst.become_server(lambda _paths: None) is False
+    assert FakeServer.listen_calls == 0
+    assert removed == []
+
+
+def test_e2e_paths_unicode_and_multi(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    _patch_unique_server(monkeypatch, tmp_path)
     seen: list[list[str]] = []
     inst = SingleInstance()
-    inst._on_paths = lambda paths: seen.append(paths)  # noqa: SLF001
-    payload = json.dumps(["C:/tmp/a.md", "C:/tmp/b.md"]).encode("utf-8")
-    chunks = [payload[:7], payload[7:13], payload[13:]]
-    sock = FakeSocket(chunks)
+    try:
+        assert inst.become_server(lambda paths: seen.append(paths)) is True
+        payload = ["C:/tmp/a.md", "D:/文档/二号.pptx", "E:/emoji/🙂.md"]
+        assert SingleInstance.send_paths(payload) is True
+        assert _wait_until(lambda: len(seen) == 1)
+        assert seen == [payload]
+    finally:
+        inst.close()
 
-    inst._handle_sock(sock)  # noqa: SLF001
 
-    assert seen == [["C:/tmp/a.md", "C:/tmp/b.md"]]
-    assert sock.disconnected is True
+def test_e2e_empty_list(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    _patch_unique_server(monkeypatch, tmp_path)
+    seen: list[list[str]] = []
+    inst = SingleInstance()
+    try:
+        assert inst.become_server(lambda paths: seen.append(paths)) is True
+        assert SingleInstance.send_paths([]) is True
+        assert _wait_until(lambda: len(seen) == 1)
+        assert seen == [[]]
+    finally:
+        inst.close()
+
+
+def test_e2e_chunked_frame(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    _patch_unique_server(monkeypatch, tmp_path)
+    monkeypatch.setattr(ipc_module, "SEND_CHUNK_BYTES", 3)
+    seen: list[list[str]] = []
+    inst = SingleInstance()
+    try:
+        assert inst.become_server(lambda paths: seen.append(paths)) is True
+        payload = ["C:/tmp/one.md", "C:/tmp/two.md", "D:/unicode/空.docx"]
+        assert SingleInstance.send_paths(payload) is True
+        assert _wait_until(lambda: len(seen) == 1)
+        assert seen == [payload]
+    finally:
+        inst.close()
+
+
+def test_e2e_second_instance_not_hijack(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    _patch_unique_server(monkeypatch, tmp_path)
+    seen: list[list[str]] = []
+    a = SingleInstance()
+    b = SingleInstance()
+    try:
+        assert a.become_server(lambda paths: seen.append(paths)) is True
+        assert b.become_server(lambda _paths: None) is False
+        assert SingleInstance.send_paths(["C:/tmp/main.md"]) is True
+        assert _wait_until(lambda: len(seen) == 1)
+        assert seen == [["C:/tmp/main.md"]]
+    finally:
+        b.close()
+        a.close()
+
+
+def test_process_once_and_signal_do_not_double_consume(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    _patch_unique_server(monkeypatch, tmp_path)
+    seen: list[list[str]] = []
+    inst = SingleInstance()
+    try:
+        assert inst.become_server(lambda paths: seen.append(paths)) is True
+        assert SingleInstance.send_paths(["C:/tmp/once.md"]) is True
+        assert _wait_until(lambda: len(seen) == 1)
+        inst.process_once()
+        _app.processEvents()
+        assert seen == [["C:/tmp/once.md"]]
+    finally:
+        inst.close()
 
 
 def test_become_server_cleans_stale_endpoint_once(monkeypatch: pytest.MonkeyPatch):
     class FakeSignal:
-        def __init__(self) -> None:
-            self._callbacks: list[Any] = []
+        def connect(self, _callback: Any) -> None:
+            return None
 
-        def connect(self, callback: Any) -> None:
-            self._callbacks.append(callback)
+    class FakeLock:
+        locked = False
+
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def setStaleLockTime(self, _ms: int) -> None:
+            return None
+
+        def tryLock(self, _ms: int) -> bool:
+            if FakeLock.locked:
+                return False
+            FakeLock.locked = True
+            return True
+
+        def unlock(self) -> None:
+            FakeLock.locked = False
 
     class FakeServer:
         listen_calls = 0
@@ -158,27 +231,16 @@ def test_become_server_cleans_stale_endpoint_once(monkeypatch: pytest.MonkeyPatc
             FakeServer.listen_calls += 1
             return FakeServer.listen_calls >= 2
 
-    class FakeSocket:
-        connect_calls = 0
-
-        def connectToServer(self, _name: str) -> None:
-            FakeSocket.connect_calls += 1
-
-        def waitForConnected(self, _ms: int) -> bool:
-            return False
+        def close(self) -> None:
+            return None
 
     removed: list[str] = []
-
-    def fake_remove(name: str) -> bool:
-        removed.append(name)
-        return True
-
+    monkeypatch.setattr(ipc_module, "QLockFile", FakeLock)
     monkeypatch.setattr(ipc_module, "QLocalServer", FakeServer)
-    monkeypatch.setattr(ipc_module, "QLocalSocket", FakeSocket)
-    monkeypatch.setattr(FakeServer, "removeServer", staticmethod(fake_remove), raising=False)
+    monkeypatch.setattr(FakeServer, "removeServer", staticmethod(lambda name: removed.append(name)), raising=False)
 
     inst = SingleInstance()
     assert inst.become_server(lambda _paths: None) is True
-    assert FakeSocket.connect_calls == 1
     assert FakeServer.listen_calls == 2
     assert removed == [SERVER_NAME]
+    inst.close()
