@@ -12,12 +12,11 @@ def to_html(path: Path) -> PreviewResult:
     for index, slide in enumerate(prs.slides, start=1):
         texts: list[str] = []
         for shape in slide.shapes:
-            if not shape.has_text_frame:
-                continue
-            for para in shape.text_frame.paragraphs:
-                t = "".join(run.text for run in para.runs) or para.text
-                if t:
-                    texts.append(f"<p>{escape(t)}</p>")
+            if shape.has_text_frame:
+                for para in shape.text_frame.paragraphs:
+                    t = "".join(run.text for run in para.runs) or para.text
+                    if t:
+                        texts.append(f"<p>{escape(t)}</p>")
             table = None
             try:
                 if shape.has_table:
