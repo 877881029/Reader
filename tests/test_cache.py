@@ -45,6 +45,63 @@ def test_put_get_roundtrip_pdf(tmp_path: Path):
     assert got.pdf_path.read_bytes() == b"%PDF-1.4\nfake\n"
 
 
+def test_pdf_miss_when_cached_pdf_missing(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "a.docx"
+    src.write_text("doc", encoding="utf-8")
+    produced_pdf = tmp_path / "rendered.pdf"
+    produced_pdf.write_bytes(b"%PDF-1.4\nfake\n")
+    cache = PreviewCache(tmp_path / "c")
+    cache.put(
+        src,
+        "office",
+        PreviewResult(html="", status_label="Office 预览", kind="pdf", pdf_path=produced_pdf),
+    )
+
+    slot = cache._slot(cache._key(src, "office"))
+    (slot / "preview.pdf").unlink()
+    assert cache.get(src, "office") is None
+
+
+def test_pdf_miss_when_cached_pdf_is_empty(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "a.docx"
+    src.write_text("doc", encoding="utf-8")
+    produced_pdf = tmp_path / "rendered.pdf"
+    produced_pdf.write_bytes(b"%PDF-1.4\nfake\n")
+    cache = PreviewCache(tmp_path / "c")
+    cache.put(
+        src,
+        "office",
+        PreviewResult(html="", status_label="Office 预览", kind="pdf", pdf_path=produced_pdf),
+    )
+
+    slot = cache._slot(cache._key(src, "office"))
+    (slot / "preview.pdf").write_bytes(b"")
+    assert cache.get(src, "office") is None
+
+
+def test_pdf_miss_when_cached_pdf_is_tampered(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "a.docx"
+    src.write_text("doc", encoding="utf-8")
+    produced_pdf = tmp_path / "rendered.pdf"
+    produced_pdf.write_bytes(b"%PDF-1.4\nfake\n")
+    cache = PreviewCache(tmp_path / "c")
+    cache.put(
+        src,
+        "office",
+        PreviewResult(html="", status_label="Office 预览", kind="pdf", pdf_path=produced_pdf),
+    )
+
+    slot = cache._slot(cache._key(src, "office"))
+    (slot / "preview.pdf").write_bytes(b"%PDF-1.4\nev1l\n")
+    assert cache.get(src, "office") is None
+
+
 def test_miss_on_source_change(tmp_path: Path):
     from reader.preview.cache import PreviewCache
 
@@ -95,6 +152,51 @@ def test_hit_refreshes_lru_order(tmp_path: Path):
     assert cache.get(a, "builtin") is not None
     assert cache.get(c, "builtin") is not None
     assert cache.get(b, "builtin") is None
+
+
+def test_enforce_limit_keeps_accounting_when_oldest_delete_fails(tmp_path: Path, monkeypatch):
+    from reader.preview import cache as cache_module
+    from reader.preview.cache import PreviewCache
+
+    cache = PreviewCache(tmp_path / "c")
+    a = tmp_path / "a.md"
+    b = tmp_path / "b.md"
+    c = tmp_path / "c.md"
+    a.write_text("a", encoding="utf-8")
+    b.write_text("b", encoding="utf-8")
+    c.write_text("c", encoding="utf-8")
+
+    payload = "y" * 3000
+    cache.put(a, "builtin", PreviewResult(html=payload, status_label="内置预览"))
+    time.sleep(0.01)
+    cache.put(b, "builtin", PreviewResult(html=payload, status_label="内置预览"))
+    time.sleep(0.01)
+    cache.put(c, "builtin", PreviewResult(html=payload, status_label="内置预览"))
+
+    lock_slot = cache._slot(cache._key(a, "builtin"))
+    slots = [
+        lock_slot,
+        cache._slot(cache._key(b, "builtin")),
+        cache._slot(cache._key(c, "builtin")),
+    ]
+    sizes = [cache._slot_size(slot) for slot in slots]
+    max_bytes = min(sizes) + 100
+
+    real_rmtree = cache_module.shutil.rmtree
+
+    def flaky_rmtree(path, *args, **kwargs):
+        if Path(path) == lock_slot:
+            raise PermissionError("locked")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(cache_module.shutil, "rmtree", flaky_rmtree)
+    cache.enforce_limit(max_bytes=max_bytes)
+
+    assert lock_slot.exists()
+    assert not slots[1].exists()
+    assert not slots[2].exists()
+    actual_total = sum(f.stat().st_size for f in cache.root.rglob("*") if f.is_file())
+    assert actual_total <= max_bytes
 
 
 def test_corrupted_cache_is_miss(tmp_path: Path):
