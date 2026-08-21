@@ -70,6 +70,68 @@ def test_docx_falls_back_when_export_raises(tmp_path: Path):
     assert "after-com-fail" in result.html
 
 
+def test_pptx_uses_office_when_available(tmp_path: Path):
+    p = tmp_path / "a.pptx"
+    p.write_bytes(b"not-a-real-pptx")
+    office = FakeOffice(available=True)
+    result = preview(p, office=office)
+    assert office.calls == [p]
+    assert result.status_label == "Office 预览"
+    assert "office" in result.html
+
+
+def test_xlsx_uses_office_when_available(tmp_path: Path):
+    p = tmp_path / "a.xlsx"
+    p.write_bytes(b"not-a-real-xlsx")
+    office = FakeOffice(available=True)
+    result = preview(p, office=office)
+    assert office.calls == [p]
+    assert result.status_label == "Office 预览"
+    assert "office" in result.html
+
+
+def test_pptx_falls_back_when_office_missing(tmp_path: Path):
+    from pptx import Presentation
+
+    p = tmp_path / "a.pptx"
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "pptx-fallback"
+    prs.save(p)
+    office = FakeOffice(available=False)
+    result = preview(p, office=office)
+    assert office.calls == []
+    assert result.status_label == "内置预览"
+    assert "pptx-fallback" in result.html
+
+
+def test_xlsx_falls_back_when_office_missing(tmp_path: Path):
+    from openpyxl import Workbook
+
+    p = tmp_path / "a.xlsx"
+    wb = Workbook()
+    wb.active.append(["xlsx-fallback-cell"])
+    wb.save(p)
+    office = FakeOffice(available=False)
+    result = preview(p, office=office)
+    assert office.calls == []
+    assert result.status_label == "内置预览"
+    assert "xlsx-fallback-cell" in result.html
+
+
+def test_builtin_renderer_error_propagates(tmp_path: Path, monkeypatch):
+    from reader.preview import pipeline
+
+    def boom(_path: Path) -> PreviewResult:
+        raise ValueError("builtin parse failed")
+
+    monkeypatch.setitem(pipeline._BUILTIN, ".md", boom)
+    p = tmp_path / "a.md"
+    p.write_text("# x", encoding="utf-8")
+    with pytest.raises(ValueError, match="builtin parse failed"):
+        preview(p)
+
+
 def test_unsupported_raises(tmp_path: Path):
     p = tmp_path / "x.pdf"
     p.write_bytes(b"%PDF")
