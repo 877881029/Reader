@@ -189,3 +189,40 @@ $env:QT_QPA_PLATFORM='offscreen'; python -m pytest tests/test_window.py::test_sh
 - `tests/test_office.py tests/test_ipc.py tests/test_cache.py`：32 passed in 2.57s
 - 全量：90 passed in 11.03s
 - IDE lint：无诊断
+
+---
+
+## `open_paths` 时间阈值诊断与修复（2026-08-21）
+
+### 诊断证据
+
+Task 11 全量曾报告 `test_open_paths_returns_while_preview_worker_is_blocked` 的 `<0.25s` 墙钟断言失败；Task 11 报告只保留了阈值和 `93 passed, 1 failed`，未保留失败时的实际 elapsed 值。
+
+在 `f7ecf5a` 上不改代码进行复现：
+
+- 独立 pytest 进程重复 30 次：30/30 通过。
+- 精确测量同一 `open_paths()` 路径 200 次：p50 2.33ms、p95 2.93ms、p99 3.10ms、最大 3.19ms，0 次达到 250ms。
+- 先运行窗口测试之前的 68 项全量前置测试，再测量 200 次：p50 2.33ms、p95 3.02ms、p99 3.67ms、最大 3.71ms，0 次达到 250ms。
+- 全量前置测试加目标测试重复 10 次：10/10 通过。
+- qapp standalone executor registry 每轮创建前和窗口销毁后均为 0，没有 Task 10 executor 状态残留。
+- 当前 HEAD 全量复核：94 passed。
+
+单一根因结论：固定 250ms 墙钟阈值会把 OS 调度、进程抢占或宿主负载误判为 GUI 同步执行；它测量运行环境时延，而不是“preview worker 被阻塞时 `open_paths()` 是否已经返回”的异步行为。
+
+### 最小行为修复
+
+删除 `time.monotonic()` 的 250ms 性能断言。测试现在在 `release` 尚未 set、fake preview worker 已进入并仍阻塞时，直接证明：
+
+- `open_paths()` 已返回到测试代码；
+- loading tab 已创建且标题正确；
+- executor 仍有一个 active worker；
+- preview 执行线程不是 GUI/测试线程。
+
+`qtbot.waitUntil(started.is_set, timeout=10_000)` 和 worker 的 10 秒 Event wait 只作为死锁保护，不作为性能指标。原有阻塞期间 `gc.collect()`、completion 后 registry 清零、viewer GUI thread 和状态栏断言均保留。
+
+### 修复后验证
+
+- 聚焦测试独立进程重复 20 次：20/20 通过。
+- `tests/test_window.py`：26 passed in 7.40s。
+- 全量：94 passed in 11.36s。
+- IDE lint：无诊断。

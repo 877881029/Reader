@@ -3,7 +3,6 @@ from __future__ import annotations
 import gc
 import platform
 import threading
-import time
 import uuid
 from pathlib import Path
 
@@ -104,7 +103,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     def blocked_preview(_path: Path, office=None) -> PreviewResult:
         worker_thread_ids.append(threading.get_ident())
         started.set()
-        assert release.wait(3)
+        assert release.wait(10)
         return builtin_result()
 
     def thread_checking_viewer(result: PreviewResult, _source_path: Path) -> QLabel:
@@ -119,21 +118,23 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
         viewer_factory=thread_checking_viewer,
     )
     qtbot.addWidget(window)
-    before = time.monotonic()
     window.open_paths([str(path)])
 
-    assert time.monotonic() - before < 0.25
-    assert window.tab_count() == 1
-    assert window.tab_title(0) == "slow.md"
-    assert "正在加载" in page_text(window, 0)
-    assert started.wait(1)
-    assert worker_thread_ids != [threading.get_ident()]
-    assert window._executor.thread_pool.maxThreadCount() == 1
-    assert window._executor.active_count() == 1
-    gc.collect()
-    assert window._executor.active_count() == 1
+    try:
+        assert release.is_set() is False
+        assert window.tab_count() == 1
+        assert window.tab_title(0) == "slow.md"
+        assert "正在加载" in page_text(window, 0)
+        assert window._executor.active_count() == 1
+        qtbot.waitUntil(started.is_set, timeout=10_000)
+        assert release.is_set() is False
+        assert worker_thread_ids != [threading.get_ident()]
+        assert window._executor.thread_pool.maxThreadCount() == 1
+        gc.collect()
+        assert window._executor.active_count() == 1
+    finally:
+        release.set()
 
-    release.set()
     qtbot.waitUntil(lambda: "ready" in page_text(window, 0))
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
     gc.collect()
