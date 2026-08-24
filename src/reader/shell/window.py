@@ -29,6 +29,7 @@ from reader.preview.cache import PreviewCache
 from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
+from reader.resources import resource_path
 
 PreviewFunction = Callable[..., PreviewResult]
 CacheFactory = Callable[[], PreviewCache]
@@ -951,7 +952,7 @@ class MainWindow(QMainWindow):
 
 
 def _window_icon_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "assets" / "icons" / "reader.ico"
+    return resource_path("assets", "icons", "reader.ico")
 
 
 def _load_icon_if_exists(icon_path: Path, icon_applier: Callable[[QIcon], None]) -> bool:

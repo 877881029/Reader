@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 
 from PySide6.QtNetwork import QLocalSocket
@@ -43,12 +44,13 @@ def main(argv: list[str] | None = None) -> int:
     if files:
         win.open_paths(files)
 
-    try:
-        exe, args = _association_target()
-        register_open_with(exe, args=args)
-        create_desktop_shortcut(exe, args=args, icon=exe)
-    except Exception:
-        pass
+    if not os.environ.get("READER_SKIP_SHELL_INTEGRATION"):
+        try:
+            exe, args = _association_target()
+            register_open_with(exe, args=args)
+            create_desktop_shortcut(exe, args=args, icon=exe)
+        except Exception:
+            pass
 
     return qapp.exec()
 

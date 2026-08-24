@@ -10,6 +10,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from reader.ipc import SingleInstance
+from reader.resources import resource_path
 from reader.shell.window import MainWindow, PreviewExecutor
 
 APP_USER_MODEL_ID = "Reader.Desktop"
@@ -32,7 +33,7 @@ def set_app_user_model_id(
 
 
 def _reader_icon_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "assets" / "icons" / "reader.ico"
+    return resource_path("assets", "icons", "reader.ico")
 
 
 def _load_icon_if_exists(icon_path: Path, icon_applier: Callable[[QIcon], None]) -> bool:
