@@ -5,10 +5,11 @@ import json
 import platform
 import threading
 import uuid
+import weakref
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QPoint, QThread, QUrl
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QDialog, QLabel
 
@@ -1362,6 +1363,83 @@ def test_ipc_paths_follow_active_child_dialog_to_parent_window(
     assert first.tab_count() == 1
     assert second.tab_count() == 0
     qtbot.waitUntil(lambda: "dialog-parent.md" in page_text(first, 0))
+
+
+def test_ipc_paths_follow_last_activated_window_when_external_app_is_active(
+    reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
+):
+    app, ipc = reader_app
+    path = tmp_path / "last-activated.md"
+    path.write_text("active history", encoding="utf-8")
+    first = app.new_window()
+    second = app.new_window()
+    for window in (first, second):
+        window._preview_fn = (
+            lambda source, office=None, mode="builtin": builtin_result(source.name)
+        )
+        window._viewer_factory = label_viewer
+        window._cache_factory = FakeCache
+    first.activateWindow()
+    qtbot.waitUntil(lambda: qapp.activeWindow() is first)
+    qapp.processEvents()
+    monkeypatch.setattr(app._qapp, "activeWindow", lambda: None)
+
+    ipc.on_paths([str(path)])
+
+    assert first.tab_count() == 1
+    assert second.tab_count() == 0
+    qtbot.waitUntil(lambda: "last-activated.md" in page_text(first, 0))
+
+
+def test_closing_last_activated_window_drops_weak_history_and_routes_to_survivor(
+    reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
+):
+    app, ipc = reader_app
+    path = tmp_path / "after-close.md"
+    path.write_text("survivor", encoding="utf-8")
+    first = app.new_window()
+    second = app.new_window()
+    second._preview_fn = (
+        lambda source, office=None, mode="builtin": builtin_result(source.name)
+    )
+    second._viewer_factory = label_viewer
+    second._cache_factory = FakeCache
+    first.activateWindow()
+    qtbot.waitUntil(lambda: qapp.activeWindow() is first)
+    qapp.processEvents()
+    assert app._activation_history
+    assert all(isinstance(item, weakref.ReferenceType) for item in app._activation_history)
+
+    first.close()
+    first.event(QEvent(QEvent.Type.WindowActivate))
+    monkeypatch.setattr(app._qapp, "activeWindow", lambda: None)
+    ipc.on_paths([str(path)])
+
+    assert all(item() is not first for item in app._activation_history)
+    assert second.tab_count() == 1
+    qtbot.waitUntil(lambda: "after-close.md" in page_text(second, 0))
+
+
+def test_ipc_without_activation_history_falls_back_to_latest_eligible_window(
+    reader_app, tmp_path: Path, monkeypatch
+):
+    app, ipc = reader_app
+    path = tmp_path / "fallback.md"
+    path.write_text("fallback", encoding="utf-8")
+    first = app.new_window()
+    second = app.new_window()
+    second._preview_fn = (
+        lambda source, office=None, mode="builtin": builtin_result(source.name)
+    )
+    second._viewer_factory = label_viewer
+    second._cache_factory = FakeCache
+    app._activation_history.clear()
+    monkeypatch.setattr(app._qapp, "activeWindow", lambda: None)
+
+    ipc.on_paths([str(path)])
+
+    assert first.tab_count() == 0
+    assert second.tab_count() == 1
 
 
 def test_ipc_callback_opens_all_forwarded_paths(reader_app, qtbot, tmp_path: Path):

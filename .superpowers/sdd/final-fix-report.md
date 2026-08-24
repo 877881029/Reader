@@ -101,3 +101,49 @@
 - PyInstaller 仍报告宿主 PySide6 缺少未使用的 `qmlassetdownloaderprivateplugin.dll`；与既有构建相同，build 和实际 WebEngine GUI smoke 均通过。
 - frozen smoke 通过应用层 telemetry 证明两批参数成功 ACK/到达，但不读取 Qt 内部 tab 文本；active-window、closing、HTML asset 生命周期由确定性窗口测试覆盖。
 - 构建产物未签名；签名不在本次修复范围。
+
+## 最终剩余 Important：最近激活窗口（追加）
+
+### 修复
+
+- `MainWindow` 新增可选 `on_activated` callback，并在收到
+  `QEvent.WindowActivate` 时通知；closing 状态不会触发 callback。
+- `ReaderApp` 使用 `weakref.ref` 保存激活顺序，避免 activation history
+  强引用已经销毁的 Qt wrapper。
+- IPC 目标优先级变更为：
+  1. 当前 `QApplication.activeWindow()` 或其 parent `MainWindow`；
+  2. 最近激活且仍 eligible 的窗口；
+  3. 最近创建且仍 eligible 的窗口；
+  4. 创建新窗口。
+- close/drop 同步清除该窗口的 activation history；`destroyed` signal callback
+  只捕获 weakref，不再强引用目标窗口。ReaderApp 与 MainWindow 两层均拒绝把
+  closing 窗口重新加入 history。
+
+### RED / GREEN
+
+- RED：
+  - 创建 A 后 B，激活 A，再把 `activeWindow()` 模拟为 `None` 时，IPC
+    错误落到 B。
+  - 另外两个测试因 activation history 尚不存在而失败。
+  - 命令结果：`3 failed in 7.30s`。
+- GREEN：
+  - 同一命令：`3 passed in 5.80s`。
+  - 覆盖 Explorer/外部应用获得焦点后仍投递 A、A 关闭后投递 B、无历史时
+    fallback 最新 eligible。
+  - 测试额外断言 history 元素均为 weakref，并在 A close 后发送一个
+    `WindowActivate` 事件，确认 closing callback 不会把 A 重加。
+
+### 最终验证
+
+- focused：`107 passed in 40.74s`。
+- 全量：`199 passed in 44.50s`。
+- IDE lint：无诊断。
+- clean build：exit 0。除既有未使用 QML plugin warning 外，PyInstaller
+  `set_exe_build_timestamp` 首次遇到一次瞬时 `OSError(22)`，内建重试后成功。
+- 实际 frozen smoke：
+  - 两批各 2 个路径均精确到达。
+  - `Reader GUI smoke passed: primary PID 49944, exact two 2-file batches`
+- 最终 `Reader.exe`：
+  - size：`5,871,636 bytes`
+  - SHA-256：`E2A876B6C78BC19590AB756C5EFDE8F041F5423DA20586564EAB5B757815D110`
+- 清理复核：Reader 进程 0、smoke roots 0、smoke locks 0。

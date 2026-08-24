@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -368,6 +368,7 @@ class MainWindow(QMainWindow):
         on_new_window: Callable[[], MainWindow] | None = None,
         *,
         on_closing: Callable[[MainWindow], None] | None = None,
+        on_activated: Callable[[MainWindow], None] | None = None,
         preview_fn: PreviewFunction = preview,
         cache_factory: CacheFactory = PreviewCache,
         viewer_factory: ViewerFactory | None = None,
@@ -390,6 +391,7 @@ class MainWindow(QMainWindow):
 
         self._on_new_window = on_new_window
         self._on_closing = on_closing
+        self._on_activated = on_activated
         self._preview_fn = preview_fn
         self._cache_factory = cache_factory
         self._viewer_factory = viewer_factory or _default_viewer
@@ -461,6 +463,16 @@ class MainWindow(QMainWindow):
 
         self._tabs.currentChanged.connect(self._refresh_preview_actions)
         self._refresh_preview_actions()
+
+    def event(self, event: QEvent) -> bool:
+        if (
+            event.type() == QEvent.Type.WindowActivate
+            and not getattr(self, "_closing", True)
+        ):
+            callback = getattr(self, "_on_activated", None)
+            if callback is not None:
+                callback(self)
+        return super().event(event)
 
     def center_on_screen(self, offset: int = 0) -> None:
         screen = self.screen() or QApplication.primaryScreen()
