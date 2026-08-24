@@ -895,6 +895,45 @@ def test_drop_on_blank_replaces_first_file_and_appends_extra(qtbot, tmp_path: Pa
     assert "拖入文件" not in page_text(window, 0)
 
 
+def test_drop_on_current_second_blank_replaces_current_not_first(qtbot, tmp_path: Path):
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+    first.write_text("1", encoding="utf-8")
+    second.write_text("2", encoding="utf-8")
+    window = make_window(lambda path, office=None: builtin_result(path.name))
+    qtbot.addWidget(window)
+    window.add_blank_tab()
+    window.add_blank_tab()
+    assert window.tab_count() == 2
+    assert window.tab_title(0) == "未命名"
+    assert window.tab_title(1) == "未命名"
+    second_blank = window._tabs.widget(1)
+    window._tabs.setCurrentIndex(1)
+
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(first)), QUrl.fromLocalFile(str(second))])
+
+    class FakeDropEvent:
+        def mimeData(self):
+            return mime
+
+        def acceptProposedAction(self):
+            self.accepted = True
+
+    event = FakeDropEvent()
+    window.dropEvent(event)
+
+    assert event.accepted is True
+    assert window.tab_count() == 3
+    assert window.tab_title(0) == "未命名"
+    assert window.tab_title(1) == "first.md"
+    assert window.tab_title(2) == "second.md"
+    assert window._tabs.widget(1) is not second_blank
+    assert "拖入文件" in page_text(window, 0)
+    assert window.focus_path() == str(second.resolve())
+    assert {document.path.name for document in window._documents.values()} == {"first.md", "second.md"}
+
+
 def test_unsupported_drop_keeps_blank_tab(qtbot, tmp_path: Path):
     unsupported = tmp_path / "bad.pdf"
     unsupported.write_bytes(b"%PDF")

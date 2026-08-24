@@ -400,7 +400,15 @@ class MainWindow(QMainWindow):
         self._tabs.removeTab(index)
         page.deleteLater()
 
-    def _blank_tab_index(self) -> int | None:
+    def _blank_tab_index(self, preferred_page: QWidget | None = None) -> int | None:
+        if preferred_page is not None:
+            preferred_index = self._tabs.indexOf(preferred_page)
+            if (
+                preferred_index >= 0
+                and preferred_page.property("readerBlankTab") is True
+            ):
+                return preferred_index
+            return None
         for index in range(self._tabs.count()):
             page = self._tabs.widget(index)
             if page is not None and page.property("readerBlankTab") is True:
@@ -428,7 +436,13 @@ class MainWindow(QMainWindow):
         if paths:
             self.open_paths([str(path) for path in paths])
 
-    def open_paths(self, paths: list[str], *, replace_blank: bool = False) -> None:
+    def open_paths(
+        self,
+        paths: list[str],
+        *,
+        replace_blank: bool = False,
+        replace_blank_page: QWidget | None = None,
+    ) -> None:
         existing = [document.path for document in self._documents.values()]
         decision = decide_open(existing, [Path(path) for path in paths])
 
@@ -439,7 +453,11 @@ class MainWindow(QMainWindow):
         if decision.to_focus is not None:
             self._focus(decision.to_focus)
 
-        blank_index = self._blank_tab_index() if replace_blank else None
+        blank_index: int | None = None
+        if replace_blank_page is not None:
+            blank_index = self._blank_tab_index(preferred_page=replace_blank_page)
+        elif replace_blank:
+            blank_index = self._blank_tab_index()
         for index, path in enumerate(decision.to_open):
             reuse_index = blank_index if index == 0 else None
             self._start_preview(path, replace_tab_index=reuse_index)
@@ -569,8 +587,9 @@ class MainWindow(QMainWindow):
             current = self._tabs.currentWidget()
             self.open_paths(
                 paths,
-                replace_blank=current is not None
-                and current.property("readerBlankTab") is True,
+                replace_blank_page=current
+                if current is not None and current.property("readerBlankTab") is True
+                else None,
             )
             event.acceptProposedAction()
 
