@@ -39,8 +39,5 @@ def preview(
         and office is not None
         and office.available_for(suffix)
     ):
-        try:
-            return office.export(path)
-        except Exception:
-            pass
+        return office.export(path)
     return _BUILTIN[suffix](path)

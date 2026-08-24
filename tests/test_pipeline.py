@@ -12,8 +12,10 @@ class FakeOffice:
         self.available = available
         self.boom = boom
         self.calls = []
+        self.available_calls = []
 
     def available_for(self, suffix: str) -> bool:
+        self.available_calls.append(suffix)
         return self.available and suffix in {".docx", ".pptx", ".xlsx"}
 
     def export(self, path: Path) -> PreviewResult:
@@ -29,6 +31,7 @@ def test_md_never_uses_office(tmp_path: Path):
     office = FakeOffice(available=True)
     result = preview(p, office=office)
     assert office.calls == []
+    assert office.available_calls == []
     assert result.status_label == "内置预览"
     assert "Z" in result.html
 
@@ -43,6 +46,7 @@ def test_docx_defaults_to_builtin_without_office_call(tmp_path: Path):
     office = FakeOffice(available=True)
     result = preview(p, office=office)
     assert office.calls == []
+    assert office.available_calls == []
     assert result.status_label == "内置预览"
     assert "builtin-default" in result.html
 
@@ -71,17 +75,12 @@ def test_docx_falls_back_when_office_missing(tmp_path: Path):
     assert "fallback-body" in result.html
 
 
-def test_docx_falls_back_when_export_raises(tmp_path: Path):
-    from docx import Document
-
+def test_docx_propagates_when_export_raises(tmp_path: Path):
     p = tmp_path / "a.docx"
-    d = Document()
-    d.add_paragraph("after-com-fail")
-    d.save(p)
+    p.write_bytes(b"not-a-real-docx")
     office = FakeOffice(available=True, boom=True)
-    result = preview(p, office=office, mode="office")
-    assert result.status_label == "内置预览"
-    assert "after-com-fail" in result.html
+    with pytest.raises(RuntimeError, match="COM busy"):
+        preview(p, office=office, mode="office")
 
 
 def test_pptx_uses_office_when_available(tmp_path: Path):
@@ -113,7 +112,8 @@ def test_pptx_falls_back_when_office_missing(tmp_path: Path):
     slide.shapes.title.text = "pptx-fallback"
     prs.save(p)
     office = FakeOffice(available=False)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
+    assert office.available_calls == [".pptx"]
     assert office.calls == []
     assert result.status_label == "内置预览"
     assert "pptx-fallback" in result.html
@@ -127,7 +127,8 @@ def test_xlsx_falls_back_when_office_missing(tmp_path: Path):
     wb.active.append(["xlsx-fallback-cell"])
     wb.save(p)
     office = FakeOffice(available=False)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
+    assert office.available_calls == [".xlsx"]
     assert office.calls == []
     assert result.status_label == "内置预览"
     assert "xlsx-fallback-cell" in result.html
