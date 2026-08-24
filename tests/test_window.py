@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QThread, QUrl
+from PySide6.QtCore import QMimeData, QPoint, QThread, QUrl
 from PySide6.QtWidgets import QLabel
 
 from reader.preview.result import PreviewResult
@@ -284,6 +284,76 @@ def test_new_window_action_and_single_ipc_owner(reader_app):
     assert first._executor is app._executor
     assert app._windows[-1]._executor is app._executor
     assert app._executor.thread_pool.maxThreadCount() == 1
+
+
+def test_main_window_default_size_and_minimum(qtbot):
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(viewer_factory=label_viewer)
+    qtbot.addWidget(window)
+
+    assert window.size().width() == 1200
+    assert window.size().height() == 800
+    assert window.minimumSize().width() == 800
+    assert window.minimumSize().height() == 500
+
+
+def test_new_window_offsets_from_existing_window(reader_app):
+    app, _ipc = reader_app
+    first = app.new_window()
+    second = app.new_window()
+
+    assert second.geometry().topLeft() == first.geometry().topLeft() + QPoint(32, 32)
+
+
+def test_main_window_icon_loading_supports_injected_path(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    missing = tmp_path / "missing.ico"
+    loaded: list[object] = []
+    window_missing = MainWindow(
+        viewer_factory=label_viewer,
+        icon_path_provider=lambda: missing,
+        icon_applier=loaded.append,
+    )
+    qtbot.addWidget(window_missing)
+    assert loaded == []
+
+    existing = tmp_path / "reader.ico"
+    existing.write_bytes(b"not-a-real-ico")
+    window_existing = MainWindow(
+        viewer_factory=label_viewer,
+        icon_path_provider=lambda: existing,
+        icon_applier=loaded.append,
+    )
+    qtbot.addWidget(window_existing)
+    assert len(loaded) == 1
+
+
+def test_reader_app_icon_loading_supports_injected_path(qapp, tmp_path: Path):
+    from reader.app import ReaderApp
+
+    loaded: list[object] = []
+    missing = tmp_path / "missing.ico"
+    app_missing = ReaderApp(
+        qapp,
+        ipc=FakeIpc(),
+        icon_path_provider=lambda: missing,
+        icon_applier=loaded.append,
+    )
+    assert loaded == []
+
+    existing = tmp_path / "reader.ico"
+    existing.write_bytes(b"not-a-real-ico")
+    app_existing = ReaderApp(
+        qapp,
+        ipc=FakeIpc(),
+        icon_path_provider=lambda: existing,
+        icon_applier=loaded.append,
+    )
+    assert len(loaded) == 1
+    app_missing.close_all()
+    app_existing.close_all()
 
 
 def test_shared_executor_delivers_each_result_only_to_owner_window(
@@ -759,15 +829,8 @@ def test_app_user_model_id_uses_reader_desktop_on_windows(monkeypatch):
     import reader.app as app_module
 
     calls: list[str] = []
-    shell32 = type(
-        "Shell32",
-        (),
-        {"SetCurrentProcessExplicitAppUserModelID": lambda self, app_id: calls.append(app_id)},
-    )()
     monkeypatch.setattr(platform, "system", lambda: "Windows")
-    monkeypatch.setattr(app_module.ctypes, "windll", type("Windll", (), {"shell32": shell32})(), raising=False)
-
-    app_module.set_app_user_model_id()
+    app_module.set_app_user_model_id(setter=calls.append)
 
     assert app_module.APP_USER_MODEL_ID == "Reader.Desktop"
     assert calls == ["Reader.Desktop"]

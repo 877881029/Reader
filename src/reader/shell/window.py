@@ -8,8 +8,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent
+from PySide6.QtCore import QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
+from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -254,6 +254,9 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
 
 
 class MainWindow(QMainWindow):
+    DEFAULT_SIZE = (1200, 800)
+    MINIMUM_SIZE = (800, 500)
+
     def __init__(
         self,
         on_new_window: Callable[[], MainWindow] | None = None,
@@ -264,9 +267,17 @@ class MainWindow(QMainWindow):
         executor: PreviewExecutor | None = None,
         thread_pool: QThreadPool | None = None,
         office: Win32OfficeBackend | None = None,
+        icon_path_provider: Callable[[], Path] | None = None,
+        icon_applier: Callable[[QIcon], None] | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Reader")
+        self.resize(*self.DEFAULT_SIZE)
+        self.setMinimumSize(*self.MINIMUM_SIZE)
+        icon_path = (
+            icon_path_provider() if icon_path_provider is not None else _window_icon_path()
+        )
+        _load_icon_if_exists(icon_path, icon_applier or self.setWindowIcon)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setAcceptDrops(True)
 
@@ -308,6 +319,16 @@ class MainWindow(QMainWindow):
         self.actionNewWindow.setObjectName("actionNewWindow")
         self.actionNewWindow.triggered.connect(self._spawn)
         self.menuBar().addMenu("文件").addAction(self.actionNewWindow)
+
+    def center_on_screen(self, offset: int = 0) -> None:
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        frame = self.frameGeometry()
+        frame.moveCenter(available.center())
+        frame.moveTopLeft(frame.topLeft() + QPoint(offset, offset))
+        self.move(frame.topLeft())
 
     def _spawn(self) -> None:
         if self._on_new_window is not None:
@@ -475,3 +496,14 @@ class MainWindow(QMainWindow):
         if paths:
             self.open_paths(paths)
             event.acceptProposedAction()
+
+
+def _window_icon_path() -> Path:
+    return Path(__file__).resolve().parents[3] / "assets" / "icons" / "reader.ico"
+
+
+def _load_icon_if_exists(icon_path: Path, icon_applier: Callable[[QIcon], None]) -> bool:
+    if not icon_path.exists():
+        return False
+    icon_applier(QIcon(str(icon_path)))
+    return True

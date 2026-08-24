@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import ctypes
 import platform
+from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from reader.ipc import SingleInstance
@@ -12,18 +15,47 @@ from reader.shell.window import MainWindow, PreviewExecutor
 APP_USER_MODEL_ID = "Reader.Desktop"
 
 
-def set_app_user_model_id(app_id: str = APP_USER_MODEL_ID) -> None:
+def set_app_user_model_id(
+    app_id: str = APP_USER_MODEL_ID,
+    *,
+    setter: Callable[[str], None] | None = None,
+) -> None:
     if platform.system() != "Windows":
         return
     try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+        if setter is not None:
+            setter(app_id)
+        else:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
     except (AttributeError, OSError):
         return
 
 
+def _reader_icon_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "assets" / "icons" / "reader.ico"
+
+
+def _load_icon_if_exists(icon_path: Path, icon_applier: Callable[[QIcon], None]) -> bool:
+    if not icon_path.exists():
+        return False
+    icon_applier(QIcon(str(icon_path)))
+    return True
+
+
 class ReaderApp:
-    def __init__(self, qapp: QApplication, *, ipc: SingleInstance | None = None) -> None:
+    def __init__(
+        self,
+        qapp: QApplication,
+        *,
+        ipc: SingleInstance | None = None,
+        icon_path_provider: Callable[[], Path] | None = None,
+        icon_applier: Callable[[QIcon], None] | None = None,
+    ) -> None:
         self._qapp = qapp
+        icon_path = (
+            icon_path_provider() if icon_path_provider is not None else _reader_icon_path()
+        )
+        _load_icon_if_exists(icon_path, icon_applier or self._qapp.setWindowIcon)
         self._windows: list[MainWindow] = []
         self._executor = PreviewExecutor(parent=qapp)
         self._ipc = ipc if ipc is not None else SingleInstance()
@@ -50,8 +82,13 @@ class ReaderApp:
             lambda *_args, target_id=window_id: self._drop(target_id)
         )
         self._windows.append(window)
+        self._place_window(window)
         window.show()
         return window
+
+    def _place_window(self, window: MainWindow) -> None:
+        offset = 32 if len(self._windows) > 1 else 0
+        window.center_on_screen(offset)
 
     def _drop(self, window_id: int) -> None:
         self._windows = [item for item in self._windows if id(item) != window_id]
