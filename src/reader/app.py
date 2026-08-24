@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import platform
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import QApplication
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
 from reader.shell.window import MainWindow, PreviewExecutor
+from reader.smoke import append_smoke_batch
 
 APP_USER_MODEL_ID = "Reader.Desktop"
 
@@ -64,6 +66,12 @@ class ReaderApp:
         self._ipc_closed = False
 
     def _on_ipc_paths(self, paths: list[str]) -> None:
+        try:
+            append_smoke_batch(paths)
+        except OSError as exc:
+            print(f"Reader smoke batch log failed during IPC: {exc}", file=sys.stderr)
+            self._qapp.exit(2)
+            return
         window = self._windows[-1] if self._windows else self.new_window()
         window.open_paths(paths)
         window.setWindowState(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import json
 import platform
 import threading
 import uuid
@@ -846,6 +847,74 @@ def test_duplicate_focuses_existing_tab(qtbot, tmp_path: Path):
     assert window.focus_path() == str(first.resolve())
 
 
+def test_mixed_cross_batch_open_adds_new_tab_then_focuses_existing(
+    qtbot, tmp_path: Path
+):
+    existing = tmp_path / "existing.md"
+    new = tmp_path / "new.md"
+    existing.write_text("existing", encoding="utf-8")
+    new.write_text("new", encoding="utf-8")
+    window = make_window(
+        lambda path, office=None, mode="builtin": builtin_result(path.name)
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(existing)])
+    qtbot.waitUntil(lambda: "existing.md" in page_text(window, 0))
+
+    window.open_paths([str(existing), str(new)])
+
+    assert window.tab_count() == 2
+    assert window.tab_title(1) == "new.md"
+    assert window.focus_path() == str(existing.resolve())
+
+
+def test_duplicate_while_original_is_loading_focuses_original_without_new_tab(
+    qtbot, tmp_path: Path
+):
+    path = tmp_path / "loading.md"
+    path.write_text("loading", encoding="utf-8")
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocked_preview(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        started.set()
+        assert release.wait(3)
+        return builtin_result("loaded")
+
+    window = make_window(blocked_preview)
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    assert started.wait(1)
+    original_page = window._tabs.widget(0)
+
+    try:
+        window.open_paths([str(path)])
+        assert window.tab_count() == 1
+        assert window._tabs.widget(0) is original_page
+        assert window.focus_path() == str(path.resolve())
+    finally:
+        release.set()
+
+    qtbot.waitUntil(lambda: "loaded" in page_text(window, 0))
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows path semantics")
+def test_duplicate_path_is_case_insensitive_on_windows(qtbot, tmp_path: Path):
+    path = tmp_path / "MixedCase.md"
+    path.write_text("case", encoding="utf-8")
+    window = make_window(
+        lambda source, office=None, mode="builtin": builtin_result(source.name)
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: window.tab_count() == 1)
+
+    window.open_paths([str(path).swapcase()])
+
+    assert window.tab_count() == 1
+    assert window.focus_path() == str(path.resolve())
+
+
 def test_late_result_after_close_cannot_overwrite_shifted_tab(qtbot, tmp_path: Path):
     slow = tmp_path / "slow.md"
     fast = tmp_path / "fast.md"
@@ -1177,6 +1246,54 @@ def test_ipc_callback_opens_all_forwarded_paths(reader_app, qtbot, tmp_path: Pat
     assert window.tab_title(0) == first.name
     assert window.tab_title(1) == second.name
     qtbot.waitUntil(lambda: second.name in page_text(window, 1))
+
+
+def test_initial_and_ipc_batches_are_logged_separately_before_open(
+    reader_app, qtbot, tmp_path: Path, monkeypatch
+):
+    from reader.smoke import append_smoke_batch
+
+    app, ipc = reader_app
+    log_path = tmp_path / "batches.jsonl"
+    monkeypatch.setenv("READER_SMOKE_BATCH_LOG", str(log_path))
+    initial = [str(tmp_path / "initial-a.md"), str(tmp_path / "initial-b.md")]
+    forwarded_paths = [
+        tmp_path / "forwarded-a.md",
+        tmp_path / "forwarded-b.md",
+    ]
+    for path in [*(Path(item) for item in initial), *forwarded_paths]:
+        path.write_text(path.name, encoding="utf-8")
+    append_smoke_batch(initial)
+    window = app.new_window()
+    window._preview_fn = (
+        lambda path, office=None, mode="builtin": builtin_result(path.name)
+    )
+    window._viewer_factory = label_viewer
+    window._cache_factory = FakeCache
+    log_seen_at_open: list[list[str]] = []
+    real_open_paths = window.open_paths
+
+    def open_after_log(paths, **kwargs):
+        log_seen_at_open.extend(
+            json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+        )
+        real_open_paths(paths, **kwargs)
+
+    window.open_paths = open_after_log
+
+    ipc.on_paths([str(path) for path in forwarded_paths])
+
+    qtbot.waitUntil(lambda: window.tab_count() == 2)
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line) for line in lines] == [
+        initial,
+        [str(path) for path in forwarded_paths],
+    ]
+    assert log_seen_at_open == [
+        initial,
+        [str(path) for path in forwarded_paths],
+    ]
 
 
 def test_closing_last_window_drops_count_and_releases_ipc(reader_app, qtbot):

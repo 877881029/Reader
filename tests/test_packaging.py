@@ -1,3 +1,4 @@
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -81,14 +82,28 @@ def test_packaging_smoke_can_disable_real_shell_integration() -> None:
     assert "create_desktop_shortcut(exe, args=args, icon=exe)" in main
 
 
-def test_windows_gui_smoke_is_isolated_multi_batch_and_self_cleaning() -> None:
+def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> None:
     script = (ROOT / "scripts" / "smoke_windows.ps1").read_text(encoding="utf-8")
 
     assert "READER_SKIP_SHELL_INTEGRATION" in script
     assert "READER_IPC_NAMESPACE" in script
+    assert "READER_SMOKE_BATCH_LOG" in script
     assert "QTWEBENGINE_CHROMIUM_FLAGS" in script
+    assert '"TEMP"' in script
+    assert '"TMP"' in script
     assert script.count("Start-Process") >= 2
+    assert "$baselineReaderProcessIds" in script
+    assert "$secondaries" in script
     assert "MainWindowHandle" in script
     assert "Get-CimInstance Win32_Process" in script
+    assert "ConvertFrom-Json" in script
+    assert "reader-single-instance-locks" in script
+    assert "WaitForExit" in script
     assert "Stop-Process" in script
+    assert "Stop-Process -Id $processId -Force" in script
+    assert "Failed to remove smoke test root" in script
+    assert not re.search(
+        r"Remove-Item[^\r\n]*-ErrorAction\s+SilentlyContinue",
+        script,
+    )
     assert "Reader GUI smoke passed" in script

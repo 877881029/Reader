@@ -37,3 +37,91 @@ def test_shell_integration_not_disabled_for_other_values(monkeypatch, value):
     monkeypatch.setenv("READER_SKIP_SHELL_INTEGRATION", value)
 
     assert main_module._shell_integration_disabled() is False
+
+
+def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch):
+    import reader.__main__ as main_module
+
+    events = []
+
+    class FakeQApplication:
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+        def exec(self):
+            events.append("exec")
+            return 0
+
+    class FakeWindow:
+        def open_paths(self, paths):
+            events.append(("open", paths))
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            events.append("server")
+
+        def is_primary_instance(self):
+            return True
+
+        def new_window(self):
+            return FakeWindow()
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(
+        main_module,
+        "append_smoke_batch",
+        lambda paths: events.append(("log", paths)),
+        raising=False,
+    )
+    monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: True)
+
+    assert main_module.main(["Reader.exe", "one.md", "two.md"]) == 0
+    assert events == [
+        "server",
+        ("log", ["one.md", "two.md"]),
+        ("open", ["one.md", "two.md"]),
+        "exec",
+    ]
+
+
+def test_secondary_uses_instance_ownership_without_empty_server_probe(monkeypatch):
+    import reader.__main__ as main_module
+
+    sent = []
+
+    class FakeQApplication:
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            pass
+
+        def is_primary_instance(self):
+            return False
+
+    monkeypatch.setattr(
+        main_module,
+        "_server_running",
+        lambda: pytest.fail("empty preflight connection must not be opened"),
+        raising=False,
+    )
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(
+        main_module.SingleInstance,
+        "send_paths",
+        lambda paths: sent.append(paths) or True,
+    )
+
+    assert main_module.main(["Reader.exe", "one.md", "two.md"]) == 0
+    assert sent == [["one.md", "two.md"]]

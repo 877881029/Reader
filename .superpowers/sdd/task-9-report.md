@@ -133,3 +133,106 @@
   Office 失败保留、迟到结果安全由确定性代码级测试覆盖，避免 GUI smoke 依赖主机
   Office 安装状态。
 - 构建产物未签名；签名不在本任务范围内。
+
+---
+
+## Important 纠正与补强（2026-08-24）
+
+本节取代上文对首版 frozen smoke 的充分性结论。首版仅观察到 secondary
+退出码 0、primary 窗口存活和单进程，不能证明第二批路径真正到达应用层；首版
+`Remove-Item -ErrorAction SilentlyContinue` 也可能把清理失败误报为成功。
+
+### 严格 RED 证据
+
+1. telemetry、启动顺序、IPC callback 与脚本声明测试：
+   - 命令：
+     `.venv\Scripts\python.exe -m pytest tests\test_smoke.py tests\test_main_launch.py::test_primary_launch_records_initial_batch_after_server_ownership tests\test_window.py::test_initial_and_ipc_batches_are_logged_separately_before_open tests\test_packaging.py::test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup tests\test_window.py::test_mixed_cross_batch_open_adds_new_tab_then_focuses_existing tests\test_window.py::test_duplicate_while_original_is_loading_focuses_original_without_new_tab tests\test_window.py::test_duplicate_path_is_case_insensitive_on_windows -v`
+   - 结果：`5 failed, 3 passed`。
+   - 预期失败：缺少 `reader.smoke`、primary 初始批次未记录、IPC callback
+     未记录、脚本未声明 telemetry/严格清理。
+   - 三个重复路径测试首次即通过，因为上一提交的“先 open 后 focus”修复已经满足
+     行为；本次将缺口固化为明确回归。
+2. frozen smoke 严格验收第一次失败：
+   - `Initial two-path batch was not logged exactly`。
+   - telemetry 实际存在；根因是 Windows PowerShell 5.1 将管道中的 JSON
+     数组包装成单个 `Object[]`，脚本严格比较误判。拆分
+     `ConvertFrom-Json` 与数组赋值后修复。
+3. frozen smoke 严格验收第二次失败：
+   - 日志仅有第一批，第二批在 45 秒内未到达。
+   - 新增 RED：
+     `.venv\Scripts\python.exe -m pytest tests\test_main_launch.py::test_secondary_uses_instance_ownership_without_empty_server_probe -v`
+   - 结果：`1 failed`，明确命中 `_server_running()` 空 payload 预连接。
+   - 根因：secondary 在真实发送前先建立无帧探针，primary 会在 GUI 线程等待空帧；
+     旧 smoke 只检查 secondary 退出码，且启动代码没有验收到达结果，因此掩盖了
+     丢批次。修复为直接创建 `ReaderApp`、通过实例锁确定 primary/secondary，
+     secondary 再发送唯一真实批次，不再建立空探针连接。
+
+### telemetry 行为
+
+- 新增 `reader.smoke.append_smoke_batch(paths)`：
+  - 仅当 `READER_SMOKE_BATCH_LOG` 非空时启用。
+  - 每批执行一次 UTF-8 JSON 行追加，保留批次原子性和参数顺序，并 flush/fsync。
+  - 环境变量缺失时立即返回，不创建文件、不探测路径、无正常用户副作用。
+  - 显式启用但写入失败时抛出 `OSError`；startup 返回 2，IPC callback 输出诊断、
+    请求应用退出且不继续 open。
+- primary 成功持有 server 后先记录初始 argv 批次，再创建窗口/open。
+- IPC callback 先记录收到的完整批次，再调用窗口 `open_paths(paths)`。
+- 单元测试覆盖默认禁用、UTF-8 两行精确 JSON、写失败传播、initial + IPC
+  分行记录，以及 callback 调用 open 前日志已经可见。
+
+### 严格 smoke 与清理
+
+- 脚本隔离：
+  `READER_IPC_NAMESPACE`、`READER_SMOKE_BATCH_LOG`、`USERPROFILE`、
+  `APPDATA`、`LOCALAPPDATA`、`TEMP`、`TMP`、Chromium profile 和
+  `READER_SKIP_SHELL_INTEGRATION=1`。
+- 第一批启动后等待第 1 行精确等于两个路径；第二次 exe 退出码为 0 后等待第 2
+  行精确等于第二批两个路径；日志必须恰好两行。
+- 单进程计数排除启动前同路径 Reader PID；清理只处理本次 primary、所有保存的
+  secondary、新增同路径 Reader 及其后代，不杀启动前用户进程。
+- cleanup 先 terminate、再对残留 PID force kill，`WaitForExit` 并轮询进程树
+  清零；恢复环境后删除隔离 TEMP 下的 namespace lock。
+- 测试根目录最多重试删除 10 次；最终仍存在则抛出
+  `Failed to remove smoke test root`。不再对 `Remove-Item` 使用
+  `SilentlyContinue`。
+- 最终核验：`RemainingReaderProcesses=0`、`RemainingSmokeRoots=0`。
+  另清除了首版脚本在 19:08 遗留的旧 Task 9 smoke 目录。
+- `test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup` 仅验证脚本
+  关键声明和严格清理 token，不声称执行 PowerShell；真实执行证据如下。
+
+### 最终 clean build 与实际 frozen smoke
+
+- clean build：
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1`
+  - 退出码 0；构建分析明确包含 `reader.smoke`。
+- 实际命令：
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\smoke_windows.ps1 -ReaderExe dist\Reader\Reader.exe -TimeoutSeconds 45`
+- 实际日志：
+  - Batch 1：
+    `["C:\\Users\\runqyang\\AppData\\Local\\Temp\\reader-gui-smoke-ff235b9e92bd4954967d06cf05ffad49\\samples\\batch-one-a.md","C:\\Users\\runqyang\\AppData\\Local\\Temp\\reader-gui-smoke-ff235b9e92bd4954967d06cf05ffad49\\samples\\batch-one-b.md"]`
+  - Batch 2：
+    `["C:\\Users\\runqyang\\AppData\\Local\\Temp\\reader-gui-smoke-ff235b9e92bd4954967d06cf05ffad49\\samples\\batch-two-a.md","C:\\Users\\runqyang\\AppData\\Local\\Temp\\reader-gui-smoke-ff235b9e92bd4954967d06cf05ffad49\\samples\\batch-two-b.md"]`
+  - `Reader GUI smoke passed: primary PID 12732, exact two 2-file batches`
+- 最终产物：
+  - 路径：`C:\Research\AgentDevelopor\READER\dist\Reader\Reader.exe`
+  - 大小：`5868125 bytes`
+  - SHA-256：
+    `BFDF68AFE07E875C1244C98B00E77BC2E76EFF974274F6E70C6015DA633ECAE7`
+
+### 最终回归
+
+- 聚焦：
+  `.venv\Scripts\python.exe -m pytest tests\test_smoke.py tests\test_main_launch.py tests\test_packaging.py tests\test_window.py -v`
+  - `80 passed in 15.44s`（在移除空探针前；新增空探针回归随后独立 GREEN）。
+- 全量第 1 轮：`.venv\Scripts\python.exe -m pytest -v`
+  - `174 passed in 40.41s`。
+- 全量第 2 轮：`.venv\Scripts\python.exe -m pytest -v`
+  - `174 passed in 47.05s`。
+- 两轮收集数与结果一致，未观察到 flake；IDE lint 无诊断。
+
+### 剩余限制
+
+- frozen telemetry 证明两批 argv 在 primary 应用层按原子批次和原顺序到达，并且
+  callback 在调用 `open_paths` 前完成记录；脚本仍不侵入 Qt tab 内部。
+  跨批 mixed duplicate、loading duplicate、Windows 大小写不敏感与批量 tab
+  创建由代码级窗口回归证明。

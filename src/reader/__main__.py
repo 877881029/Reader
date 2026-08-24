@@ -3,20 +3,12 @@ from __future__ import annotations
 import os
 import sys
 
-from PySide6.QtNetwork import QLocalSocket
 from PySide6.QtWidgets import QApplication
 
 from reader.app import ReaderApp, set_app_user_model_id
-from reader.ipc import SingleInstance, server_name
+from reader.ipc import SingleInstance
 from reader.shell.associate import create_desktop_shortcut, register_open_with
-
-
-def _server_running() -> bool:
-    sock = QLocalSocket()
-    sock.connectToServer(server_name())
-    connected = sock.waitForConnected(200)
-    sock.disconnectFromServer()
-    return connected
+from reader.smoke import append_smoke_batch
 
 
 def _association_target() -> tuple[str, tuple[str, ...]]:
@@ -35,15 +27,18 @@ def main(argv: list[str] | None = None) -> int:
     files = [arg for arg in argv[1:] if not arg.startswith("-")]
     set_app_user_model_id()
 
-    if _server_running():
-        SingleInstance.send_paths(files)
-        return 0
-
     qapp = QApplication.instance() or QApplication(argv)
     app = ReaderApp(qapp)
     if not app.is_primary_instance():
         SingleInstance.send_paths(files)
         return 0
+
+    try:
+        append_smoke_batch(files)
+    except OSError as exc:
+        print(f"Reader smoke batch log failed during startup: {exc}", file=sys.stderr)
+        app.close_all()
+        return 2
 
     win = app.new_window()
     if files:
