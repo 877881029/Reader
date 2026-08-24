@@ -1,7 +1,10 @@
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,4 +109,66 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
         r"Remove-Item[^\r\n]*-ErrorAction\s+SilentlyContinue",
         script,
     )
+    assert "$smokeError" in script
+    assert "} catch {" in script
+    assert "Resolve-SmokeFailure" in script
+    finally_body = script.split("} finally {", 1)[1].split(
+        "$resolvedFailure",
+        1,
+    )[0]
+    assert "throw " not in finally_body
     assert "Reader GUI smoke passed" in script
+
+
+@pytest.mark.skipif(
+    shutil.which("powershell.exe") is None,
+    reason="PowerShell is required for smoke helper execution",
+)
+def test_smoke_failure_resolver_preserves_business_error_before_cleanup() -> None:
+    helper = ROOT / "scripts" / "smoke_helpers.ps1"
+    command = f"""
+. '{helper}'
+$none = Resolve-SmokeFailure -SmokeError $null -CleanupFailures @()
+if ($null -ne $none) {{ throw "no-error quadrant returned a failure" }}
+try {{ throw "business-original" }} catch {{ $business = $_ }}
+$businessOnly = Resolve-SmokeFailure -SmokeError $business -CleanupFailures @()
+if ($businessOnly.Exception.Message -ne "business-original") {{
+    throw "business-only quadrant lost the original error"
+}}
+$cleanupOnly = Resolve-SmokeFailure -SmokeError $null -CleanupFailures @("cleanup-only")
+if ($cleanupOnly.Exception.Message -notmatch "cleanup-only") {{
+    throw "cleanup-only quadrant lost cleanup diagnostics"
+}}
+$both = Resolve-SmokeFailure -SmokeError $business -CleanupFailures @("cleanup-appended")
+$message = $both.Exception.Message
+if ($message.IndexOf("business-original") -lt 0) {{
+    throw "combined quadrant lost business error"
+}}
+if ($message.IndexOf("cleanup-appended") -lt 0) {{
+    throw "combined quadrant lost cleanup error"
+}}
+if ($message.IndexOf("business-original") -gt $message.IndexOf("cleanup-appended")) {{
+    throw "combined quadrant did not keep business error first"
+}}
+throw $both
+"""
+    result = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            command,
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "business-original" in output
+    assert "cleanup-appended" in output
+    assert output.index("business-original") < output.index("cleanup-appended")

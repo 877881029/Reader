@@ -5,6 +5,8 @@ param(
     [int]$TimeoutSeconds = 30
 )
 
+. (Join-Path $PSScriptRoot "smoke_helpers.ps1")
+
 $ErrorActionPreference = "Stop"
 $resolvedExe = (Resolve-Path $ReaderExe).Path
 $runId = [Guid]::NewGuid().ToString("N")
@@ -18,6 +20,8 @@ $lockPath = Join-Path $tempRoot "reader-single-instance-locks\Reader.SingleInsta
 $primary = $null
 $secondaries = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
 $smokeSucceeded = $false
+$smokeError = $null
+$cleanupFailures = [System.Collections.Generic.List[string]]::new()
 $verifiedBatches = @()
 
 function Wait-Until {
@@ -256,14 +260,19 @@ try {
         throw "Expected exactly one original primary Reader.exe after forwarding"
     }
     $smokeSucceeded = $true
+} catch {
+    $smokeError = $_
 } finally {
-    $cleanupFailures = [System.Collections.Generic.List[string]]::new()
-    if (
-        -not $smokeSucceeded -and
-        (Test-Path -LiteralPath $batchLog)
-    ) {
-        $diagnosticBatches = Get-Content -LiteralPath $batchLog -Raw -Encoding UTF8
-        Write-Warning "Smoke telemetry before cleanup: $diagnosticBatches"
+    try {
+        if (
+            -not $smokeSucceeded -and
+            (Test-Path -LiteralPath $batchLog)
+        ) {
+            $diagnosticBatches = Get-Content -LiteralPath $batchLog -Raw -Encoding UTF8
+            Write-Warning "Smoke telemetry before cleanup: $diagnosticBatches"
+        }
+    } catch {
+        $cleanupFailures.Add("telemetry diagnostics: $_")
     }
     try {
         Stop-SmokeProcesses
@@ -293,9 +302,13 @@ try {
     } catch {
         $cleanupFailures.Add("test root cleanup: $_")
     }
-    if ($cleanupFailures.Count -gt 0) {
-        throw "Smoke cleanup failed: $($cleanupFailures -join '; ')"
-    }
+}
+
+$resolvedFailure = Resolve-SmokeFailure `
+    -SmokeError $smokeError `
+    -CleanupFailures @($cleanupFailures)
+if ($null -ne $resolvedFailure) {
+    throw $resolvedFailure
 }
 
 if ($smokeSucceeded) {

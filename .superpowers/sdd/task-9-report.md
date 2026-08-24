@@ -236,3 +236,52 @@
   callback 在调用 `open_paths` 前完成记录；脚本仍不侵入 Qt tab 内部。
   跨批 mixed duplicate、loading duplicate、Windows 大小写不敏感与批量 tab
   创建由代码级窗口回归证明。
+
+---
+
+## Important：finally 不覆盖业务原始错误（2026-08-24）
+
+### RED 与错误四象限
+
+- 新增可独立 dot-source 的 `scripts/smoke_helpers.ps1`，提供
+  `Resolve-SmokeFailure`；`tests/test_packaging.py` 真实启动 Windows PowerShell
+  验证无错、仅业务错、仅 cleanup 错、业务与 cleanup 同时发生四种情况。
+- RED 命令：
+  `.venv\Scripts\python.exe -m pytest tests\test_packaging.py::test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup tests\test_packaging.py::test_smoke_failure_resolver_preserves_business_error_before_cleanup -v`
+  - 结果：`2 failed`。
+  - 静态测试命中脚本缺少 `$smokeError`；可执行测试命中 helper/函数不存在。
+- GREEN 同命令：`2 passed in 2.09s`。两错并发时，PowerShell 进程按预期非零退出，
+  输出先包含 `business-original`，随后包含 `cleanup-appended`。
+
+### 主体错误决议
+
+- `catch` 仅保存原始 `ErrorRecord` 到 `$smokeError`。
+- `finally` 中 telemetry 诊断、进程停止、环境恢复、namespace lock 删除和测试根
+  删除均各自捕获并追加到 `$cleanupFailures`，`finally` 本身不再 `throw`。
+- `finally` 之后调用 `Resolve-SmokeFailure`：
+  - 无错返回 `$null`；
+  - 仅业务错误返回原始 `ErrorRecord`，保留原异常上下文；
+  - 仅 cleanup 错误生成 cleanup `ErrorRecord`；
+  - 两者同时生成组合 `ErrorRecord`，消息第一行是原始业务异常，之后追加 cleanup
+    诊断。
+- 只有统一决议确认无错误后才输出 `Reader GUI smoke passed`。
+
+### 安全清理、实际 smoke 与回归
+
+- 仅处理精确旧 namespace
+  `gui-smoke-6b5a1ce89d7d4e1899ba1be18db93ea2`：旧根目录已不存在，
+  删除其精确 lock
+  `Reader.SingleInstance.v1.gui-smoke-6b5a1ce89d7d4e1899ba1be18db93ea2.lock`；
+  复核 `ExactLegacyNamespaceRemaining=0`，未删除其他 Reader namespace。
+- 未 rebuild frozen exe。使用已有 `dist\Reader\Reader.exe` 实际运行：
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\smoke_windows.ps1 -ReaderExe dist\Reader\Reader.exe -TimeoutSeconds 45`
+  - `Reader GUI smoke passed: primary PID 46184, exact two 2-file batches`
+  - 本次 namespace：`gui-smoke-76e5b6a612744c07be69c0c6a62dcee5`
+  - 清理复核：`LatestSmokeArtifactsRemaining=0`、`ReaderProcessesAtRest=0`。
+- packaging 聚焦：`8 passed in 6.06s`。
+- Task 9 聚焦：
+  `.venv\Scripts\python.exe -m pytest tests\test_smoke.py tests\test_main_launch.py tests\test_packaging.py tests\test_window.py -v`
+  - `82 passed in 24.42s`。
+- 全量：`.venv\Scripts\python.exe -m pytest -v`
+  - `175 passed in 45.91s`。
+- IDE lint：本次修改文件无诊断。
