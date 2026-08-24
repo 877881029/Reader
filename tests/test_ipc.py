@@ -15,8 +15,20 @@ from reader.ipc import SERVER_NAME, SingleInstance
 _app = QCoreApplication.instance() or QCoreApplication(sys.argv)
 
 
-def test_server_name_is_v1():
+def test_server_name_is_v1(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("READER_IPC_NAMESPACE", raising=False)
+
     assert SERVER_NAME == "Reader.SingleInstance.v1"
+    assert ipc_module.server_name() == SERVER_NAME
+
+
+def test_server_name_namespace_override_is_isolated(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("READER_IPC_NAMESPACE", "smoke-123")
+
+    assert ipc_module.server_name() == f"{SERVER_NAME}.smoke-123"
+    instance = SingleInstance()
+    assert instance._server_name == f"{SERVER_NAME}.smoke-123"
+    assert instance._lock_path().name == f"{SERVER_NAME}.smoke-123.lock"
 
 
 def _wait_until(predicate, timeout_s: float = 5.0) -> bool:

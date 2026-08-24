@@ -11,6 +11,7 @@ htmlcov/
 dist/
 build/
 *.spec
+!reader.spec
 .idea/
 .vscode/
 *.qmlc

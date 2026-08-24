@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import struct
 import tempfile
@@ -23,9 +24,17 @@ _HEADER_SIZE = 4
 SEND_CHUNK_BYTES: int | None = None
 
 
+def server_name() -> str:
+    namespace = os.environ.get("READER_IPC_NAMESPACE", "").strip()
+    if not namespace:
+        return SERVER_NAME
+    safe_namespace = re.sub(r"[^A-Za-z0-9_.-]", "_", namespace)
+    return f"{SERVER_NAME}.{safe_namespace}"
+
+
 class SingleInstance:
     def __init__(self) -> None:
-        self._server_name = SERVER_NAME
+        self._server_name = server_name()
         self._server: QLocalServer | None = None
         self._lock: QLockFile | None = None
         self._on_paths: Callable[[list[str]], None] | None = None
@@ -160,10 +169,11 @@ class SingleInstance:
     @staticmethod
     def send_paths(paths: list[str]) -> bool:
         sock: QLocalSocket | None = None
+        target_server = server_name()
         for attempt in range(_CONNECT_ATTEMPTS):
             SingleInstance._pump_events()
             candidate = QLocalSocket()
-            candidate.connectToServer(SERVER_NAME)
+            candidate.connectToServer(target_server)
             if candidate.waitForConnected(_CONNECT_TIMEOUT_MS):
                 sock = candidate
                 break
