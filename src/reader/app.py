@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
@@ -72,7 +72,7 @@ class ReaderApp:
             print(f"Reader smoke batch log failed during IPC: {exc}", file=sys.stderr)
             self._qapp.exit(2)
             return
-        window = self._windows[-1] if self._windows else self.new_window()
+        window = self._ipc_target_window()
         window.open_paths(paths)
         window.setWindowState(
             window.windowState() & ~Qt.WindowState.WindowMinimized
@@ -81,14 +81,29 @@ class ReaderApp:
         window.raise_()
         window.activateWindow()
 
+    def _ipc_target_window(self) -> MainWindow:
+        active: QWidget | None = self._qapp.activeWindow()
+        while active is not None and not isinstance(active, MainWindow):
+            active = active.parentWidget()
+        if (
+            isinstance(active, MainWindow)
+            and any(active is window for window in self._windows)
+            and not active.is_closing()
+        ):
+            return active
+        for window in reversed(self._windows):
+            if not window.is_closing():
+                return window
+        return self.new_window()
+
     def new_window(self) -> MainWindow:
         window = MainWindow(
             on_new_window=self.new_window,
+            on_closing=self._drop,
             executor=self._executor,
         )
-        window_id = id(window)
         window.destroyed.connect(
-            lambda *_args, target_id=window_id: self._drop(target_id)
+            lambda *_args, target=window: self._drop(target)
         )
         self._windows.append(window)
         self._place_window(window)
@@ -99,8 +114,8 @@ class ReaderApp:
         offset = max(0, len(self._windows) - 1) * 32
         window.center_on_screen(offset)
 
-    def _drop(self, window_id: int) -> None:
-        self._windows = [item for item in self._windows if id(item) != window_id]
+    def _drop(self, window: MainWindow) -> None:
+        self._windows = [item for item in self._windows if item is not window]
         if not self._windows:
             self._close_ipc()
 

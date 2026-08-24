@@ -30,8 +30,10 @@ def main(argv: list[str] | None = None) -> int:
     qapp = QApplication.instance() or QApplication(argv)
     app = ReaderApp(qapp)
     if not app.is_primary_instance():
-        SingleInstance.send_paths(files)
-        return 0
+        if SingleInstance.send_paths(files):
+            return 0
+        print("Reader IPC delivery failed: primary instance did not acknowledge the request.", file=sys.stderr)
+        return 2
 
     try:
         append_smoke_batch(files)
@@ -45,12 +47,15 @@ def main(argv: list[str] | None = None) -> int:
         win.open_paths(files)
 
     if not _shell_integration_disabled():
+        exe, args = _association_target()
         try:
-            exe, args = _association_target()
             register_open_with(exe, args=args)
+        except Exception:
+            win.show_status("文件关联设置失败")
+        try:
             create_desktop_shortcut(exe, args=args, icon=exe)
         except Exception:
-            pass
+            win.show_status("桌面快捷方式创建失败")
 
     return qapp.exec()
 

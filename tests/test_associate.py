@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from reader.shell.associate import EXTENSIONS, PROGID, create_desktop_shortcut, register_open_with
+from reader.shell.associate import (
+    EXTENSIONS,
+    PROGID,
+    _icon_location,
+    create_desktop_shortcut,
+    register_open_with,
+)
 
 
 class FakeKey:
@@ -84,7 +90,7 @@ def test_register_open_with_handles_program_files_and_quoted_percent1_suffix() -
     command = wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None]
     assert command == subprocess.list2cmdline([exe, *args]) + ' "%1"'
     assert command.endswith(' "%1"')
-    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == f"{exe},0"
+    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == f'"{exe}",0'
 
 
 def test_packaged_exe_registration_keeps_icons_and_commands_on_reader_exe() -> None:
@@ -94,7 +100,7 @@ def test_packaged_exe_registration_keeps_icons_and_commands_on_reader_exe() -> N
     register_open_with(exe, winreg_module=wr)
 
     progid_root = r"Software\Classes\Reader.Document"
-    assert wr.keys[rf"{progid_root}\DefaultIcon"].values[None] == f"{exe},0"
+    assert wr.keys[rf"{progid_root}\DefaultIcon"].values[None] == f'"{exe}",0'
     assert wr.keys[rf"{progid_root}\shell\open\command"].values[None] == (
         subprocess.list2cmdline([exe]) + ' "%1"'
     )
@@ -189,6 +195,70 @@ def test_create_desktop_shortcut_sets_icon_location(monkeypatch, tmp_path: Path)
     assert shortcut.IconLocation == r"C:\Reader\Reader.exe,0"
 
 
+def test_create_desktop_shortcut_preserves_existing_user_shortcut(
+    monkeypatch, tmp_path: Path
+) -> None:
+    desktop = tmp_path / "KnownDesktop"
+    desktop.mkdir()
+    existing = desktop / "Reader.lnk"
+    existing.write_bytes(b"user shortcut")
+    monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: desktop)
+    com = FakeComModule()
+
+    result = create_desktop_shortcut(
+        r"C:\Reader\Reader.exe",
+        winshell_or_com=com,
+    )
+
+    assert result == existing
+    assert existing.read_bytes() == b"user shortcut"
+    assert com.shell.shortcuts == []
+
+
+def test_create_desktop_shortcut_explicit_overwrite_recreates_existing(
+    monkeypatch, tmp_path: Path
+) -> None:
+    desktop = tmp_path / "KnownDesktop"
+    desktop.mkdir()
+    existing = desktop / "Reader.lnk"
+    existing.write_bytes(b"user shortcut")
+    monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: desktop)
+    com = FakeComModule()
+
+    create_desktop_shortcut(
+        r"C:\Reader\Reader.exe",
+        winshell_or_com=com,
+        overwrite=True,
+    )
+
+    assert len(com.shell.shortcuts) == 1
+    assert com.shell.shortcuts[0].saved is True
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (r"C:\Reader\Reader.exe", r"C:\Reader\Reader.exe,0"),
+        (
+            r"C:\Program Files\Reader\Reader.exe",
+            r'"C:\Program Files\Reader\Reader.exe",0',
+        ),
+        (
+            r"C:\Reader, Beta\Reader.exe",
+            r'"C:\Reader, Beta\Reader.exe",0',
+        ),
+        (
+            r"C:\Program Files\Reader\Reader.exe,7",
+            r'"C:\Program Files\Reader\Reader.exe",7',
+        ),
+    ],
+)
+def test_icon_location_quotes_path_and_recognizes_only_numeric_index(
+    value: str, expected: str
+) -> None:
+    assert _icon_location(value) == expected
+
+
 def test_create_desktop_shortcut_uses_list2cmdline_for_arguments(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: tmp_path / "KnownDesktop")
     com = FakeComModule()
@@ -200,4 +270,4 @@ def test_create_desktop_shortcut_uses_list2cmdline_for_arguments(monkeypatch, tm
     shortcut = com.shell.shortcuts[0]
     assert shortcut.Targetpath == exe
     assert shortcut.Arguments == subprocess.list2cmdline(list(args))
-    assert shortcut.IconLocation == f"{exe},0"
+    assert shortcut.IconLocation == f'"{exe}",0'

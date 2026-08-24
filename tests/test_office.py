@@ -20,7 +20,14 @@ class FakeWordDocument:
 
     def SaveAs(self, FileName: str, FileFormat: int):
         self.html_calls.append((FileName, FileFormat))
-        Path(FileName).write_text("<html>office-html</html>", encoding="utf-8")
+        html_path = Path(FileName)
+        resource_dir = html_path.with_name(f"{html_path.stem}_files")
+        resource_dir.mkdir()
+        (resource_dir / "image.png").write_bytes(b"image")
+        html_path.write_text(
+            f'<html>office-html<img src="{resource_dir.name}/image.png"></html>',
+            encoding="utf-8",
+        )
 
     def Close(self, SaveChanges=False):
         self.closed += 1
@@ -164,6 +171,10 @@ def test_export_docx_html_fallback_when_pdf_fails(tmp_path, monkeypatch):
     result = Win32OfficeBackend().export(src)
     assert result.kind == "html"
     assert "office-html" in result.html
+    assert result.asset_dir is not None
+    assert result.asset_dir.exists()
+    resource = result.asset_dir / "a.reader_files" / "image.png"
+    assert resource.read_bytes() == b"image"
     assert doc.html_calls and doc.html_calls[0][1] == 10
     assert doc.closed == 1
     assert app.quit_calls == 1
@@ -198,7 +209,9 @@ def test_export_docx_html_fallback_keeps_source_dir_clean(tmp_path, monkeypatch)
     assert doc.html_calls
     html_out = Path(doc.html_calls[0][0])
     assert html_out.parent != src.parent
-    assert not html_out.exists()
+    assert result.asset_dir == html_out.parent
+    assert html_out.exists()
+    assert (result.asset_dir / "a.reader_files" / "image.png").exists()
 
 
 def test_export_docx_failure_still_cleans_up_and_uninitializes(tmp_path, monkeypatch):

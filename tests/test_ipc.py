@@ -28,12 +28,16 @@ class _DrainSocket:
         pending: int,
         pending_after_wait: list[int],
         wait_results: list[bool] | None = None,
+        ack: bytes = b"ACK",
     ) -> None:
         self.pending = pending
         self.pending_after_wait = list(pending_after_wait)
         self.wait_results = list(wait_results) if wait_results is not None else [True]
         self.wait_calls = 0
         self.disconnected_with_pending: bool | None = None
+        self.ack = bytearray(ack)
+        self.ready_read_calls = 0
+        self.read_calls = 0
 
     def connectToServer(self, _name: str) -> None:
         return None
@@ -61,6 +65,16 @@ class _DrainSocket:
 
     def disconnectFromServer(self) -> None:
         self.disconnected_with_pending = self.pending > 0
+
+    def waitForReadyRead(self, _ms: int) -> bool:
+        self.ready_read_calls += 1
+        return bool(self.ack)
+
+    def read(self, size: int) -> bytes:
+        self.read_calls += 1
+        chunk = bytes(self.ack[:size])
+        del self.ack[:size]
+        return chunk
 
 
 def _concurrent_launch_worker(
@@ -132,6 +146,7 @@ def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyP
             self.write_calls: list[bytes] = []
             self._bytes_pending = [9, 0]
             self.wait_calls = 0
+            self.ack = bytearray(b"ACK")
 
         def connectToServer(self, _name: str) -> None:
             self.connected = True
@@ -157,6 +172,14 @@ def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyP
 
         def disconnectFromServer(self) -> None:
             self.connected = False
+
+        def read(self, size: int) -> bytes:
+            chunk = bytes(self.ack[:size])
+            del self.ack[:size]
+            return chunk
+
+        def waitForReadyRead(self, _ms: int) -> bool:
+            return bool(self.ack)
 
     created: list[FakeSocket] = []
 
@@ -221,6 +244,112 @@ def test_send_paths_drains_normal_multi_round_flush_queue(
     assert sock.disconnected_with_pending is False
 
 
+def test_send_paths_waits_for_application_ack(monkeypatch: pytest.MonkeyPatch):
+    sock = _DrainSocket(pending=0, pending_after_wait=[], ack=b"ACK")
+    monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
+
+    assert SingleInstance.send_paths(["C:/tmp/acked.md"]) is True
+    assert sock.read_calls >= 1
+
+
+def test_send_paths_returns_false_without_application_ack(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sock = _DrainSocket(pending=0, pending_after_wait=[], ack=b"")
+    monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
+
+    assert SingleInstance.send_paths(["C:/tmp/no-ack.md"]) is False
+
+
+def test_server_acks_only_after_successful_callback():
+    payload = json.dumps(["C:/tmp/success.md"]).encode("utf-8")
+
+    class ServerSocket:
+        def __init__(self) -> None:
+            self.incoming = bytearray(struct.pack(">I", len(payload)) + payload)
+            self.writes: list[bytes] = []
+            self.disconnected = False
+
+        def read(self, size: int) -> bytes:
+            chunk = bytes(self.incoming[:size])
+            del self.incoming[:size]
+            return chunk
+
+        def write(self, data: bytes) -> int:
+            self.writes.append(bytes(data))
+            return len(data)
+
+        def bytesToWrite(self) -> int:
+            return 0
+
+        def disconnectFromServer(self) -> None:
+            self.disconnected = True
+
+    seen: list[list[str]] = []
+    sock = ServerSocket()
+    instance = SingleInstance()
+    instance._on_paths = seen.append
+
+    instance._handle_sock(sock)
+
+    assert seen == [["C:/tmp/success.md"]]
+    assert b"".join(sock.writes) == b"ACK"
+    assert sock.disconnected is True
+
+
+def test_server_callback_exception_sends_no_ack():
+    payload = json.dumps(["C:/tmp/fail.md"]).encode("utf-8")
+
+    class ServerSocket:
+        def __init__(self) -> None:
+            self.incoming = bytearray(struct.pack(">I", len(payload)) + payload)
+            self.writes: list[bytes] = []
+            self.disconnected = False
+
+        def read(self, size: int) -> bytes:
+            chunk = bytes(self.incoming[:size])
+            del self.incoming[:size]
+            return chunk
+
+        def write(self, data: bytes) -> int:
+            self.writes.append(bytes(data))
+            return len(data)
+
+        def disconnectFromServer(self) -> None:
+            self.disconnected = True
+
+    sock = ServerSocket()
+    instance = SingleInstance()
+    instance._on_paths = lambda _paths: (_ for _ in ()).throw(RuntimeError("boom"))
+
+    instance._handle_sock(sock)
+
+    assert sock.writes == []
+    assert sock.disconnected is True
+
+
+def test_server_ack_drain_is_bounded_for_gui_thread():
+    class StuckAckSocket:
+        def __init__(self) -> None:
+            self.wait_timeouts: list[int] = []
+
+        def write(self, data: bytes) -> int:
+            return len(data)
+
+        def bytesToWrite(self) -> int:
+            return len(b"ACK")
+
+        def waitForBytesWritten(self, timeout_ms: int) -> bool:
+            self.wait_timeouts.append(timeout_ms)
+            return True
+
+    sock = StuckAckSocket()
+
+    assert SingleInstance._send_ack(sock) is False
+    assert len(sock.wait_timeouts) == ipc_module.POST_SEND_EVENT_PUMPS
+    assert max(sock.wait_timeouts) <= 100
+
+
 def test_send_paths_bounds_repeated_zero_byte_writes(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -252,6 +381,7 @@ def test_send_paths_retries_transient_connect_failure(monkeypatch: pytest.Monkey
             FakeSocket.attempts += 1
             self.connected = FakeSocket.attempts >= 2
             self.frame = bytearray()
+            self.ack = bytearray(b"ACK")
 
         def connectToServer(self, _name: str) -> None:
             return None
@@ -268,6 +398,14 @@ def test_send_paths_retries_transient_connect_failure(monkeypatch: pytest.Monkey
 
         def disconnectFromServer(self) -> None:
             return None
+
+        def read(self, size: int) -> bytes:
+            chunk = bytes(self.ack[:size])
+            del self.ack[:size]
+            return chunk
+
+        def waitForReadyRead(self, _ms: int) -> bool:
+            return bool(self.ack)
 
     sleeps: list[float] = []
     monkeypatch.setattr(ipc_module, "QLocalSocket", FakeSocket)

@@ -2,12 +2,26 @@ from __future__ import annotations
 
 import ctypes
 import os
+import re
 import subprocess
 from pathlib import Path
 from uuid import UUID
 
 PROGID = "Reader.Document"
 EXTENSIONS = (".docx", ".pptx", ".xlsx", ".md")
+_ICON_INDEX_RE = re.compile(r'^(?:"(?P<quoted>.*)"|(?P<plain>.*)),(?P<index>-?\d+)$')
+
+
+def _icon_location(value: str) -> str:
+    match = _ICON_INDEX_RE.fullmatch(value)
+    if match is None:
+        path = value
+        index = "0"
+    else:
+        path = match.group("quoted") or match.group("plain")
+        index = match.group("index")
+    formatted_path = f'"{path}"' if any(char.isspace() for char in path) else path
+    return f"{formatted_path},{index}"
 
 
 def _set_reg_sz(wr, path: str, name: str | None, value: str) -> None:
@@ -29,7 +43,7 @@ def register_open_with(exe: str, winreg_module=None, *, args: tuple[str, ...] = 
 
     wr = winreg_module or default_winreg
     command = subprocess.list2cmdline([exe, *args]) + ' "%1"'
-    _set_reg_sz(wr, r"Software\Classes\Reader.Document\DefaultIcon", None, f"{exe},0")
+    _set_reg_sz(wr, r"Software\Classes\Reader.Document\DefaultIcon", None, _icon_location(exe))
     _set_reg_sz(wr, r"Software\Classes\Reader.Document\shell\open\command", None, command)
     for ext in EXTENSIONS:
         _set_reg_sz(wr, rf"Software\Classes\{ext}\OpenWithProgids", PROGID, "")
@@ -86,10 +100,13 @@ def create_desktop_shortcut(
     *,
     args: tuple[str, ...] = (),
     icon: str | None = None,
+    overwrite: bool = False,
 ) -> Path:
     desktop = _desktop_path()
     desktop.mkdir(parents=True, exist_ok=True)
     shortcut_path = desktop / f"{name}.lnk"
+    if shortcut_path.exists() and not overwrite:
+        return shortcut_path
 
     if winshell_or_com is None:
         import win32com.client as winshell_or_com
@@ -100,10 +117,7 @@ def create_desktop_shortcut(
     shortcut.Arguments = subprocess.list2cmdline(list(args)) if args else ""
     shortcut.WorkingDirectory = str(Path(exe).parent)
     shortcut.Description = name
-    icon_location = icon or exe
-    if "," not in icon_location:
-        icon_location = f"{icon_location},0"
-    shortcut.IconLocation = icon_location
+    shortcut.IconLocation = _icon_location(icon or exe)
     save = getattr(shortcut, "Save", None) or getattr(shortcut, "save")
     save()
     return shortcut_path

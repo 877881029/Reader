@@ -149,10 +149,12 @@ class Win32OfficeBackend:
                 except Exception:
                     html_path = export_dir / f"{src.stem}.reader.html"
                     _save_html(document, suffix, html_path)
+                    keep_export_dir = True
                     return PreviewResult(
                         html=html_path.read_text(encoding="utf-8", errors="ignore"),
                         status_label="Office 预览",
                         kind="html",
+                        asset_dir=export_dir,
                     )
             finally:
                 _close_document(document, suffix)

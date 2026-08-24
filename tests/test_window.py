@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QMimeData, QPoint, QThread, QUrl
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QDialog, QLabel
 
 from reader.preview.result import PreviewResult
 
@@ -493,6 +493,95 @@ def test_switch_back_preserves_builtin_pdf_and_cleans_both_artifacts(
     window.close_tab(0)
 
     qtbot.waitUntil(lambda: not pinned_builtin.exists())
+
+
+def test_office_html_assets_are_pinned_for_viewer_and_cleaned_on_switch_and_close(
+    qtbot, tmp_path: Path
+):
+    path = tmp_path / "document.docx"
+    path.write_bytes(b"docx")
+    export_dirs: list[Path] = []
+    viewer_bases: list[QUrl] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "builtin":
+            return builtin_result("BUILTIN")
+        export_dir = tmp_path / f"office-html-{len(export_dirs)}"
+        resources = export_dir / "document.reader_files"
+        resources.mkdir(parents=True)
+        (resources / "image.png").write_bytes(b"image")
+        export_dirs.append(export_dir)
+        return PreviewResult(
+            html='<img src="document.reader_files/image.png">',
+            status_label="Office 预览",
+            kind="html",
+            asset_dir=export_dir,
+        )
+
+    def viewer(result: PreviewResult, source_path: Path) -> QLabel:
+        if result.asset_dir is not None:
+            from reader.shell.window import _html_base_url
+
+            viewer_bases.append(_html_base_url(result, source_path))
+            assert (result.asset_dir / "document.reader_files" / "image.png").exists()
+        return label_viewer(result)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: len(viewer_bases) == 1)
+    first_export = export_dirs[0]
+    assert viewer_bases[0] == QUrl.fromLocalFile(str(first_export.resolve()) + "/")
+    assert first_export.exists()
+
+    window.switch_current_tab_to_builtin()
+    qtbot.waitUntil(lambda: not first_export.exists())
+
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: len(viewer_bases) == 2)
+    second_export = export_dirs[1]
+    assert second_export.exists()
+
+    window.close()
+
+    qtbot.waitUntil(lambda: not second_export.exists())
+
+
+def test_office_html_with_relative_assets_is_not_cached_without_its_directory(
+    qtbot, tmp_path: Path
+):
+    path = tmp_path / "relative.docx"
+    path.write_bytes(b"docx")
+    export_dir = tmp_path / "relative-export"
+    export_dir.mkdir()
+    cache = FakeCache()
+    result = PreviewResult(
+        html='<img src="relative_files/image.png">',
+        status_label="Office 预览",
+        kind="html",
+        asset_dir=export_dir,
+    )
+    window = make_window(
+        lambda _path, office=None, mode="builtin": result,
+        cache,
+    )
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert ("get", path.resolve(), "builtin") in cache.calls
+    assert not any(call[0] == "put" for call in cache.calls)
 
 
 def test_late_office_result_cannot_overwrite_switched_builtin(qtbot, tmp_path: Path):
@@ -1227,6 +1316,54 @@ def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
     qtbot.waitUntil(lambda: "IPC" in page_text(window, 0))
 
 
+def test_ipc_paths_follow_refocused_active_window(reader_app, qapp, qtbot, tmp_path: Path):
+    app, ipc = reader_app
+    path = tmp_path / "active.md"
+    path.write_text("active", encoding="utf-8")
+    first = app.new_window()
+    second = app.new_window()
+    for window in (first, second):
+        window._preview_fn = (
+            lambda source, office=None, mode="builtin": builtin_result(source.name)
+        )
+        window._viewer_factory = label_viewer
+        window._cache_factory = FakeCache
+    first.activateWindow()
+    qtbot.waitUntil(lambda: qapp.activeWindow() is first)
+
+    ipc.on_paths([str(path)])
+
+    assert first.tab_count() == 1
+    assert second.tab_count() == 0
+    qtbot.waitUntil(lambda: "active.md" in page_text(first, 0))
+
+
+def test_ipc_paths_follow_active_child_dialog_to_parent_window(
+    reader_app, qapp, qtbot, tmp_path: Path
+):
+    app, ipc = reader_app
+    path = tmp_path / "dialog-parent.md"
+    path.write_text("dialog", encoding="utf-8")
+    first = app.new_window()
+    second = app.new_window()
+    first._preview_fn = (
+        lambda source, office=None, mode="builtin": builtin_result(source.name)
+    )
+    first._viewer_factory = label_viewer
+    first._cache_factory = FakeCache
+    dialog = QDialog(first)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    dialog.activateWindow()
+    qtbot.waitUntil(lambda: qapp.activeWindow() is dialog)
+
+    ipc.on_paths([str(path)])
+
+    assert first.tab_count() == 1
+    assert second.tab_count() == 0
+    qtbot.waitUntil(lambda: "dialog-parent.md" in page_text(first, 0))
+
+
 def test_ipc_callback_opens_all_forwarded_paths(reader_app, qtbot, tmp_path: Path):
     app, ipc = reader_app
     first = tmp_path / "a.md"
@@ -1304,7 +1441,8 @@ def test_closing_last_window_drops_count_and_releases_ipc(reader_app, qtbot):
 
     window.close()
 
-    qtbot.waitUntil(lambda: app.window_count() == 0)
+    assert window.is_closing() is True
+    assert app.window_count() == 0
     assert first_ipc.closed is True
 
     second_ipc = FakeIpc()
@@ -1314,6 +1452,66 @@ def test_closing_last_window_drops_count_and_releases_ipc(reader_app, qtbot):
         assert second_ipc.become_calls == 1
     finally:
         second.close_all()
+
+
+def test_closing_window_is_removed_before_ipc_routing(
+    reader_app, qapp, qtbot, tmp_path: Path
+):
+    app, ipc = reader_app
+    path = tmp_path / "raced.md"
+    path.write_text("race", encoding="utf-8")
+    closing = app.new_window()
+    survivor = app.new_window()
+    survivor._preview_fn = (
+        lambda source, office=None, mode="builtin": builtin_result(source.name)
+    )
+    survivor._viewer_factory = label_viewer
+    survivor._cache_factory = FakeCache
+    closing.activateWindow()
+    qtbot.waitUntil(lambda: qapp.activeWindow() is closing)
+
+    closing.close()
+    ipc.on_paths([str(path)])
+
+    assert closing.is_closing() is True
+    assert closing.tab_count() == 0
+    assert closing._executor._pending == {}
+    assert survivor.tab_count() == 1
+    qtbot.waitUntil(lambda: "raced.md" in page_text(survivor, 0))
+
+
+def test_closing_window_open_paths_and_start_preview_are_noops(qtbot, tmp_path: Path):
+    path = tmp_path / "ignored.md"
+    path.write_text("ignored", encoding="utf-8")
+    window = make_window(
+        lambda source, office=None, mode="builtin": builtin_result(source.name)
+    )
+    window.show()
+    window.close()
+
+    window.open_paths([str(path)])
+    window._start_preview(path.resolve())
+
+    assert window.is_closing() is True
+    assert window.tab_count() == 0
+    assert window._documents == {}
+    assert window._requests == {}
+    assert window._owned_request_ids == set()
+    assert window._executor.active_count() == 0
+
+
+def test_destroyed_signal_cannot_drop_a_newer_window(reader_app, qtbot):
+    app, _ipc = reader_app
+    first = app.new_window()
+    survivor = app.new_window()
+
+    first.close()
+    replacement = app.new_window()
+    qtbot.wait(20)
+
+    assert app.window_count() == 2
+    assert any(window is survivor for window in app._windows)
+    assert any(window is replacement for window in app._windows)
 
 
 def test_destroyed_last_window_releases_real_single_instance(

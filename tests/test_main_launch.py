@@ -125,3 +125,109 @@ def test_secondary_uses_instance_ownership_without_empty_server_probe(monkeypatc
 
     assert main_module.main(["Reader.exe", "one.md", "two.md"]) == 0
     assert sent == [["one.md", "two.md"]]
+
+
+def test_secondary_returns_nonzero_and_reports_failed_delivery(monkeypatch, capsys):
+    import reader.__main__ as main_module
+
+    class FakeQApplication:
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            pass
+
+        def is_primary_instance(self):
+            return False
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(main_module.SingleInstance, "send_paths", lambda _paths: False)
+
+    assert main_module.main(["Reader.exe", "lost.md"]) == 2
+    assert "IPC" in capsys.readouterr().err
+
+
+def _run_primary_with_shell_failure(monkeypatch, *, association_error=False, shortcut_error=False):
+    import reader.__main__ as main_module
+
+    events = []
+
+    class FakeQApplication:
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+        def exec(self):
+            events.append("exec")
+            return 17
+
+    class FakeWindow:
+        def open_paths(self, _paths):
+            pass
+
+        def show_status(self, message):
+            events.append(("status", message))
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            pass
+
+        def is_primary_instance(self):
+            return True
+
+        def new_window(self):
+            return FakeWindow()
+
+    def register(*_args, **_kwargs):
+        events.append("association")
+        if association_error:
+            raise OSError("registry denied")
+
+    def shortcut(*_args, **_kwargs):
+        events.append("shortcut")
+        if shortcut_error:
+            raise OSError("desktop denied")
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(main_module, "append_smoke_batch", lambda _paths: None)
+    monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: False)
+    monkeypatch.setattr(main_module, "register_open_with", register)
+    monkeypatch.setattr(main_module, "create_desktop_shortcut", shortcut)
+
+    result = main_module.main(["Reader.exe"])
+    return result, events
+
+
+def test_association_failure_shows_hint_and_still_attempts_shortcut(monkeypatch):
+    result, events = _run_primary_with_shell_failure(
+        monkeypatch,
+        association_error=True,
+    )
+
+    assert result == 17
+    assert events[0:2] == ["association", ("status", "文件关联设置失败")]
+    assert "shortcut" in events
+    assert events[-1] == "exec"
+
+
+def test_shortcut_failure_shows_hint_and_app_continues(monkeypatch):
+    result, events = _run_primary_with_shell_failure(
+        monkeypatch,
+        shortcut_error=True,
+    )
+
+    assert result == 17
+    assert "association" in events
+    assert "shortcut" in events
+    assert ("status", "桌面快捷方式创建失败") in events
+    assert events[-1] == "exec"

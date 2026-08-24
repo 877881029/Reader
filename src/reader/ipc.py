@@ -18,9 +18,12 @@ _LOCK_TIMEOUT_MS = 0
 _CONNECT_TIMEOUT_MS = 1000
 _CONNECT_ATTEMPTS = 5
 _WRITE_TIMEOUT_MS = 1000
+_ACK_WRITE_TIMEOUT_MS = 100
 _READ_SLICE_TIMEOUT_MS = 100
 _READ_TOTAL_TIMEOUT_MS = 5000
 _HEADER_SIZE = 4
+ACK_FRAME = b"ACK"
+_ACK_TOTAL_TIMEOUT_MS = 1000
 SEND_CHUNK_BYTES: int | None = None
 POST_SEND_EVENT_PUMPS = 3
 MAX_CONSECUTIVE_ZERO_WRITES = 3
@@ -156,9 +159,28 @@ class SingleInstance:
             if isinstance(decoded, list):
                 paths = [str(item) for item in decoded]
                 if self._on_paths is not None:
-                    self._on_paths(paths)
+                    try:
+                        self._on_paths(paths)
+                    except Exception:
+                        return
+                    self._send_ack(sock)
         finally:
             sock.disconnectFromServer()
+
+    @staticmethod
+    def _send_ack(sock: QLocalSocket) -> bool:
+        written = sock.write(ACK_FRAME)
+        if written != len(ACK_FRAME):
+            return False
+        if hasattr(sock, "flush"):
+            sock.flush()
+        for _ in range(POST_SEND_EVENT_PUMPS):
+            if sock.bytesToWrite() == 0:
+                return True
+            if not sock.waitForBytesWritten(_ACK_WRITE_TIMEOUT_MS):
+                return False
+            SingleInstance._pump_events()
+        return sock.bytesToWrite() == 0
 
     def close(self) -> None:
         if self._server is not None:
@@ -214,14 +236,31 @@ class SingleInstance:
 
         if hasattr(sock, "flush"):
             sock.flush()
+        drained = False
         for _ in range(POST_SEND_EVENT_PUMPS):
             if sock.bytesToWrite() == 0:
-                sock.disconnectFromServer()
-                return True
+                drained = True
+                break
             sock.waitForBytesWritten(_WRITE_TIMEOUT_MS)
             SingleInstance._pump_events()
             if sock.bytesToWrite() == 0:
-                sock.disconnectFromServer()
-                return True
+                drained = True
+                break
+        if not drained:
+            sock.disconnectFromServer()
+            return False
+
+        ack = bytearray()
+        deadline = time.monotonic() + (_ACK_TOTAL_TIMEOUT_MS / 1000.0)
+        while len(ack) < len(ACK_FRAME):
+            SingleInstance._pump_events()
+            chunk = bytes(sock.read(len(ACK_FRAME) - len(ack)))
+            if chunk:
+                ack.extend(chunk)
+                continue
+            remaining_ms = int(max((deadline - time.monotonic()) * 1000.0, 0.0))
+            if remaining_ms <= 0:
+                break
+            sock.waitForReadyRead(min(_READ_SLICE_TIMEOUT_MS, remaining_ms))
         sock.disconnectFromServer()
-        return False
+        return bytes(ack) == ACK_FRAME

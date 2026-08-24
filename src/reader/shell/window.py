@@ -61,6 +61,8 @@ def _source_owns_pdf(result: PreviewResult) -> bool:
 
 
 def _pin_pdf(result: PreviewResult) -> _WorkerOutput:
+    if result.kind == "html" and result.asset_dir is not None:
+        return _WorkerOutput(result, result.asset_dir)
     if result.kind != "pdf" or result.pdf_path is None:
         return _WorkerOutput(result)
 
@@ -157,7 +159,10 @@ class _PreviewWorker(QRunnable):
 
             if result is None:
                 result = self.preview_fn(self.path, office=self.office, mode=self.mode)
-                if cache is not None:
+                cacheable = not (
+                    result.kind == "html" and result.asset_dir is not None
+                )
+                if cache is not None and cacheable:
                     try:
                         cache.put(self.path, self.mode, result)
                     except Exception:
@@ -362,6 +367,7 @@ class MainWindow(QMainWindow):
         self,
         on_new_window: Callable[[], MainWindow] | None = None,
         *,
+        on_closing: Callable[[MainWindow], None] | None = None,
         preview_fn: PreviewFunction = preview,
         cache_factory: CacheFactory = PreviewCache,
         viewer_factory: ViewerFactory | None = None,
@@ -383,6 +389,7 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
         self._on_new_window = on_new_window
+        self._on_closing = on_closing
         self._preview_fn = preview_fn
         self._cache_factory = cache_factory
         self._viewer_factory = viewer_factory or _default_viewer
@@ -497,6 +504,12 @@ class MainWindow(QMainWindow):
     def status_text(self) -> str:
         return self.statusBar().currentMessage()
 
+    def show_status(self, message: str) -> None:
+        self.statusBar().showMessage(message)
+
+    def is_closing(self) -> bool:
+        return self._closing
+
     def focus_path(self) -> str | None:
         page = self._tabs.currentWidget()
         for document in self._documents.values():
@@ -605,6 +618,8 @@ class MainWindow(QMainWindow):
         replace_blank: bool = False,
         replace_blank_page: QWidget | None = None,
     ) -> None:
+        if self._closing:
+            return
         existing = [document.path for document in self._documents.values()]
         decision = decide_open(existing, [Path(path) for path in paths])
 
@@ -630,6 +645,8 @@ class MainWindow(QMainWindow):
                 return
 
     def _start_preview(self, path: Path, *, replace_tab_index: int | None = None) -> None:
+        if self._closing:
+            return
         document_id = uuid4().hex
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -908,7 +925,12 @@ class MainWindow(QMainWindow):
         self._refresh_preview_actions()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._closing:
+            super().closeEvent(event)
+            return
         self._closing = True
+        if self._on_closing is not None:
+            self._on_closing(self)
         for document_id, document in list(self._documents.items()):
             if document.request_id is not None:
                 self._requests.pop(document.request_id, None)
