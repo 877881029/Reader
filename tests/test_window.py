@@ -1115,6 +1115,27 @@ def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
     qtbot.waitUntil(lambda: "IPC" in page_text(window, 0))
 
 
+def test_ipc_callback_opens_all_forwarded_paths(reader_app, qtbot, tmp_path: Path):
+    app, ipc = reader_app
+    first = tmp_path / "a.md"
+    second = tmp_path / "二号.md"
+    first.write_text("a", encoding="utf-8")
+    second.write_text("b", encoding="utf-8")
+    window = app.new_window()
+    window._preview_fn = (
+        lambda path, office=None, mode="builtin": builtin_result(path.name)
+    )
+    window._viewer_factory = label_viewer
+    window._cache_factory = FakeCache
+
+    ipc.on_paths([str(first), str(second)])
+
+    assert window.tab_count() == 2
+    assert window.tab_title(0) == first.name
+    assert window.tab_title(1) == second.name
+    qtbot.waitUntil(lambda: second.name in page_text(window, 1))
+
+
 def test_closing_last_window_drops_count_and_releases_ipc(reader_app, qtbot):
     from reader.app import ReaderApp
 

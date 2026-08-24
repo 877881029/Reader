@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
+import os
 import struct
 import sys
 import time
@@ -13,6 +15,35 @@ import reader.ipc as ipc_module
 from reader.ipc import SERVER_NAME, SingleInstance
 
 _app = QCoreApplication.instance() or QCoreApplication(sys.argv)
+
+
+def _concurrent_launch_worker(
+    namespace: str,
+    launch_id: int,
+    paths: list[str],
+    launch_count: int,
+    start_event,
+    result_queue,
+) -> None:
+    """Run the IPC portion of __main__ without creating GUI windows."""
+    os.environ["READER_IPC_NAMESPACE"] = namespace
+    app = QCoreApplication.instance() or QCoreApplication([])
+    seen: list[list[str]] = []
+    instance = SingleInstance()
+    start_event.wait()
+    is_primary = instance.become_server(seen.append)
+    result_queue.put(("role", launch_id, is_primary))
+    try:
+        if is_primary:
+            deadline = time.monotonic() + 15.0
+            seen.append(paths)
+            while len(seen) < launch_count and time.monotonic() < deadline:
+                app.processEvents()
+            result_queue.put(("seen", launch_id, seen))
+        else:
+            result_queue.put(("sent", launch_id, SingleInstance.send_paths(paths)))
+    finally:
+        instance.close()
 
 
 def test_server_name_is_v1(monkeypatch: pytest.MonkeyPatch):
@@ -100,6 +131,45 @@ def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyP
     assert created[0].wait_calls >= 3
 
 
+def test_send_paths_drains_bytes_queued_by_flush(monkeypatch: pytest.MonkeyPatch):
+    class FlushQueuesSocket:
+        def __init__(self) -> None:
+            self.pending = 0
+            self.wait_calls = 0
+            self.disconnected_with_pending = False
+
+        def connectToServer(self, _name: str) -> None:
+            return None
+
+        def waitForConnected(self, _ms: int) -> bool:
+            return True
+
+        def write(self, data: bytes) -> int:
+            return len(data)
+
+        def bytesToWrite(self) -> int:
+            return self.pending
+
+        def flush(self) -> None:
+            self.pending = ipc_module.POST_SEND_EVENT_PUMPS
+
+        def waitForBytesWritten(self, _ms: int) -> bool:
+            self.wait_calls += 1
+            self.pending -= 1
+            return True
+
+        def disconnectFromServer(self) -> None:
+            self.disconnected_with_pending = self.pending > 0
+
+    sock = FlushQueuesSocket()
+    monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
+
+    assert ipc_module.POST_SEND_EVENT_PUMPS == 3
+    assert SingleInstance.send_paths(["C:/tmp/flush.md"]) is True
+    assert sock.wait_calls == ipc_module.POST_SEND_EVENT_PUMPS
+    assert sock.disconnected_with_pending is False
+
+
 def test_send_paths_retries_transient_connect_failure(monkeypatch: pytest.MonkeyPatch):
     class FakeSocket:
         attempts = 0
@@ -125,10 +195,13 @@ def test_send_paths_retries_transient_connect_failure(monkeypatch: pytest.Monkey
         def disconnectFromServer(self) -> None:
             return None
 
+    sleeps: list[float] = []
     monkeypatch.setattr(ipc_module, "QLocalSocket", FakeSocket)
+    monkeypatch.setattr(ipc_module.time, "sleep", sleeps.append)
 
     assert SingleInstance.send_paths(["C:/tmp/retry.md"]) is True
     assert FakeSocket.attempts == 2
+    assert sleeps == [0.025]
 
 
 def test_rejects_active_instance_without_remove(monkeypatch: pytest.MonkeyPatch, tmp_path):
@@ -208,6 +281,98 @@ def test_e2e_chunked_frame(monkeypatch: pytest.MonkeyPatch, tmp_path):
         assert seen == [payload]
     finally:
         inst.close()
+
+
+def test_e2e_rapid_sequential_open_with_launches(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+):
+    _patch_unique_server(monkeypatch, tmp_path)
+    seen: list[list[str]] = []
+    inst = SingleInstance()
+    try:
+        assert inst.become_server(seen.append) is True
+        payloads = [
+            [f"C:/tmp/{index}-一.md", f"D:/batch/{index}-二.pptx"]
+            for index in range(8)
+        ]
+        for payload in payloads:
+            assert SingleInstance.send_paths(payload) is True
+        assert _wait_until(lambda: len(seen) == len(payloads), timeout_s=8.0)
+        assert seen == payloads
+    finally:
+        inst.close()
+
+
+def test_e2e_large_unicode_frame_is_one_atomic_batch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+):
+    _patch_unique_server(monkeypatch, tmp_path)
+    monkeypatch.setattr(ipc_module, "SEND_CHUNK_BYTES", 257)
+    seen: list[list[str]] = []
+    inst = SingleInstance()
+    try:
+        assert inst.become_server(seen.append) is True
+        payload = [
+            "C:/文档/🙂-" + ("长" * 80_000) + ".md",
+            "D:/演示/第二个参数.pptx",
+        ]
+        assert SingleInstance.send_paths(payload) is True
+        assert _wait_until(lambda: len(seen) == 1, timeout_s=8.0)
+        assert seen == [payload]
+    finally:
+        inst.close()
+
+
+def test_process_launch_race_has_one_primary_and_preserves_batches():
+    context = multiprocessing.get_context("spawn")
+    namespace = f"process-race-{uuid.uuid4().hex}"
+    start_event = context.Event()
+    result_queue = context.Queue()
+    payloads = [
+        [f"C:/launch/{index}-一.md", f"D:/launch/{index}-二.pptx"]
+        for index in range(6)
+    ]
+    processes = [
+        context.Process(
+            target=_concurrent_launch_worker,
+            args=(
+                namespace,
+                index,
+                payload,
+                len(payloads),
+                start_event,
+                result_queue,
+            ),
+        )
+        for index, payload in enumerate(payloads)
+    ]
+    try:
+        for process in processes:
+            process.start()
+        start_event.set()
+
+        messages = [
+            result_queue.get(timeout=20.0) for _ in range(len(payloads) * 2)
+        ]
+        for process in processes:
+            process.join(timeout=20.0)
+            assert process.exitcode == 0
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+            process.join(timeout=5.0)
+        result_queue.close()
+        result_queue.join_thread()
+
+    roles = [message for message in messages if message[0] == "role"]
+    sent = [message for message in messages if message[0] == "sent"]
+    deliveries = [message for message in messages if message[0] == "seen"]
+    assert sum(bool(message[2]) for message in roles) == 1
+    assert all(message[2] is True for message in sent)
+    assert len(deliveries) == 1
+    delivered_batches = deliveries[0][2]
+    assert sorted(delivered_batches) == sorted(payloads)
 
 
 def test_e2e_second_instance_not_hijack(monkeypatch: pytest.MonkeyPatch, tmp_path):

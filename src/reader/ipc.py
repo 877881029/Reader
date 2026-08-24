@@ -22,6 +22,7 @@ _READ_SLICE_TIMEOUT_MS = 100
 _READ_TOTAL_TIMEOUT_MS = 5000
 _HEADER_SIZE = 4
 SEND_CHUNK_BYTES: int | None = None
+POST_SEND_EVENT_PUMPS = 3
 
 
 def server_name() -> str:
@@ -201,20 +202,15 @@ class SingleInstance:
                 return False
             total_written += written
 
-        while sock.bytesToWrite() > 0:
-            app = QCoreApplication.instance()
-            if app is not None:
-                app.processEvents()
-            if not sock.waitForBytesWritten(_WRITE_TIMEOUT_MS):
-                if app is not None:
-                    app.processEvents()
-                if sock.bytesToWrite() == 0:
-                    break
-                sock.disconnectFromServer()
-                return False
-
         if hasattr(sock, "flush"):
             sock.flush()
+        for _ in range(POST_SEND_EVENT_PUMPS):
+            SingleInstance._pump_events()
+            if sock.bytesToWrite() == 0:
+                break
+            if not sock.waitForBytesWritten(_WRITE_TIMEOUT_MS):
+                sock.disconnectFromServer()
+                return False
         SingleInstance._pump_events()
         sock.disconnectFromServer()
         return True
