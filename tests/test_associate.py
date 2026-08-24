@@ -53,6 +53,22 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
     assert all(key.closed for key in wr.keys.values())
 
 
+def test_register_open_with_sets_default_icon_to_exe() -> None:
+    wr = FakeWinreg()
+    register_open_with(r"C:\Reader\Reader.exe", winreg_module=wr)
+
+    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == r"C:\Reader\Reader.exe"
+    assert wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None] == r'"C:\Reader\Reader.exe" "%1"'
+
+
+def test_register_open_with_formats_development_python_module_command() -> None:
+    wr = FakeWinreg()
+    register_open_with(r"C:\Python312\python.exe", args=("-m", "reader"), winreg_module=wr)
+
+    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == r"C:\Python312\python.exe"
+    assert wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None] == r'"C:\Python312\python.exe" -m reader "%1"'
+
+
 def test_register_open_with_propagates_errors() -> None:
     wr = FakeWinreg(fail_on_name=PROGID)
     with pytest.raises(OSError):
@@ -62,8 +78,10 @@ def test_register_open_with_propagates_errors() -> None:
 class FakeShortcut:
     def __init__(self) -> None:
         self.Targetpath = ""
+        self.Arguments = ""
         self.WorkingDirectory = ""
         self.Description = ""
+        self.IconLocation = ""
         self.saved = False
 
     def Save(self) -> None:
@@ -100,7 +118,9 @@ def test_create_desktop_shortcut_uses_known_location(monkeypatch, tmp_path: Path
     assert path == tmp_path / "KnownDesktop" / "Reader.lnk"
     shortcut = com.shell.shortcuts[0]
     assert shortcut.Targetpath == r"C:\Reader\reader.exe"
+    assert shortcut.Arguments == ""
     assert shortcut.WorkingDirectory == r"C:\Reader"
+    assert shortcut.IconLocation == r"C:\Reader\reader.exe"
     assert shortcut.Description == "Reader"
     assert shortcut.saved is True
 
@@ -117,3 +137,15 @@ def test_create_desktop_shortcut_falls_back_userprofile(monkeypatch, tmp_path: P
     )
 
     assert path == tmp_path / "Desktop" / "Reader App.lnk"
+
+
+def test_create_desktop_shortcut_sets_icon_location(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: tmp_path / "KnownDesktop")
+    com = FakeComModule()
+
+    create_desktop_shortcut(r"C:\Reader\Reader.exe", winshell_or_com=com)
+
+    shortcut = com.shell.shortcuts[0]
+    assert shortcut.Targetpath == r"C:\Reader\Reader.exe"
+    assert shortcut.WorkingDirectory == r"C:\Reader"
+    assert shortcut.IconLocation == r"C:\Reader\Reader.exe"

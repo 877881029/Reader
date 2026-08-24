@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from PySide6.QtNetwork import QLocalSocket
 from PySide6.QtWidgets import QApplication
@@ -19,10 +18,10 @@ def _server_running() -> bool:
     return connected
 
 
-def _launch_target() -> str:
+def _association_target() -> tuple[str, tuple[str, ...]]:
     if getattr(sys, "frozen", False):
-        return sys.executable
-    return str(Path(__file__).resolve().parents[2] / "scripts" / "reader.cmd")
+        return sys.executable, ()
+    return sys.executable, ("-m", "reader")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,9 +44,9 @@ def main(argv: list[str] | None = None) -> int:
         win.open_paths(files)
 
     try:
-        launch = _launch_target()
-        register_open_with(launch)
-        create_desktop_shortcut(launch)
+        exe, args = _association_target()
+        register_open_with(exe, args=args)
+        create_desktop_shortcut(exe, args=args, icon=exe)
     except Exception:
         pass
 

@@ -23,11 +23,17 @@ def _set_reg_sz(wr, path: str, name: str | None, value: str) -> None:
                 exit_fn(None, None, None)
 
 
-def register_open_with(exe: str, winreg_module=None) -> None:
+def _quote_arg(value: str) -> str:
+    return f'"{value}"' if " " in value else value
+
+
+def register_open_with(exe: str, *, args: tuple[str, ...] = (), winreg_module=None) -> None:
     import winreg as default_winreg
 
     wr = winreg_module or default_winreg
-    command = f'"{exe}" "%1"'
+    command_parts = [f'"{exe}"', *[_quote_arg(arg) for arg in args], '"%1"']
+    command = " ".join(command_parts)
+    _set_reg_sz(wr, r"Software\Classes\Reader.Document\DefaultIcon", None, exe)
     _set_reg_sz(wr, r"Software\Classes\Reader.Document\shell\open\command", None, command)
     for ext in EXTENSIONS:
         _set_reg_sz(wr, rf"Software\Classes\{ext}\OpenWithProgids", PROGID, "")
@@ -80,6 +86,9 @@ def _desktop_path() -> Path:
 def create_desktop_shortcut(
     exe: str,
     name: str = "Reader",
+    *,
+    args: tuple[str, ...] = (),
+    icon: str | None = None,
     winshell_or_com=None,
 ) -> Path:
     desktop = _desktop_path()
@@ -92,8 +101,10 @@ def create_desktop_shortcut(
     shell = winshell_or_com.Dispatch("WScript.Shell")
     shortcut = shell.CreateShortCut(str(shortcut_path))
     shortcut.Targetpath = exe
+    shortcut.Arguments = " ".join(_quote_arg(arg) for arg in args)
     shortcut.WorkingDirectory = str(Path(exe).parent)
     shortcut.Description = name
+    shortcut.IconLocation = icon or exe
     save = getattr(shortcut, "Save", None) or getattr(shortcut, "save")
     save()
     return shortcut_path
