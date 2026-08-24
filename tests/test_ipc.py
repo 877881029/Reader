@@ -17,6 +17,52 @@ from reader.ipc import SERVER_NAME, SingleInstance
 _app = QCoreApplication.instance() or QCoreApplication(sys.argv)
 
 
+@pytest.fixture(autouse=True)
+def _clear_ipc_namespace(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("READER_IPC_NAMESPACE", raising=False)
+
+
+class _DrainSocket:
+    def __init__(
+        self,
+        pending: int,
+        pending_after_wait: list[int],
+        wait_results: list[bool] | None = None,
+    ) -> None:
+        self.pending = pending
+        self.pending_after_wait = list(pending_after_wait)
+        self.wait_results = list(wait_results) if wait_results is not None else [True]
+        self.wait_calls = 0
+        self.disconnected_with_pending: bool | None = None
+
+    def connectToServer(self, _name: str) -> None:
+        return None
+
+    def waitForConnected(self, _ms: int) -> bool:
+        return True
+
+    def write(self, data: bytes) -> int:
+        return len(data)
+
+    def bytesToWrite(self) -> int:
+        return self.pending
+
+    def flush(self) -> None:
+        return None
+
+    def waitForBytesWritten(self, _ms: int) -> bool:
+        index = self.wait_calls
+        self.wait_calls += 1
+        if index < len(self.pending_after_wait):
+            self.pending = self.pending_after_wait[index]
+        if index < len(self.wait_results):
+            return self.wait_results[index]
+        return self.wait_results[-1]
+
+    def disconnectFromServer(self) -> None:
+        self.disconnected_with_pending = self.pending > 0
+
+
 def _concurrent_launch_worker(
     namespace: str,
     launch_id: int,
@@ -84,7 +130,7 @@ def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyP
         def __init__(self) -> None:
             self.connected = False
             self.write_calls: list[bytes] = []
-            self._bytes_pending = [9, 4, 1, 0]
+            self._bytes_pending = [9, 0]
             self.wait_calls = 0
 
         def connectToServer(self, _name: str) -> None:
@@ -128,45 +174,73 @@ def test_send_paths_waits_until_bytes_to_write_empty(monkeypatch: pytest.MonkeyP
     payload_len = struct.unpack(">I", frame[:4])[0]
     decoded = json.loads(frame[4 : 4 + payload_len].decode("utf-8"))
     assert decoded == payload
-    assert created[0].wait_calls >= 3
+    assert created[0].wait_calls == 1
 
 
-def test_send_paths_drains_bytes_queued_by_flush(monkeypatch: pytest.MonkeyPatch):
-    class FlushQueuesSocket:
-        def __init__(self) -> None:
-            self.pending = 0
-            self.wait_calls = 0
-            self.disconnected_with_pending = False
-
-        def connectToServer(self, _name: str) -> None:
-            return None
-
-        def waitForConnected(self, _ms: int) -> bool:
-            return True
-
-        def write(self, data: bytes) -> int:
-            return len(data)
-
-        def bytesToWrite(self) -> int:
-            return self.pending
-
-        def flush(self) -> None:
-            self.pending = ipc_module.POST_SEND_EVENT_PUMPS
-
-        def waitForBytesWritten(self, _ms: int) -> bool:
-            self.wait_calls += 1
-            self.pending -= 1
-            return True
-
-        def disconnectFromServer(self) -> None:
-            self.disconnected_with_pending = self.pending > 0
-
-    sock = FlushQueuesSocket()
+def test_send_paths_returns_false_when_flush_queue_stays_pending(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sock = _DrainSocket(pending=7, pending_after_wait=[])
     monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
 
-    assert ipc_module.POST_SEND_EVENT_PUMPS == 3
-    assert SingleInstance.send_paths(["C:/tmp/flush.md"]) is True
+    assert SingleInstance.send_paths(["C:/tmp/stuck.md"]) is False
     assert sock.wait_calls == ipc_module.POST_SEND_EVENT_PUMPS
+    assert sock.disconnected_with_pending is True
+
+
+def test_send_paths_succeeds_when_failed_wait_pumps_queue_empty(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sock = _DrainSocket(
+        pending=5,
+        pending_after_wait=[5],
+        wait_results=[False],
+    )
+    monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
+    monkeypatch.setattr(
+        SingleInstance,
+        "_pump_events",
+        staticmethod(
+            lambda: setattr(sock, "pending", 0) if sock.wait_calls > 0 else None
+        ),
+    )
+
+    assert SingleInstance.send_paths(["C:/tmp/late-empty.md"]) is True
+    assert sock.wait_calls == 1
+    assert sock.disconnected_with_pending is False
+
+
+def test_send_paths_drains_normal_multi_round_flush_queue(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sock = _DrainSocket(pending=8, pending_after_wait=[3, 0])
+    monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
+
+    assert SingleInstance.send_paths(["C:/tmp/multi-round.md"]) is True
+    assert sock.wait_calls == 2
+    assert sock.disconnected_with_pending is False
+
+
+def test_send_paths_bounds_repeated_zero_byte_writes(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class ZeroWriteSocket(_DrainSocket):
+        def __init__(self) -> None:
+            super().__init__(pending=0, pending_after_wait=[])
+            self.write_calls = 0
+
+        def write(self, _data: bytes) -> int:
+            self.write_calls += 1
+            return 0 if self.write_calls <= 100 else -1
+
+        def waitForBytesWritten(self, _ms: int) -> bool:
+            return True
+
+    sock = ZeroWriteSocket()
+    monkeypatch.setattr(ipc_module, "QLocalSocket", lambda: sock)
+
+    assert SingleInstance.send_paths(["C:/tmp/zero-write.md"]) is False
+    assert sock.write_calls <= 4
     assert sock.disconnected_with_pending is False
 
 
@@ -326,10 +400,15 @@ def test_e2e_large_unicode_frame_is_one_atomic_batch(
 def test_process_launch_race_has_one_primary_and_preserves_batches():
     context = multiprocessing.get_context("spawn")
     namespace = f"process-race-{uuid.uuid4().hex}"
+    lock_path = ipc_module.LOCK_DIR / f"{SERVER_NAME}.{namespace}.lock"
     start_event = context.Event()
     result_queue = context.Queue()
+    large_unicode = "长" * 80_000
     payloads = [
-        [f"C:/launch/{index}-一.md", f"D:/launch/{index}-二.pptx"]
+        [
+            f"C:/launch/{index}-🙂-{large_unicode}.md",
+            f"D:/launch/{index}-二.pptx",
+        ]
         for index in range(6)
     ]
     processes = [
@@ -346,31 +425,46 @@ def test_process_launch_race_has_one_primary_and_preserves_batches():
         )
         for index, payload in enumerate(payloads)
     ]
+    started_processes = []
     try:
         for process in processes:
             process.start()
+            started_processes.append(process)
         start_event.set()
 
         messages = [
             result_queue.get(timeout=20.0) for _ in range(len(payloads) * 2)
         ]
-        for process in processes:
+        for process in started_processes:
             process.join(timeout=20.0)
             assert process.exitcode == 0
     finally:
-        for process in processes:
+        for process in started_processes:
             if process.is_alive():
                 process.terminate()
             process.join(timeout=5.0)
-        result_queue.close()
-        result_queue.join_thread()
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=5.0)
+        try:
+            result_queue.cancel_join_thread()
+            result_queue.close()
+        finally:
+            lock_path.unlink(missing_ok=True)
 
+    assert len(messages) == 12
+    assert not lock_path.exists()
     roles = [message for message in messages if message[0] == "role"]
     sent = [message for message in messages if message[0] == "sent"]
     deliveries = [message for message in messages if message[0] == "seen"]
+    assert {message[0] for message in messages} == {"role", "sent", "seen"}
+    assert len(roles) == 6
+    assert len(sent) == 5
+    assert len(deliveries) == 1
+    assert {message[1] for message in roles} == set(range(6))
+    assert {message[1] for message in sent} | {deliveries[0][1]} == set(range(6))
     assert sum(bool(message[2]) for message in roles) == 1
     assert all(message[2] is True for message in sent)
-    assert len(deliveries) == 1
     delivered_batches = deliveries[0][2]
     assert sorted(delivered_batches) == sorted(payloads)
 

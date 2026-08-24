@@ -55,3 +55,58 @@
 - `tests/test_ipc.py`
 - `tests/test_window.py`
 - `.superpowers/sdd/task-8-report.md`
+
+## Important 审查修复（2026-08-24）
+
+### 旧报告纠正
+
+- 上文“确认队列排空后才断开”的表述对首版提交并不准确：首版循环达到三轮上限后，
+  即使 `bytesToWrite() > 0` 仍会断开并返回 `True`。
+- 上文约 240 KiB Unicode frame 的首版测试只在同一进程 Qt event loop 内发送，
+  不能证明 secondary process 的大帧传输。
+- 上文 cleanup 仅有 `terminate + join_thread`；它没有处理 terminate 后仍存活的进程，
+  且 `Queue.join_thread()` 没有时间上限。
+- 以下修复与验证结果取代这些旧结论。
+
+### 严格 RED
+
+命令：
+
+`python -m pytest tests/test_ipc.py::test_send_paths_returns_false_when_flush_queue_stays_pending tests/test_ipc.py::test_send_paths_succeeds_when_failed_wait_pumps_queue_empty tests/test_ipc.py::test_send_paths_drains_normal_multi_round_flush_queue tests/test_ipc.py::test_send_paths_bounds_repeated_zero_byte_writes -v`
+
+结果：`3 failed, 1 passed`。
+
+- pending 一直非零：错误返回 `True`。
+- `waitForBytesWritten(False)` 后 event pump 清空 pending：错误返回 `False`。
+- 连续 `write()==0`：调用 101 次才因 fake 返回 `-1` 退出，证明可无界空转。
+- 正常多轮归零用例已通过，作为既有正常路径的约束。
+
+### 修复语义
+
+- flush drain 每轮先检查 pending；仍有数据时执行 wait，随后 pump events，再次检查
+  pending。wait 返回值不覆盖真实队列状态。
+- 任意一轮观察到 `bytesToWrite() == 0` 才返回 `True`。
+- 达到 `POST_SEND_EVENT_PUMPS` 上限后 pending 仍非零，断开并返回 `False`。
+- 连续零字节 write 最多容忍 `MAX_CONSECUTIVE_ZERO_WRITES` 次；持续无进展或 wait
+  失败时断开并返回 `False`，正向 write 会重置计数。
+- 未加入可选 `MAX_FRAME_BYTES`：现有长度前缀协议保持兼容，240 KiB 回归不受影响。
+
+### 进程级大帧与确定性
+
+- 6 个 spawn launch 的每个 payload 都包含约 240 KiB Unicode/emoji 参数；
+  因而无论哪个成为 primary，其余 5 个 secondary 都必须跨进程发送大帧。
+- queue 结果严格断言恰好 `6 role / 5 sent / 1 seen`，拒绝未知消息类型，并验证
+  launch id 全集。
+- 批次内参数顺序与批次原子性完整保留；并发批次之间不假定全局顺序。
+- autouse fixture 在每个测试前清除 `READER_IPC_NAMESPACE`。
+- cleanup 顺序为 `join → terminate + join → kill + join`；queue 使用
+  `cancel_join_thread + close`，不再无界 `join_thread`；独立 namespace lock file
+  在 finally 中删除。
+
+### GREEN 与最终验证
+
+- 修复语义定向测试：`5 passed`。
+- 完整 IPC：`18 passed`。
+- 大帧进程竞选连续独立运行 3 次：每次均 `1 passed`。
+- 最终全量：`158 passed in 43.20s`。
+- IDE lint：修改文件无诊断。

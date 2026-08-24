@@ -23,6 +23,7 @@ _READ_TOTAL_TIMEOUT_MS = 5000
 _HEADER_SIZE = 4
 SEND_CHUNK_BYTES: int | None = None
 POST_SEND_EVENT_PUMPS = 3
+MAX_CONSECUTIVE_ZERO_WRITES = 3
 
 
 def server_name() -> str:
@@ -189,6 +190,7 @@ class SingleInstance:
         frame = struct.pack(">I", len(payload)) + payload
 
         total_written = 0
+        consecutive_zero_writes = 0
         while total_written < len(frame):
             remaining = frame[total_written:]
             if SEND_CHUNK_BYTES is not None and SEND_CHUNK_BYTES > 0:
@@ -197,20 +199,29 @@ class SingleInstance:
             if written < 0:
                 sock.disconnectFromServer()
                 return False
-            if written == 0 and not sock.waitForBytesWritten(_WRITE_TIMEOUT_MS):
-                sock.disconnectFromServer()
-                return False
+            if written == 0:
+                consecutive_zero_writes += 1
+                if consecutive_zero_writes > MAX_CONSECUTIVE_ZERO_WRITES:
+                    sock.disconnectFromServer()
+                    return False
+                if not sock.waitForBytesWritten(_WRITE_TIMEOUT_MS):
+                    sock.disconnectFromServer()
+                    return False
+                SingleInstance._pump_events()
+                continue
+            consecutive_zero_writes = 0
             total_written += written
 
         if hasattr(sock, "flush"):
             sock.flush()
         for _ in range(POST_SEND_EVENT_PUMPS):
+            if sock.bytesToWrite() == 0:
+                sock.disconnectFromServer()
+                return True
+            sock.waitForBytesWritten(_WRITE_TIMEOUT_MS)
             SingleInstance._pump_events()
             if sock.bytesToWrite() == 0:
-                break
-            if not sock.waitForBytesWritten(_WRITE_TIMEOUT_MS):
                 sock.disconnectFromServer()
-                return False
-        SingleInstance._pump_events()
+                return True
         sock.disconnectFromServer()
-        return True
+        return False
