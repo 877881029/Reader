@@ -18,7 +18,7 @@ This increment does not add dual pane, translation, or format conversion.
 
 ## 2. Non-goals
 
-- Changing system default apps (`UserChoice`)
+- Do not change system default apps (`UserChoice`).
 - PyInstaller onedir vs onefile debate beyond: use **one-folder** (`onedir`) for faster startup and WebEngine compatibility
 - macOS / Linux packaging
 - Remembering last window size (user chose fixed 1200×800)
@@ -29,7 +29,7 @@ This increment does not add dual pane, translation, or format conversion.
 Approved:
 
 - Default geometry: **1200×800**, centered on the primary screen. Minimum size 800×500 so it cannot collapse to a tiny chrome-only window.
-- Tab bar (right side): **+** creates a blank tab titled `未命名` (or `Untitled` if we keep Chinese UI: `未命名`). Blank tab shows a drop hint: “拖入文件，或使用 文件 → 打开”.
+- Tab bar (right side): **+** creates a blank tab titled `未命名`. Blank tab shows a drop hint: “拖入文件，或使用 文件 → 打开”.
 - **文件 → 打开** (Ctrl+O): native multi-select dialog filtered to `.docx .pptx .xlsx .md`. Each chosen file becomes a new tab.
 - Drag onto window, tab bar, or a blank tab: supported files append as new tabs. Dropping onto a **blank** tab replaces that blank tab with the first file; extra files still add new tabs.
 - Same resolved path already open in this window: focus existing tab, do not duplicate.
@@ -115,3 +115,4 @@ Provide `scripts/build_windows.ps1` that: create venv-or-use current, `pip insta
 - WebEngine + PyInstaller: must collect QtWebEngineProcess and resources or the viewer is blank.
 - Transparent ICO: Windows 11 taskbar sometimes composites poorly; keep a slightly thicker stroke.
 - Multi-file “Open with”: Windows may start N processes; IPC must accept rapid sequential connects.
+
