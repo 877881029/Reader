@@ -2,8 +2,8 @@
   <title>Reader rounded-ribbon R</title>
   <desc>Transparent field with saturated blue rounded uppercase R strokes.</desc>
   <g fill="none" stroke="#2563EB" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M72 216V40"/>
-    <path d="M72 40H142C180 40 204 62 204 95C204 128 180 150 142 150H72"/>
-    <path d="M138 150L204 216"/>
+    <path d="M72 216 L72 40"/>
+    <path d="M72 40 L140 40 C176 40 202 60 202 95 C202 130 176 150 140 150 L72 150"/>
+    <path d="M136 150 C150 152 166 164 178 178 C188 190 197 202 204 216"/>
   </g>
 </svg>
