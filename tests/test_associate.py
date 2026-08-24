@@ -87,6 +87,26 @@ def test_register_open_with_handles_program_files_and_quoted_percent1_suffix() -
     assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == f"{exe},0"
 
 
+def test_packaged_exe_registration_keeps_icons_and_commands_on_reader_exe() -> None:
+    wr = FakeWinreg()
+    exe = r"C:\Program Files\Reader\Reader.exe"
+
+    register_open_with(exe, winreg_module=wr)
+
+    progid_root = r"Software\Classes\Reader.Document"
+    assert wr.keys[rf"{progid_root}\DefaultIcon"].values[None] == f"{exe},0"
+    assert wr.keys[rf"{progid_root}\shell\open\command"].values[None] == (
+        subprocess.list2cmdline([exe]) + ' "%1"'
+    )
+    values = [
+        value
+        for key in wr.keys.values()
+        for value in key.values.values()
+    ]
+    assert all("reader.cmd" not in value.lower() for value in values)
+    assert all("UserChoice" not in path for path in wr.created)
+
+
 def test_register_open_with_propagates_errors() -> None:
     wr = FakeWinreg(fail_on_name=PROGID)
     with pytest.raises(OSError):

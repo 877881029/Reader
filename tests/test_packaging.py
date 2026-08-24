@@ -79,3 +79,16 @@ def test_packaging_smoke_can_disable_real_shell_integration() -> None:
     assert "if not _shell_integration_disabled():" in main
     assert "register_open_with(exe, args=args)" in main
     assert "create_desktop_shortcut(exe, args=args, icon=exe)" in main
+
+
+def test_windows_gui_smoke_is_isolated_multi_batch_and_self_cleaning() -> None:
+    script = (ROOT / "scripts" / "smoke_windows.ps1").read_text(encoding="utf-8")
+
+    assert "READER_SKIP_SHELL_INTEGRATION" in script
+    assert "READER_IPC_NAMESPACE" in script
+    assert "QTWEBENGINE_CHROMIUM_FLAGS" in script
+    assert script.count("Start-Process") >= 2
+    assert "MainWindowHandle" in script
+    assert "Get-CimInstance Win32_Process" in script
+    assert "Stop-Process" in script
+    assert "Reader GUI smoke passed" in script

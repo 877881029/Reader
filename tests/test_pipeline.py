@@ -51,6 +51,32 @@ def test_docx_defaults_to_builtin_without_office_call(tmp_path: Path):
     assert "builtin-default" in result.html
 
 
+@pytest.mark.parametrize("suffix", [".docx", ".pptx", ".xlsx"])
+def test_all_office_formats_are_builtin_first_without_any_com_probe(
+    tmp_path: Path, monkeypatch, suffix: str
+):
+    from reader.preview import pipeline
+
+    path = tmp_path / f"builtin-first{suffix}"
+    path.write_bytes(b"fixture")
+    office = FakeOffice(available=True)
+    monkeypatch.setitem(
+        pipeline._BUILTIN,
+        suffix,
+        lambda source: PreviewResult(
+            html=f"<p>builtin-{source.suffix}</p>",
+            status_label="内置预览",
+        ),
+    )
+
+    result = preview(path, office=office)
+
+    assert result.status_label == "内置预览"
+    assert f"builtin-{suffix}" in result.html
+    assert office.available_calls == []
+    assert office.calls == []
+
+
 def test_docx_explicit_office_mode_uses_export(tmp_path: Path):
     p = tmp_path / "a.docx"
     p.write_bytes(b"not-a-real-docx")

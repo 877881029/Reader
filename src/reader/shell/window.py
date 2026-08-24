@@ -612,9 +612,6 @@ class MainWindow(QMainWindow):
             rejected = ", ".join(path.name for path, _reason in decision.rejected)
             self.statusBar().showMessage(f"无法打开：{rejected}")
 
-        if decision.to_focus is not None:
-            self._focus(decision.to_focus)
-
         blank_index: int | None = None
         if replace_blank_page is not None:
             blank_index = self._blank_tab_index(preferred_page=replace_blank_page)
@@ -623,6 +620,8 @@ class MainWindow(QMainWindow):
         for index, path in enumerate(decision.to_open):
             reuse_index = blank_index if index == 0 else None
             self._start_preview(path, replace_tab_index=reuse_index)
+        if decision.to_focus is not None:
+            self._focus(decision.to_focus)
 
     def _focus(self, path: Path) -> None:
         for document in self._documents.values():

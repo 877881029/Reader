@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QMimeData, QPoint, QThread, QUrl
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QLabel
 
 from reader.preview.result import PreviewResult
@@ -785,6 +786,48 @@ def test_open_action_uses_multi_select_and_adds_tabs(qtbot, tmp_path: Path, monk
     assert window.tab_count() == 2
     assert window.tab_title(0) == "first.md"
     assert window.tab_title(1) == "second.md"
+
+
+def test_ux_packaging_regression_multi_open_duplicate_blank_and_office_failure(
+    qtbot, tmp_path: Path
+):
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.md"
+    first.write_bytes(b"x")
+    second.write_text("second", encoding="utf-8")
+
+    def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "office":
+            raise RuntimeError("COM failed")
+        return builtin_result(path.name)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    assert window.size().toTuple() == (1200, 800)
+    assert window.minimumSize().toTuple() == (800, 500)
+    assert window.actionOpen.shortcut().matches(
+        QKeySequence(QKeySequence.StandardKey.Open)
+    ) == QKeySequence.SequenceMatch.ExactMatch
+
+    window.actionNewTab.trigger()
+    window.open_paths([str(first), str(second), str(first)], replace_blank=True)
+    qtbot.waitUntil(lambda: window.tab_count() == 2)
+    qtbot.waitUntil(lambda: "first.docx" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+
+    assert window.tab_title(0) == "first.docx"
+    assert window.tab_title(1) == "second.md"
+    assert window.focus_path() == str(first.resolve())
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: "Office 导出失败" in window.status_text())
+    assert "first.docx" in page_text(window, 0)
 
 
 def test_duplicate_focuses_existing_tab(qtbot, tmp_path: Path):

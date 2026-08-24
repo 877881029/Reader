@@ -70,6 +70,21 @@ def test_ico_frames_are_decodable_and_match_key_pixels():
             _assert_key_pixels(frame, size)
 
 
+def test_png_and_ico_frames_retain_full_transparency_and_full_opacity():
+    images = []
+    for size in ICON_SIZES:
+        with Image.open(ICON_DIR / f"reader-{size}.png") as image:
+            images.append(image.convert("RGBA"))
+    with Image.open(ICON_DIR / "reader.ico") as icon:
+        images.extend(
+            icon.ico.getimage((size, size)).convert("RGBA")
+            for size in ICON_SIZES
+        )
+
+    for image in images:
+        assert image.getchannel("A").getextrema() == (0, 255)
+
+
 def test_svg_and_generator_share_same_contour_paths():
     module = _load_generator_module()
     assert hasattr(module, "R_PATHS")
