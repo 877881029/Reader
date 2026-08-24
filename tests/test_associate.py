@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -49,7 +50,7 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
     assert command_path in wr.created
     for ext in EXTENSIONS:
         assert rf"Software\Classes\{ext}\OpenWithProgids" in wr.created
-    assert wr.keys[command_path].values[None] == r'"C:\Reader\reader.exe" "%1"'
+    assert wr.keys[command_path].values[None] == subprocess.list2cmdline([r"C:\Reader\reader.exe"]) + ' "%1"'
     assert all(key.closed for key in wr.keys.values())
 
 
@@ -57,16 +58,33 @@ def test_register_open_with_sets_default_icon_to_exe() -> None:
     wr = FakeWinreg()
     register_open_with(r"C:\Reader\Reader.exe", winreg_module=wr)
 
-    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == r"C:\Reader\Reader.exe"
-    assert wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None] == r'"C:\Reader\Reader.exe" "%1"'
+    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == r"C:\Reader\Reader.exe,0"
+    assert wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None] == (
+        subprocess.list2cmdline([r"C:\Reader\Reader.exe"]) + ' "%1"'
+    )
 
 
 def test_register_open_with_formats_development_python_module_command() -> None:
     wr = FakeWinreg()
     register_open_with(r"C:\Python312\python.exe", args=("-m", "reader"), winreg_module=wr)
 
-    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == r"C:\Python312\python.exe"
-    assert wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None] == r'"C:\Python312\python.exe" -m reader "%1"'
+    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == r"C:\Python312\python.exe,0"
+    assert wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None] == (
+        subprocess.list2cmdline([r"C:\Python312\python.exe", "-m", "reader"]) + ' "%1"'
+    )
+
+
+def test_register_open_with_handles_program_files_and_quoted_percent1_suffix() -> None:
+    wr = FakeWinreg()
+    exe = r"C:\Program Files\Reader\Reader.exe"
+    args = ("-m", "reader", "--name=space value", "tab\tvalue", 'say "hi"', r"trail\\")
+
+    register_open_with(exe, args=args, winreg_module=wr)
+
+    command = wr.keys[r"Software\Classes\Reader.Document\shell\open\command"].values[None]
+    assert command == subprocess.list2cmdline([exe, *args]) + ' "%1"'
+    assert command.endswith(' "%1"')
+    assert wr.keys[r"Software\Classes\Reader.Document\DefaultIcon"].values[None] == f"{exe},0"
 
 
 def test_register_open_with_propagates_errors() -> None:
@@ -120,7 +138,7 @@ def test_create_desktop_shortcut_uses_known_location(monkeypatch, tmp_path: Path
     assert shortcut.Targetpath == r"C:\Reader\reader.exe"
     assert shortcut.Arguments == ""
     assert shortcut.WorkingDirectory == r"C:\Reader"
-    assert shortcut.IconLocation == r"C:\Reader\reader.exe"
+    assert shortcut.IconLocation == r"C:\Reader\reader.exe,0"
     assert shortcut.Description == "Reader"
     assert shortcut.saved is True
 
@@ -148,4 +166,18 @@ def test_create_desktop_shortcut_sets_icon_location(monkeypatch, tmp_path: Path)
     shortcut = com.shell.shortcuts[0]
     assert shortcut.Targetpath == r"C:\Reader\Reader.exe"
     assert shortcut.WorkingDirectory == r"C:\Reader"
-    assert shortcut.IconLocation == r"C:\Reader\Reader.exe"
+    assert shortcut.IconLocation == r"C:\Reader\Reader.exe,0"
+
+
+def test_create_desktop_shortcut_uses_list2cmdline_for_arguments(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: tmp_path / "KnownDesktop")
+    com = FakeComModule()
+    exe = r"C:\Program Files\Reader\Reader.exe"
+    args = ("-m", "reader", "--name=space value", "tab\tvalue", 'say "hi"', r"trail\\")
+
+    create_desktop_shortcut(exe, args=args, winshell_or_com=com)
+
+    shortcut = com.shell.shortcuts[0]
+    assert shortcut.Targetpath == exe
+    assert shortcut.Arguments == subprocess.list2cmdline(list(args))
+    assert shortcut.IconLocation == f"{exe},0"

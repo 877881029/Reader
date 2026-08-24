@@ -50,3 +50,38 @@
 - [x] tests 使用 fake winreg/shortcut
 - [x] 首次运行幂等，错误不阻断 app
 - [x] 开发态测试可运行
+
+---
+
+## Blocker/Major 修复追加
+
+### 修复项
+
+- `DefaultIcon` 改为精确 `f"{exe},0"`。
+- registry command 改为 `subprocess.list2cmdline([exe, *args]) + ' "%1"'`，并确保 `%1` 作为 literal suffix，始终双引号，不交给 `list2cmdline`。
+- shortcut `Arguments` 改为 `subprocess.list2cmdline(list(args))`，无 `args` 时为空串。
+- shortcut `IconLocation` 统一为 `exe,0`（若传入 `icon` 且无索引，也补 `,0`）。
+- 保持签名兼容：
+  - `register_open_with(exe, winreg_module=None, *, args=())`
+  - `create_desktop_shortcut(exe, name="Reader", winshell_or_com=None, *, args=(), icon=None)`
+
+### RED 测试补充
+
+- 新增覆盖 `Program Files` 路径。
+- 新增 `args` 特殊字符：空格、tab、引号、尾反斜杠。
+- 期望值使用 `subprocess.list2cmdline` 作为 oracle。
+- 明确断言 command 以 ` "%1"` 结尾。
+- 明确断言 `DefaultIcon` 为 `,0`。
+- 明确断言 dev `Arguments` 为 `-m reader`，`IconLocation` 为 `exe,0`。
+
+### 验证结果
+
+- RED：
+  - `python -m pytest tests/test_associate.py -v`
+  - 结果：7 failed（符合预期，修复前失败）
+- GREEN（聚焦）：
+  - `python -m pytest tests/test_associate.py tests/test_main_launch.py -v`
+  - 结果：11 passed
+- 全量：
+  - `python -m pytest -q`
+  - 结果：132 passed
