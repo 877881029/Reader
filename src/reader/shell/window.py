@@ -9,13 +9,16 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QIcon
+from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
     QStatusBar,
     QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -314,11 +317,24 @@ class MainWindow(QMainWindow):
         self._tabs.tabCloseRequested.connect(self.close_tab)
         self.setCentralWidget(self._tabs)
         self.setStatusBar(QStatusBar())
+        self._tabs.setCornerWidget(self._build_tab_controls(), Qt.Corner.TopRightCorner)
+
+        file_menu = self.menuBar().addMenu("文件")
+        self.actionOpen = QAction("打开", self)
+        self.actionOpen.setObjectName("actionOpen")
+        self.actionOpen.setShortcut(QKeySequence.StandardKey.Open)
+        self.actionOpen.triggered.connect(self._open_dialog)
+        file_menu.addAction(self.actionOpen)
+
+        self.actionNewTab = QAction("+", self)
+        self.actionNewTab.setObjectName("actionNewTab")
+        self.actionNewTab.triggered.connect(self.add_blank_tab)
+        file_menu.addAction(self.actionNewTab)
 
         self.actionNewWindow = QAction("新建窗口", self)
         self.actionNewWindow.setObjectName("actionNewWindow")
         self.actionNewWindow.triggered.connect(self._spawn)
-        self.menuBar().addMenu("文件").addAction(self.actionNewWindow)
+        file_menu.addAction(self.actionNewWindow)
 
     def center_on_screen(self, offset: int = 0) -> None:
         screen = self.screen() or QApplication.primaryScreen()
@@ -333,6 +349,25 @@ class MainWindow(QMainWindow):
     def _spawn(self) -> None:
         if self._on_new_window is not None:
             self._on_new_window()
+
+    def _build_tab_controls(self) -> QWidget:
+        controls = QWidget(self)
+        layout = QHBoxLayout(controls)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        open_button = QToolButton(controls)
+        open_button.setText("打开")
+        open_button.setObjectName("tabOpenButton")
+        open_button.clicked.connect(self._open_dialog)
+        layout.addWidget(open_button)
+
+        add_button = QToolButton(controls)
+        add_button.setText("+")
+        add_button.setObjectName("tabNewButton")
+        add_button.clicked.connect(self.add_blank_tab)
+        layout.addWidget(add_button)
+        return controls
 
     def tab_count(self) -> int:
         return self._tabs.count()
@@ -365,7 +400,35 @@ class MainWindow(QMainWindow):
         self._tabs.removeTab(index)
         page.deleteLater()
 
-    def open_paths(self, paths: list[str]) -> None:
+    def _blank_tab_index(self) -> int | None:
+        for index in range(self._tabs.count()):
+            page = self._tabs.widget(index)
+            if page is not None and page.property("readerBlankTab") is True:
+                return index
+        return None
+
+    def add_blank_tab(self) -> None:
+        page = QWidget()
+        page.setProperty("readerBlankTab", True)
+        layout = QVBoxLayout(page)
+        hint = QLabel("拖入文件，或使用 文件 → 打开")
+        hint.setObjectName("blankDropHint")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(hint)
+        self._tabs.addTab(page, "未命名")
+        self._tabs.setCurrentWidget(page)
+
+    def _open_dialog(self) -> None:
+        paths, _selected_filter = QFileDialog.getOpenFileNames(
+            self,
+            "打开",
+            "",
+            "Documents (*.docx *.pptx *.xlsx *.md)",
+        )
+        if paths:
+            self.open_paths([str(path) for path in paths])
+
+    def open_paths(self, paths: list[str], *, replace_blank: bool = False) -> None:
         existing = [document.path for document in self._documents.values()]
         decision = decide_open(existing, [Path(path) for path in paths])
 
@@ -376,8 +439,10 @@ class MainWindow(QMainWindow):
         if decision.to_focus is not None:
             self._focus(decision.to_focus)
 
-        for path in decision.to_open:
-            self._start_preview(path)
+        blank_index = self._blank_tab_index() if replace_blank else None
+        for index, path in enumerate(decision.to_open):
+            reuse_index = blank_index if index == 0 else None
+            self._start_preview(path, replace_tab_index=reuse_index)
 
     def _focus(self, path: Path) -> None:
         for document in self._documents.values():
@@ -385,7 +450,7 @@ class MainWindow(QMainWindow):
                 self._tabs.setCurrentWidget(document.page)
                 return
 
-    def _start_preview(self, path: Path) -> None:
+    def _start_preview(self, path: Path, *, replace_tab_index: int | None = None) -> None:
         document_id = uuid4().hex
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -394,7 +459,14 @@ class MainWindow(QMainWindow):
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(loading)
         self._documents[document_id] = _Document(path=path, page=page)
-        self._tabs.addTab(page, path.name)
+        if replace_tab_index is None:
+            self._tabs.addTab(page, path.name)
+        else:
+            old_page = self._tabs.widget(replace_tab_index)
+            self._tabs.removeTab(replace_tab_index)
+            if old_page is not None:
+                old_page.deleteLater()
+            self._tabs.insertTab(replace_tab_index, page, path.name)
         self._tabs.setCurrentWidget(page)
         self.statusBar().showMessage("正在加载…")
         self._executor.submit(
@@ -494,7 +566,12 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event: QDropEvent) -> None:
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         if paths:
-            self.open_paths(paths)
+            current = self._tabs.currentWidget()
+            self.open_paths(
+                paths,
+                replace_blank=current is not None
+                and current.property("readerBlankTab") is True,
+            )
             event.acceptProposedAction()
 
 

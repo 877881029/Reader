@@ -194,6 +194,37 @@ def test_unsupported_is_nonblocking_and_does_not_add_tab(qtbot, tmp_path: Path):
     assert "x.pdf" in window.status_text()
 
 
+def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
+    window = make_window(lambda _path, office=None: builtin_result())
+    qtbot.addWidget(window)
+
+    window.actionNewTab.trigger()
+
+    assert window.tab_count() == 1
+    assert window.tab_title(0) == "未命名"
+    assert "拖入文件，或使用 文件 → 打开" in page_text(window, 0)
+    assert window.focus_path() is None
+
+
+def test_open_action_uses_multi_select_and_adds_tabs(qtbot, tmp_path: Path, monkeypatch):
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+    first.write_text("1", encoding="utf-8")
+    second.write_text("2", encoding="utf-8")
+    window = make_window(lambda path, office=None: builtin_result(path.name))
+    qtbot.addWidget(window)
+    monkeypatch.setattr(
+        "reader.shell.window.QFileDialog.getOpenFileNames",
+        lambda *_args, **_kwargs: ([str(first), str(second)], "Documents"),
+    )
+
+    window.actionOpen.trigger()
+
+    assert window.tab_count() == 2
+    assert window.tab_title(0) == "first.md"
+    assert window.tab_title(1) == "second.md"
+
+
 def test_duplicate_focuses_existing_tab(qtbot, tmp_path: Path):
     first = tmp_path / "first.md"
     second = tmp_path / "second.md"
@@ -269,7 +300,7 @@ def test_close_last_tab_keeps_visible_empty_window(qtbot, tmp_path: Path):
 
     assert window.tab_count() == 0
     assert window.isVisible()
-    assert window.tab_title(0) == ""
+    assert window.focus_path() is None
 
 
 def test_new_window_action_and_single_ipc_owner(reader_app):
@@ -845,6 +876,37 @@ def test_drop_opens_multiple_local_files(qtbot, tmp_path: Path):
 
     assert window.tab_count() == 2
     assert event.accepted is True
+
+
+def test_drop_on_blank_replaces_first_file_and_appends_extra(qtbot, tmp_path: Path):
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+    first.write_text("1", encoding="utf-8")
+    second.write_text("2", encoding="utf-8")
+    window = make_window(lambda path, office=None: builtin_result(path.name))
+    qtbot.addWidget(window)
+    window.add_blank_tab()
+
+    window.open_paths([str(first), str(second)], replace_blank=True)
+
+    assert window.tab_count() == 2
+    assert window.tab_title(0) == "first.md"
+    assert window.tab_title(1) == "second.md"
+    assert "拖入文件" not in page_text(window, 0)
+
+
+def test_unsupported_drop_keeps_blank_tab(qtbot, tmp_path: Path):
+    unsupported = tmp_path / "bad.pdf"
+    unsupported.write_bytes(b"%PDF")
+    window = make_window(lambda _path, office=None: builtin_result())
+    qtbot.addWidget(window)
+    window.add_blank_tab()
+
+    window.open_paths([str(unsupported)], replace_blank=True)
+
+    assert window.tab_count() == 1
+    assert window.tab_title(0) == "未命名"
+    assert "无法打开" in window.status_text()
 
 
 def test_app_user_model_id_is_safe_off_windows(monkeypatch):
