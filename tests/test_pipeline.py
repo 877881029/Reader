@@ -33,11 +33,25 @@ def test_md_never_uses_office(tmp_path: Path):
     assert "Z" in result.html
 
 
-def test_docx_uses_office_when_available(tmp_path: Path):
+def test_docx_defaults_to_builtin_without_office_call(tmp_path: Path):
+    from docx import Document
+
+    p = tmp_path / "a.docx"
+    d = Document()
+    d.add_paragraph("builtin-default")
+    d.save(p)
+    office = FakeOffice(available=True)
+    result = preview(p, office=office)
+    assert office.calls == []
+    assert result.status_label == "内置预览"
+    assert "builtin-default" in result.html
+
+
+def test_docx_explicit_office_mode_uses_export(tmp_path: Path):
     p = tmp_path / "a.docx"
     p.write_bytes(b"not-a-real-docx")
     office = FakeOffice(available=True)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
     assert office.calls == [p]
     assert result.status_label == "Office 预览"
     assert "office" in result.html
@@ -51,7 +65,7 @@ def test_docx_falls_back_when_office_missing(tmp_path: Path):
     d.add_paragraph("fallback-body")
     d.save(p)
     office = FakeOffice(available=False)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
     assert office.calls == []
     assert result.status_label == "内置预览"
     assert "fallback-body" in result.html
@@ -65,7 +79,7 @@ def test_docx_falls_back_when_export_raises(tmp_path: Path):
     d.add_paragraph("after-com-fail")
     d.save(p)
     office = FakeOffice(available=True, boom=True)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
     assert result.status_label == "内置预览"
     assert "after-com-fail" in result.html
 
@@ -74,7 +88,7 @@ def test_pptx_uses_office_when_available(tmp_path: Path):
     p = tmp_path / "a.pptx"
     p.write_bytes(b"not-a-real-pptx")
     office = FakeOffice(available=True)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
     assert office.calls == [p]
     assert result.status_label == "Office 预览"
     assert "office" in result.html
@@ -84,7 +98,7 @@ def test_xlsx_uses_office_when_available(tmp_path: Path):
     p = tmp_path / "a.xlsx"
     p.write_bytes(b"not-a-real-xlsx")
     office = FakeOffice(available=True)
-    result = preview(p, office=office)
+    result = preview(p, office=office, mode="office")
     assert office.calls == [p]
     assert result.status_label == "Office 预览"
     assert "office" in result.html

@@ -100,7 +100,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     worker_thread_ids: list[int] = []
     viewer_thread_ids: list[QThread] = []
 
-    def blocked_preview(_path: Path, office=None) -> PreviewResult:
+    def blocked_preview(_path: Path, office=None, mode="builtin") -> PreviewResult:
         worker_thread_ids.append(threading.get_ident())
         started.set()
         assert release.wait(10)
@@ -151,7 +151,7 @@ def test_cache_hit_skips_preview_and_cache_miss_puts(qtbot, tmp_path: Path):
     miss_cache = FakeCache()
     preview_calls: list[Path] = []
 
-    def preview_fn(path: Path, office=None) -> PreviewResult:
+    def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
         preview_calls.append(path)
         return builtin_result("generated")
 
@@ -165,14 +165,35 @@ def test_cache_hit_skips_preview_and_cache_miss_puts(qtbot, tmp_path: Path):
     qtbot.waitUntil(lambda: "cached" in page_text(hit_window, 0))
     qtbot.waitUntil(lambda: "generated" in page_text(miss_window, 0))
     assert preview_calls == [miss_path.resolve()]
-    assert hit_cache.calls == [("get", hit_path.resolve(), "auto")]
+    assert hit_cache.calls == [("get", hit_path.resolve(), "builtin")]
     assert [call[0] for call in miss_cache.calls] == ["get", "put"]
+
+
+def test_window_builtin_load_uses_builtin_cache_strategy(qtbot, tmp_path: Path):
+    path = tmp_path / "office.docx"
+    path.write_bytes(b"x")
+    cache = FakeCache()
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        assert mode == "builtin"
+        return builtin_result("builtin")
+
+    window = make_window(preview_fn, cache)
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    assert ("get", path.resolve(), "builtin") in cache.calls
 
 
 def test_cache_failure_does_not_block_preview(qtbot, tmp_path: Path):
     path = tmp_path / "cache-fault.md"
     path.write_text("x", encoding="utf-8")
-    window = make_window(lambda _path, office=None: builtin_result("uncached"), FakeCache(fail=True))
+    window = make_window(
+        lambda _path, office=None, mode="builtin": builtin_result("uncached"),
+        FakeCache(fail=True),
+    )
     qtbot.addWidget(window)
 
     window.open_paths([str(path)])
@@ -184,7 +205,7 @@ def test_cache_failure_does_not_block_preview(qtbot, tmp_path: Path):
 def test_unsupported_is_nonblocking_and_does_not_add_tab(qtbot, tmp_path: Path):
     path = tmp_path / "x.pdf"
     path.write_bytes(b"%PDF")
-    window = make_window(lambda _path, office=None: builtin_result())
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
 
     window.open_paths([str(path)])
@@ -195,7 +216,7 @@ def test_unsupported_is_nonblocking_and_does_not_add_tab(qtbot, tmp_path: Path):
 
 
 def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
-    window = make_window(lambda _path, office=None: builtin_result())
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
 
     window.actionNewTab.trigger()
@@ -211,7 +232,7 @@ def test_open_action_uses_multi_select_and_adds_tabs(qtbot, tmp_path: Path, monk
     second = tmp_path / "second.md"
     first.write_text("1", encoding="utf-8")
     second.write_text("2", encoding="utf-8")
-    window = make_window(lambda path, office=None: builtin_result(path.name))
+    window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     monkeypatch.setattr(
         "reader.shell.window.QFileDialog.getOpenFileNames",
@@ -230,7 +251,7 @@ def test_duplicate_focuses_existing_tab(qtbot, tmp_path: Path):
     second = tmp_path / "second.md"
     first.write_text("1", encoding="utf-8")
     second.write_text("2", encoding="utf-8")
-    window = make_window(lambda path, office=None: builtin_result(path.name))
+    window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     window.open_paths([str(first), str(second)])
     qtbot.waitUntil(lambda: "second.md" in page_text(window, 1))
@@ -248,7 +269,7 @@ def test_late_result_after_close_cannot_overwrite_shifted_tab(qtbot, tmp_path: P
     fast.write_text("fast", encoding="utf-8")
     release = threading.Event()
 
-    def preview_fn(path: Path, office=None) -> PreviewResult:
+    def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
         if path == slow.resolve():
             assert release.wait(3)
             return builtin_result("LATE")
@@ -274,7 +295,7 @@ def test_preview_error_only_changes_its_own_tab(qtbot, tmp_path: Path):
     bad.write_text("bad", encoding="utf-8")
     good.write_text("good", encoding="utf-8")
 
-    def preview_fn(path: Path, office=None) -> PreviewResult:
+    def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
         if path == bad.resolve():
             raise ValueError("broken parser")
         return builtin_result("GOOD")
@@ -291,7 +312,7 @@ def test_preview_error_only_changes_its_own_tab(qtbot, tmp_path: Path):
 def test_close_last_tab_keeps_visible_empty_window(qtbot, tmp_path: Path):
     path = tmp_path / "one.md"
     path.write_text("one", encoding="utf-8")
-    window = make_window(lambda _path, office=None: builtin_result())
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
     window.show()
     window.open_paths([str(path)])
@@ -430,12 +451,12 @@ def test_shared_executor_delivers_each_result_only_to_owner_window(
     release_first = threading.Event()
     pinned: list[Path] = []
 
-    def first_preview(_path: Path, office=None) -> PreviewResult:
+    def first_preview(_path: Path, office=None, mode="builtin") -> PreviewResult:
         first_started.set()
         assert release_first.wait(3)
         return builtin_result("WINDOW ONE")
 
-    def second_preview(_path: Path, office=None) -> PreviewResult:
+    def second_preview(_path: Path, office=None, mode="builtin") -> PreviewResult:
         return PreviewResult(
             html="",
             status_label="Office 预览",
@@ -478,7 +499,7 @@ def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
     path = tmp_path / "ipc.md"
     path.write_text("ipc", encoding="utf-8")
     window = app.new_window()
-    window._preview_fn = lambda _path, office=None: builtin_result("IPC")
+    window._preview_fn = lambda _path, office=None, mode="builtin": builtin_result("IPC")
     window._viewer_factory = label_viewer
     window._cache_factory = FakeCache
 
@@ -557,7 +578,7 @@ def test_viewer_receives_source_path_and_html_base(qtbot, tmp_path: Path):
         asset_dir=assets,
     )
     window = MainWindow(
-        preview_fn=lambda _path, office=None: result,
+        preview_fn=lambda _path, office=None, mode="builtin": result,
         cache_factory=FakeCache,
         viewer_factory=viewer,
     )
@@ -597,7 +618,7 @@ def test_pdf_is_pinned_until_tab_closes(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 
     window = MainWindow(
-        preview_fn=lambda _path, office=None: pytest.fail("cache hit must skip preview"),
+        preview_fn=lambda _path, office=None, mode="builtin": pytest.fail("cache hit must skip preview"),
         cache_factory=lambda: cache,
         viewer_factory=viewer,
     )
@@ -632,7 +653,7 @@ def test_pdf_pin_consumes_owned_office_temp_dir(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 
     window = MainWindow(
-        preview_fn=lambda _path, office=None: PreviewResult(
+        preview_fn=lambda _path, office=None, mode="builtin": PreviewResult(
             html="",
             status_label="Office 预览",
             kind="pdf",
@@ -660,7 +681,7 @@ def test_failed_pdf_pin_cleans_owned_office_temp_dir(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 
     window = MainWindow(
-        preview_fn=lambda _path, office=None: PreviewResult(
+        preview_fn=lambda _path, office=None, mode="builtin": PreviewResult(
             html="",
             status_label="Office 预览",
             kind="pdf",
@@ -693,7 +714,7 @@ def test_window_close_cleans_loaded_pdf_pin(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 
     window = MainWindow(
-        preview_fn=lambda _path, office=None: pytest.fail("cache hit must skip preview"),
+        preview_fn=lambda _path, office=None, mode="builtin": pytest.fail("cache hit must skip preview"),
         cache_factory=lambda: FakeCache(
             hit=PreviewResult(
                 html="",
@@ -734,7 +755,7 @@ def test_viewer_reentrancy_close_discards_widget_and_artifact(qtbot, tmp_path: P
     from reader.shell.window import MainWindow
 
     window = MainWindow(
-        preview_fn=lambda _path, office=None: pytest.fail("cache hit must skip preview"),
+        preview_fn=lambda _path, office=None, mode="builtin": pytest.fail("cache hit must skip preview"),
         cache_factory=lambda: cache,
         viewer_factory=closing_viewer,
     )
@@ -755,7 +776,7 @@ def test_close_window_while_preview_runs_discards_late_result(qapp, qtbot, tmp_p
     release = threading.Event()
     viewer_calls: list[Path] = []
 
-    def preview_fn(_path: Path, office=None) -> PreviewResult:
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
         started.set()
         assert release.wait(3)
         return builtin_result("late")
@@ -798,7 +819,7 @@ def test_error_result_uses_label_without_viewer(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 
     window = MainWindow(
-        preview_fn=lambda _path, office=None: PreviewResult(
+        preview_fn=lambda _path, office=None, mode="builtin": PreviewResult(
             html="",
             status_label="预览失败",
             kind="error",
@@ -820,7 +841,7 @@ def test_missing_worker_output_becomes_target_tab_error(qtbot, tmp_path: Path):
     started = threading.Event()
     release = threading.Event()
 
-    def blocked_preview(_path: Path, office=None) -> PreviewResult:
+    def blocked_preview(_path: Path, office=None, mode="builtin") -> PreviewResult:
         started.set()
         assert release.wait(3)
         return builtin_result()
@@ -859,7 +880,7 @@ def test_drop_opens_multiple_local_files(qtbot, tmp_path: Path):
     second = tmp_path / "second.md"
     first.write_text("1", encoding="utf-8")
     second.write_text("2", encoding="utf-8")
-    window = make_window(lambda path, office=None: builtin_result(path.name))
+    window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(first)), QUrl.fromLocalFile(str(second))])
@@ -883,7 +904,7 @@ def test_drop_on_blank_replaces_first_file_and_appends_extra(qtbot, tmp_path: Pa
     second = tmp_path / "second.md"
     first.write_text("1", encoding="utf-8")
     second.write_text("2", encoding="utf-8")
-    window = make_window(lambda path, office=None: builtin_result(path.name))
+    window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     window.add_blank_tab()
 
@@ -900,7 +921,7 @@ def test_drop_on_current_second_blank_replaces_current_not_first(qtbot, tmp_path
     second = tmp_path / "second.md"
     first.write_text("1", encoding="utf-8")
     second.write_text("2", encoding="utf-8")
-    window = make_window(lambda path, office=None: builtin_result(path.name))
+    window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     window.add_blank_tab()
     window.add_blank_tab()
@@ -937,7 +958,7 @@ def test_drop_on_current_second_blank_replaces_current_not_first(qtbot, tmp_path
 def test_unsupported_drop_keeps_blank_tab(qtbot, tmp_path: Path):
     unsupported = tmp_path / "bad.pdf"
     unsupported.write_bytes(b"%PDF")
-    window = make_window(lambda _path, office=None: builtin_result())
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
     window.add_blank_tab()
 

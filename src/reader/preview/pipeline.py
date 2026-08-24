@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from reader.formats import docx as fmt_docx
 from reader.formats import md as fmt_md
@@ -22,10 +22,23 @@ class OfficeBackend(Protocol):
     def export(self, path: Path) -> PreviewResult: ...
 
 
-def preview(path: Path, office: OfficeBackend | None = None) -> PreviewResult:
+PreviewMode = Literal["builtin", "office"]
+
+
+def preview(
+    path: Path,
+    office: OfficeBackend | None = None,
+    *,
+    mode: PreviewMode = "builtin",
+) -> PreviewResult:
     path = Path(path)
     suffix = sniff(path)
-    if suffix != ".md" and office is not None and office.available_for(suffix):
+    if (
+        mode == "office"
+        and suffix != ".md"
+        and office is not None
+        and office.available_for(suffix)
+    ):
         try:
             return office.export(path)
         except Exception:

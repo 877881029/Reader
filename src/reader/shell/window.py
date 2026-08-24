@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 from reader.open import decide_open
 from reader.preview.cache import PreviewCache
 from reader.preview.office import Win32OfficeBackend
-from reader.preview.pipeline import preview
+from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 
 PreviewFunction = Callable[..., PreviewResult]
@@ -88,6 +88,7 @@ class _PreviewWorker(QRunnable):
         office: Win32OfficeBackend,
         cache_factory: CacheFactory,
         signals: _WorkerSignals,
+        mode: PreviewMode,
     ) -> None:
         super().__init__()
         self.setAutoDelete(False)
@@ -97,6 +98,7 @@ class _PreviewWorker(QRunnable):
         self.office = office
         self.cache_factory = cache_factory
         self.signals = signals
+        self.mode = mode
 
     @Slot()
     def run(self) -> None:
@@ -105,15 +107,15 @@ class _PreviewWorker(QRunnable):
             cache: PreviewCache | None
             try:
                 cache = self.cache_factory()
-                result = cache.get(self.path, "auto")
+                result = cache.get(self.path, self.mode)
             except Exception:
                 cache = None
 
             if result is None:
-                result = self.preview_fn(self.path, office=self.office)
+                result = self.preview_fn(self.path, office=self.office, mode=self.mode)
                 if cache is not None:
                     try:
-                        cache.put(self.path, "auto", result)
+                        cache.put(self.path, self.mode, result)
                     except Exception:
                         pass
             output = _pin_pdf(result)
@@ -150,6 +152,7 @@ class PreviewExecutor(QObject):
         preview_fn: PreviewFunction,
         office: Win32OfficeBackend,
         cache_factory: CacheFactory,
+        mode: PreviewMode = "builtin",
     ) -> None:
         signals = _WorkerSignals(self)
         worker = _PreviewWorker(
@@ -159,6 +162,7 @@ class PreviewExecutor(QObject):
             office,
             cache_factory,
             signals,
+            mode,
         )
         signals.completed.connect(
             self._worker_completed,
@@ -493,6 +497,7 @@ class MainWindow(QMainWindow):
             self._preview_fn,
             self._office,
             self._cache_factory,
+            mode="builtin",
         )
 
     @Slot(str)
