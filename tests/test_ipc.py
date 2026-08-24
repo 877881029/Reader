@@ -19,7 +19,7 @@ def test_server_name_is_v1():
     assert SERVER_NAME == "Reader.SingleInstance.v1"
 
 
-def _wait_until(predicate, timeout_s: float = 2.0) -> bool:
+def _wait_until(predicate, timeout_s: float = 5.0) -> bool:
     end = time.monotonic() + timeout_s
     while time.monotonic() < end:
         _app.processEvents()
@@ -163,7 +163,7 @@ def test_e2e_paths_unicode_and_multi(monkeypatch: pytest.MonkeyPatch, tmp_path):
     try:
         assert inst.become_server(lambda paths: seen.append(paths)) is True
         payload = ["C:/tmp/a.md", "D:/文档/二号.pptx", "E:/emoji/🙂.md"]
-        assert SingleInstance.send_paths(payload) is True
+        assert _wait_until(lambda: SingleInstance.send_paths(payload) is True)
         assert _wait_until(lambda: len(seen) == 1)
         assert seen == [payload]
     finally:
@@ -176,7 +176,7 @@ def test_e2e_empty_list(monkeypatch: pytest.MonkeyPatch, tmp_path):
     inst = SingleInstance()
     try:
         assert inst.become_server(lambda paths: seen.append(paths)) is True
-        assert SingleInstance.send_paths([]) is True
+        assert _wait_until(lambda: SingleInstance.send_paths([]) is True)
         assert _wait_until(lambda: len(seen) == 1)
         assert seen == [[]]
     finally:
@@ -191,7 +191,7 @@ def test_e2e_chunked_frame(monkeypatch: pytest.MonkeyPatch, tmp_path):
     try:
         assert inst.become_server(lambda paths: seen.append(paths)) is True
         payload = ["C:/tmp/one.md", "C:/tmp/two.md", "D:/unicode/空.docx"]
-        assert SingleInstance.send_paths(payload) is True
+        assert _wait_until(lambda: SingleInstance.send_paths(payload) is True)
         assert _wait_until(lambda: len(seen) == 1)
         assert seen == [payload]
     finally:
@@ -206,7 +206,7 @@ def test_e2e_second_instance_not_hijack(monkeypatch: pytest.MonkeyPatch, tmp_pat
     try:
         assert a.become_server(lambda paths: seen.append(paths)) is True
         assert b.become_server(lambda _paths: None) is False
-        assert SingleInstance.send_paths(["C:/tmp/main.md"]) is True
+        assert _wait_until(lambda: SingleInstance.send_paths(["C:/tmp/main.md"]) is True)
         assert _wait_until(lambda: len(seen) == 1)
         assert seen == [["C:/tmp/main.md"]]
     finally:

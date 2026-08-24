@@ -15,7 +15,7 @@ SERVER_NAME = "Reader.SingleInstance.v1"
 LOCK_DIR = Path(tempfile.gettempdir()) / "reader-single-instance-locks"
 _LOCK_TIMEOUT_MS = 0
 _CONNECT_TIMEOUT_MS = 1000
-_CONNECT_ATTEMPTS = 3
+_CONNECT_ATTEMPTS = 5
 _WRITE_TIMEOUT_MS = 1000
 _READ_SLICE_TIMEOUT_MS = 100
 _READ_TOTAL_TIMEOUT_MS = 5000
@@ -38,6 +38,7 @@ class SingleInstance:
         server = QLocalServer()
         if server.listen(self._server_name):
             self._adopt_server(server, on_paths)
+            self._pump_events()
             return True
 
         QLocalServer.removeServer(self._server_name)
@@ -46,12 +47,19 @@ class SingleInstance:
             return False
 
         self._adopt_server(server, on_paths)
+        self._pump_events()
         return True
 
     def _adopt_server(self, server: QLocalServer, on_paths: Callable[[list[str]], None]) -> None:
         self._server = server
         self._on_paths = on_paths
         server.newConnection.connect(self._read_connection)
+
+    @staticmethod
+    def _pump_events() -> None:
+        app = QCoreApplication.instance()
+        if app is not None:
+            app.processEvents()
 
     def _acquire_lock(self) -> bool:
         LOCK_DIR.mkdir(parents=True, exist_ok=True)
@@ -112,8 +120,15 @@ class SingleInstance:
             is_unconnected = False
             if hasattr(sock, "state") and hasattr(sock, "UnconnectedState"):
                 is_unconnected = sock.state() == sock.UnconnectedState
-            if is_unconnected and hasattr(sock, "bytesAvailable") and sock.bytesAvailable() == 0:
-                return None
+            if is_unconnected:
+                pending = bytes(sock.readAll())
+                if pending:
+                    data.extend(pending)
+                    if len(data) >= size:
+                        break
+                if sock.bytesAvailable() == 0:
+                    return None
+                continue
 
         return bytes(data)
 
@@ -146,6 +161,7 @@ class SingleInstance:
     def send_paths(paths: list[str]) -> bool:
         sock: QLocalSocket | None = None
         for attempt in range(_CONNECT_ATTEMPTS):
+            SingleInstance._pump_events()
             candidate = QLocalSocket()
             candidate.connectToServer(SERVER_NAME)
             if candidate.waitForConnected(_CONNECT_TIMEOUT_MS):
@@ -153,7 +169,8 @@ class SingleInstance:
                 break
             candidate.disconnectFromServer()
             if attempt + 1 < _CONNECT_ATTEMPTS:
-                time.sleep(0.025)
+                SingleInstance._pump_events()
+                time.sleep(0.025 * (attempt + 1))
         if sock is None:
             return False
 
@@ -186,5 +203,8 @@ class SingleInstance:
                 sock.disconnectFromServer()
                 return False
 
+        if hasattr(sock, "flush"):
+            sock.flush()
+        SingleInstance._pump_events()
         sock.disconnectFromServer()
         return True

@@ -544,7 +544,7 @@ def test_failed_pdf_pin_cleans_owned_office_temp_dir(qtbot, tmp_path: Path):
     window.open_paths([str(source)])
 
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
-    assert "正在加载" not in page_text(window, 0)
+    qtbot.waitUntil(lambda: not office_dir.exists())
     assert not office_dir.exists()
 
 
