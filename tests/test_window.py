@@ -56,6 +56,21 @@ class FakeCache:
             raise OSError("cache unavailable")
 
 
+class FakeOfficeAvailability:
+    def __init__(self, available: bool) -> None:
+        self.available = available
+        self.calls: list[str] = []
+        self.thread_ids: list[int] = []
+
+    def available_for(self, suffix: str) -> bool:
+        self.calls.append(suffix)
+        self.thread_ids.append(threading.get_ident())
+        return self.available
+
+    def export(self, path: Path) -> PreviewResult:
+        return PreviewResult(html="<p>office</p>", status_label="Office 预览", kind="html")
+
+
 def label_viewer(result: PreviewResult, _source_path: Path | None = None) -> QLabel:
     label = QLabel(result.error or result.html)
     label.setObjectName("previewContent")
@@ -74,6 +89,14 @@ def reader_app(qapp):
     app = ReaderApp(qapp, ipc=ipc)
     yield app, ipc
     app.close_all()
+
+
+@pytest.fixture(autouse=True)
+def disable_host_office_detection(monkeypatch):
+    monkeypatch.setattr(
+        "reader.shell.window.Win32OfficeBackend.available_for",
+        lambda _self, _suffix: False,
+    )
 
 
 def make_window(preview_fn, cache=None):
@@ -185,6 +208,290 @@ def test_window_builtin_load_uses_builtin_cache_strategy(qtbot, tmp_path: Path):
 
     qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
     assert ("get", path.resolve(), "builtin") in cache.calls
+
+
+def test_office_action_disabled_when_office_missing(qtbot, tmp_path: Path):
+    path = tmp_path / "doc.docx"
+    path.write_bytes(b"x")
+    office = FakeOfficeAvailability(False)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None, mode="builtin": builtin_result("builtin"),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=office,
+    )
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    qtbot.waitUntil(lambda: office.calls == [".docx"])
+    assert window.actionOfficePreview.isEnabled() is False
+    assert window.actionOfficePreview.toolTip() == "未检测到 Microsoft Office"
+    assert office.calls == [".docx"]
+    assert office.thread_ids != [threading.get_ident()]
+
+
+def test_office_action_is_disabled_for_non_office_suffix(qtbot, tmp_path: Path):
+    path = tmp_path / "notes.md"
+    path.write_text("# notes", encoding="utf-8")
+    office = FakeOfficeAvailability(True)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None, mode="builtin": builtin_result("notes"),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: "notes" in page_text(window, 0))
+    assert window.actionOfficePreview.isEnabled() is False
+    assert office.calls == []
+
+
+def test_switch_to_office_replaces_viewer_and_status(qtbot, tmp_path: Path):
+    path = tmp_path / "doc.docx"
+    path.write_bytes(b"x")
+    modes: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        modes.append(mode)
+        if mode == "office":
+            return PreviewResult(
+                html="<p>office-ready</p>",
+                status_label="Office 预览",
+                kind="html",
+            )
+        return builtin_result("builtin-ready")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "builtin-ready" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+
+    window.switch_current_tab_to_office()
+
+    qtbot.waitUntil(lambda: "office-ready" in page_text(window, 0))
+    assert modes == ["builtin", "office"]
+    assert window.status_text() == "Office 预览"
+    assert window.actionOfficePreview.isEnabled() is False
+    assert window.actionBuiltinPreview.isEnabled() is True
+
+
+def test_office_failure_keeps_builtin_content_and_result(qtbot, tmp_path: Path):
+    path = tmp_path / "doc.docx"
+    path.write_bytes(b"x")
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "office":
+            raise RuntimeError("COM failed")
+        return builtin_result("builtin-stays")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "builtin-stays" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    document = next(iter(window._documents.values()))
+    builtin = document.last_result
+
+    window.switch_current_tab_to_office()
+
+    qtbot.waitUntil(lambda: "Office 导出失败" in window.status_text())
+    assert "builtin-stays" in page_text(window, 0)
+    assert document.mode == "builtin"
+    assert document.last_result is builtin
+    assert window.actionOfficePreview.isEnabled() is True
+    assert window.actionBuiltinPreview.isEnabled() is False
+
+
+def test_switch_back_to_builtin_restores_last_builtin_without_rerender(qtbot, tmp_path: Path):
+    path = tmp_path / "sheet.xlsx"
+    path.write_bytes(b"x")
+    modes: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        modes.append(mode)
+        if mode == "office":
+            return PreviewResult(html="office", status_label="Office 预览")
+        return builtin_result("builtin")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: "office" in page_text(window, 0))
+
+    window.switch_current_tab_to_builtin()
+
+    qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    assert modes == ["builtin", "office"]
+    assert window.status_text() == "内置预览"
+    assert next(iter(window._documents.values())).mode == "builtin"
+
+
+def test_switch_back_preserves_builtin_pdf_and_cleans_both_artifacts(
+    qtbot, tmp_path: Path
+):
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"pptx")
+    builtin_pdf = tmp_path / "builtin.pdf"
+    office_pdf = tmp_path / "office.pdf"
+    builtin_pdf.write_bytes(b"%PDF builtin")
+    office_pdf.write_bytes(b"%PDF office")
+    viewed_paths: list[Path] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        pdf_path = office_pdf if mode == "office" else builtin_pdf
+        return PreviewResult(
+            html="",
+            status_label="Office 预览" if mode == "office" else "内置预览",
+            kind="pdf",
+            pdf_path=pdf_path,
+        )
+
+    def viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        assert result.pdf_path is not None
+        assert result.pdf_path.exists()
+        viewed_paths.append(result.pdf_path)
+        return QLabel(result.status_label)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: len(viewed_paths) == 1)
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    pinned_builtin = viewed_paths[0]
+
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: len(viewed_paths) == 2)
+    pinned_office = viewed_paths[1]
+    assert pinned_builtin.exists()
+    assert pinned_office.exists()
+
+    window.switch_current_tab_to_builtin()
+
+    qtbot.waitUntil(lambda: len(viewed_paths) == 3)
+    assert viewed_paths[2] == pinned_builtin
+    assert pinned_builtin.exists()
+    assert not pinned_office.exists()
+
+    window.close_tab(0)
+
+    qtbot.waitUntil(lambda: not pinned_builtin.exists())
+
+
+def test_late_office_result_cannot_overwrite_switched_builtin(qtbot, tmp_path: Path):
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    office_started = threading.Event()
+    release_office = threading.Event()
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "office":
+            office_started.set()
+            assert release_office.wait(3)
+            return PreviewResult(html="LATE OFFICE", status_label="Office 预览")
+        return builtin_result("BUILTIN")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "BUILTIN" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    window.switch_current_tab_to_office()
+    assert office_started.wait(1)
+
+    window.switch_current_tab_to_builtin()
+    release_office.set()
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert "BUILTIN" in page_text(window, 0)
+    assert "LATE OFFICE" not in page_text(window, 0)
+    assert window.status_text() == "内置预览"
+
+
+def test_switching_tabs_restores_per_tab_mode_and_status(qtbot, tmp_path: Path):
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"1")
+    second.write_bytes(b"2")
+
+    def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "office":
+            return PreviewResult(html=f"office-{path.name}", status_label="Office 预览")
+        return builtin_result(f"builtin-{path.name}")
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(first), str(second)])
+    qtbot.waitUntil(lambda: "builtin-second.docx" in page_text(window, 1))
+    window._tabs.setCurrentIndex(0)
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: "office-first.docx" in page_text(window, 0))
+
+    window._tabs.setCurrentIndex(1)
+
+    assert window.status_text() == "内置预览"
+    assert window.actionOfficePreview.isEnabled() is True
+    assert window.actionBuiltinPreview.isEnabled() is False
+    window._tabs.setCurrentIndex(0)
+    assert window.status_text() == "Office 预览"
+    assert window.actionOfficePreview.isEnabled() is False
+    assert window.actionBuiltinPreview.isEnabled() is True
 
 
 def test_cache_failure_does_not_block_preview(qtbot, tmp_path: Path):

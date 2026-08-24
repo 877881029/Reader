@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -32,6 +33,9 @@ from reader.preview.result import PreviewResult
 PreviewFunction = Callable[..., PreviewResult]
 CacheFactory = Callable[[], PreviewCache]
 ViewerFactory = Callable[[PreviewResult, Path], QWidget]
+OFFICE_SUFFIXES = {".docx", ".pptx", ".xlsx"}
+_OFFICE_AVAILABILITY_CACHE: dict[tuple[object, str], bool] = {}
+_OFFICE_AVAILABILITY_LOCK = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -77,6 +81,45 @@ def _pin_pdf(result: PreviewResult) -> _WorkerOutput:
 
 class _WorkerSignals(QObject):
     completed = Signal(str, object, object)
+
+
+class _AvailabilitySignals(QObject):
+    completed = Signal(str, object)
+
+
+class _AvailabilityWorker(QRunnable):
+    def __init__(
+        self,
+        request_id: str,
+        suffix: str,
+        office: Win32OfficeBackend,
+        signals: _AvailabilitySignals,
+    ) -> None:
+        super().__init__()
+        self.setAutoDelete(False)
+        self.request_id = request_id
+        self.suffix = suffix
+        self.office = office
+        self.signals = signals
+
+    @Slot()
+    def run(self) -> None:
+        if type(self.office) is Win32OfficeBackend:
+            cache_key = (Win32OfficeBackend, self.suffix)
+            with _OFFICE_AVAILABILITY_LOCK:
+                available = _OFFICE_AVAILABILITY_CACHE.get(cache_key)
+                if available is None:
+                    try:
+                        available = self.office.available_for(self.suffix)
+                    except Exception:
+                        available = False
+                    _OFFICE_AVAILABILITY_CACHE[cache_key] = available
+        else:
+            try:
+                available = self.office.available_for(self.suffix)
+            except Exception:
+                available = False
+        self.signals.completed.emit(self.request_id, available)
 
 
 class _PreviewWorker(QRunnable):
@@ -127,6 +170,7 @@ class _PreviewWorker(QRunnable):
 
 class PreviewExecutor(QObject):
     completed = Signal(str)
+    availability_completed = Signal(str, object)
 
     def __init__(
         self,
@@ -138,6 +182,7 @@ class PreviewExecutor(QObject):
         self.thread_pool = thread_pool or QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
         self._workers: dict[str, _PreviewWorker] = {}
+        self._availability_workers: dict[str, _AvailabilityWorker] = {}
         self._pending: dict[
             str, tuple[_WorkerOutput | None, Exception | None]
         ] = {}
@@ -171,8 +216,25 @@ class PreviewExecutor(QObject):
         self._workers[document_id] = worker
         self.thread_pool.start(worker)
 
+    def probe_office(
+        self,
+        request_id: str,
+        suffix: str,
+        office: Win32OfficeBackend,
+    ) -> None:
+        signals = _AvailabilitySignals(self)
+        worker = _AvailabilityWorker(request_id, suffix, office, signals)
+        signals.completed.connect(
+            self._availability_worker_completed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._availability_workers[request_id] = worker
+        self.thread_pool.start(worker)
+
     def cancel(self, document_id: str) -> None:
         if document_id in self._workers:
+            self._cancelled.add(document_id)
+        if document_id in self._availability_workers:
             self._cancelled.add(document_id)
         pending = self._pending.pop(document_id, None)
         if pending is not None:
@@ -191,6 +253,9 @@ class PreviewExecutor(QObject):
     def active_count(self) -> int:
         return len(self._workers) + len(self._pending)
 
+    def is_running(self, request_id: str) -> bool:
+        return request_id in self._workers
+
     def set_owner_registry(self, registry: list[PreviewExecutor]) -> None:
         self._owner_registry = registry
 
@@ -199,7 +264,11 @@ class PreviewExecutor(QObject):
         self._release_if_idle()
 
     def _release_if_idle(self) -> None:
-        if not self._release_requested or self.active_count() != 0:
+        if (
+            not self._release_requested
+            or self.active_count() != 0
+            or self._availability_workers
+        ):
             return
         if self._owner_registry is not None:
             try:
@@ -233,12 +302,36 @@ class PreviewExecutor(QObject):
             del worker
         self._release_if_idle()
 
+    @Slot(str, object)
+    def _availability_worker_completed(
+        self,
+        request_id: str,
+        available: bool,
+    ) -> None:
+        worker = self._availability_workers.pop(request_id, None)
+        cancelled = request_id in self._cancelled
+        self._cancelled.discard(request_id)
+        if not cancelled:
+            self.availability_completed.emit(request_id, available)
+        if worker is not None:
+            worker.signals.deleteLater()
+            del worker
+        self._release_if_idle()
+
 
 @dataclass
 class _Document:
     path: Path
     page: QWidget
     artifact_dir: Path | None = None
+    builtin_artifact_dir: Path | None = None
+    mode: PreviewMode = "builtin"
+    last_result: PreviewResult | None = None
+    office_available: bool | None = None
+    status_label: str = "正在加载…"
+    generation: int = 0
+    request_id: str | None = None
+    availability_request_id: str | None = None
 
 
 def _directory_url(path: Path) -> QUrl:
@@ -313,7 +406,14 @@ class MainWindow(QMainWindow):
             self._preview_completed,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._executor.availability_completed.connect(
+            self._office_availability_completed,
+            Qt.ConnectionType.QueuedConnection,
+        )
         self._documents: dict[str, _Document] = {}
+        self._requests: dict[str, tuple[str, int, PreviewMode]] = {}
+        self._availability_requests: dict[str, tuple[str, int]] = {}
+        self._owned_request_ids: set[str] = set()
         self._closing = False
 
         self._tabs = QTabWidget()
@@ -339,6 +439,20 @@ class MainWindow(QMainWindow):
         self.actionNewWindow.setObjectName("actionNewWindow")
         self.actionNewWindow.triggered.connect(self._spawn)
         file_menu.addAction(self.actionNewWindow)
+
+        preview_menu = self.menuBar().addMenu("预览")
+        self.actionOfficePreview = QAction("Office 高保真", self)
+        self.actionOfficePreview.setObjectName("actionOfficePreview")
+        self.actionOfficePreview.triggered.connect(self.switch_current_tab_to_office)
+        preview_menu.addAction(self.actionOfficePreview)
+
+        self.actionBuiltinPreview = QAction("内置预览", self)
+        self.actionBuiltinPreview.setObjectName("actionBuiltinPreview")
+        self.actionBuiltinPreview.triggered.connect(self.switch_current_tab_to_builtin)
+        preview_menu.addAction(self.actionBuiltinPreview)
+
+        self._tabs.currentChanged.connect(self._refresh_preview_actions)
+        self._refresh_preview_actions()
 
     def center_on_screen(self, offset: int = 0) -> None:
         screen = self.screen() or QApplication.primaryScreen()
@@ -389,6 +503,34 @@ class MainWindow(QMainWindow):
                 return str(document.path)
         return None
 
+    def _current_document_id(self) -> str | None:
+        page = self._tabs.currentWidget()
+        for document_id, document in self._documents.items():
+            if document.page is page:
+                return document_id
+        return None
+
+    def _refresh_preview_actions(self, _index: int | None = None) -> None:
+        document_id = self._current_document_id()
+        document = self._documents.get(document_id) if document_id is not None else None
+        office_enabled = (
+            document is not None
+            and document.path.suffix.lower() in OFFICE_SUFFIXES
+            and document.office_available is True
+            and document.mode != "office"
+            and document.last_result is not None
+        )
+        self.actionOfficePreview.setEnabled(office_enabled)
+        self.actionOfficePreview.setToolTip(
+            "" if office_enabled else "未检测到 Microsoft Office"
+        )
+        self.actionBuiltinPreview.setEnabled(
+            document is not None
+            and document.mode != "builtin"
+            and document.last_result is not None
+        )
+        self.statusBar().showMessage(document.status_label if document is not None else "")
+
     def close_tab(self, index: int) -> None:
         page = self._tabs.widget(index)
         if page is None:
@@ -399,10 +541,19 @@ class MainWindow(QMainWindow):
         )
         if document_id is not None:
             document = self._documents.pop(document_id)
-            self._executor.cancel(document_id)
+            if document.request_id is not None:
+                self._requests.pop(document.request_id, None)
+                self._owned_request_ids.discard(document.request_id)
+                self._executor.cancel(document.request_id)
+            if document.availability_request_id is not None:
+                self._availability_requests.pop(document.availability_request_id, None)
+                self._executor.cancel(document.availability_request_id)
             _cleanup_dir(document.artifact_dir)
+            if document.builtin_artifact_dir != document.artifact_dir:
+                _cleanup_dir(document.builtin_artifact_dir)
         self._tabs.removeTab(index)
         page.deleteLater()
+        self._refresh_preview_actions()
 
     def _blank_tab_index(self, preferred_page: QWidget | None = None) -> int | None:
         if preferred_page is not None:
@@ -480,7 +631,10 @@ class MainWindow(QMainWindow):
         loading.setObjectName("previewLoading")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(loading)
-        self._documents[document_id] = _Document(path=path, page=page)
+        document = _Document(path=path, page=page, request_id=document_id)
+        self._documents[document_id] = document
+        self._requests[document_id] = (document_id, 0, "builtin")
+        self._owned_request_ids.add(document_id)
         if replace_tab_index is None:
             self._tabs.addTab(page, path.name)
         else:
@@ -500,25 +654,150 @@ class MainWindow(QMainWindow):
             mode="builtin",
         )
 
-    @Slot(str)
-    def _preview_completed(self, document_id: str) -> None:
-        document = self._documents.get(document_id)
-        if document is None:
+    def switch_current_tab_to_office(self) -> None:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        if (
+            document.path.suffix.lower() not in OFFICE_SUFFIXES
+            or document.office_available is not True
+            or document.last_result is None
+        ):
+            self._refresh_preview_actions()
+            return
+        self._restart_preview(document_id, "office")
+
+    def switch_current_tab_to_builtin(self) -> None:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        if document.last_result is None:
+            self._restart_preview(document_id, "builtin")
             return
 
-        page_is_valid = self._tabs.indexOf(document.page) >= 0
-        if self._closing or not page_is_valid:
-            completion = self._executor.take_completion(document_id)
+        document.generation += 1
+        if document.request_id is not None:
+            self._requests.pop(document.request_id, None)
+            self._owned_request_ids.discard(document.request_id)
+            self._executor.cancel(document.request_id)
+            document.request_id = None
+        try:
+            content = self._viewer_factory(document.last_result, document.path)
+        except Exception as exc:
+            document.status_label = f"预览失败：{document.path.name}（{exc}）"
+            self._refresh_preview_actions()
+            return
+
+        if not self._replace_document_content(document_id, document, content):
+            return
+        if document.artifact_dir != document.builtin_artifact_dir:
+            _cleanup_dir(document.artifact_dir)
+        document.artifact_dir = document.builtin_artifact_dir
+        document.mode = "builtin"
+        document.status_label = document.last_result.status_label
+        self._refresh_preview_actions()
+
+    def _restart_preview(self, document_id: str, mode: PreviewMode) -> None:
+        document = self._documents[document_id]
+        document.generation += 1
+        if document.request_id is not None:
+            self._requests.pop(document.request_id, None)
+            self._owned_request_ids.discard(document.request_id)
+            self._executor.cancel(document.request_id)
+        request_id = f"{document_id}:{document.generation}"
+        document.request_id = request_id
+        document.mode = mode
+        document.status_label = "正在加载…"
+        self._requests[request_id] = (document_id, document.generation, mode)
+        self._owned_request_ids.add(request_id)
+        self._refresh_preview_actions()
+        self._executor.submit(
+            request_id,
+            document.path,
+            self._preview_fn,
+            self._office,
+            self._cache_factory,
+            mode=mode,
+        )
+
+    def _replace_document_content(
+        self,
+        document_id: str,
+        document: _Document,
+        content: QWidget,
+    ) -> bool:
+        current = self._documents.get(document_id)
+        if current is None or current.page is not document.page or self._closing:
+            content.deleteLater()
+            return False
+        layout = document.page.layout()
+        if layout is None:
+            content.deleteLater()
+            return False
+        while layout.count():
+            item = layout.takeAt(0)
+            old_widget = item.widget()
+            if old_widget is not None:
+                old_widget.deleteLater()
+        layout.addWidget(content)
+        return True
+
+    @Slot(str)
+    def _preview_completed(self, request_id: str) -> None:
+        request = self._requests.pop(request_id, None)
+        if request is None:
+            if request_id in self._owned_request_ids:
+                completion = self._executor.take_completion(request_id)
+                if completion is not None:
+                    output, _error = completion
+                    if output is not None:
+                        _cleanup_dir(output.artifact_dir)
+                if not self._executor.is_running(request_id):
+                    self._owned_request_ids.discard(request_id)
+            return
+        completion = self._executor.take_completion(request_id)
+        if not self._executor.is_running(request_id):
+            self._owned_request_ids.discard(request_id)
+        document_id, generation, requested_mode = request
+        document = self._documents.get(document_id)
+        if (
+            document is None
+            or document.generation != generation
+            or document.request_id != request_id
+        ):
             if completion is not None:
                 output, _error = completion
                 if output is not None:
                     _cleanup_dir(output.artifact_dir)
             return
 
-        completion = self._executor.take_completion(document_id)
+        page_is_valid = self._tabs.indexOf(document.page) >= 0
+        if self._closing or not page_is_valid:
+            if completion is not None:
+                output, _error = completion
+                if output is not None:
+                    _cleanup_dir(output.artifact_dir)
+            return
+
         if completion is None:
             return
         output, error = completion
+        document.request_id = None
+
+        office_failed = requested_mode == "office" and (
+            error is not None
+            or output is None
+            or output.result.kind == "error"
+        )
+        if office_failed and document.last_result is not None:
+            if output is not None:
+                _cleanup_dir(output.artifact_dir)
+            document.mode = "builtin"
+            document.status_label = "内置预览（Office 导出失败）"
+            self._refresh_preview_actions()
+            return
 
         if error is not None:
             content: QWidget = QLabel(str(error))
@@ -540,42 +819,98 @@ class MainWindow(QMainWindow):
                     status = result.status_label
                 except Exception as exc:
                     _cleanup_dir(output.artifact_dir)
+                    if requested_mode == "office" and document.last_result is not None:
+                        document.mode = "builtin"
+                        document.status_label = "内置预览（Office 导出失败）"
+                        self._refresh_preview_actions()
+                        return
                     content = QLabel(str(exc))
                     content.setObjectName("previewContent")
                     status = f"预览失败：{document.path.name}"
                     output = None
 
-        current = self._documents.get(document_id)
-        if current is None or current.page is not document.page or self._closing:
-            content.deleteLater()
+        if not self._replace_document_content(document_id, document, content):
             if output is not None:
                 _cleanup_dir(output.artifact_dir)
             return
 
-        layout = document.page.layout()
-        if layout is None:
-            content.deleteLater()
-            if output is not None:
-                _cleanup_dir(output.artifact_dir)
-            return
-        while layout.count():
-            item = layout.takeAt(0)
-            old_widget = item.widget()
-            if old_widget is not None:
-                old_widget.deleteLater()
-        layout.addWidget(content)
         if output is not None:
+            if (
+                requested_mode == "builtin"
+                or document.artifact_dir != document.builtin_artifact_dir
+            ):
+                _cleanup_dir(document.artifact_dir)
             document.artifact_dir = output.artifact_dir
-        self.statusBar().showMessage(status)
+            if requested_mode == "builtin":
+                document.last_result = output.result
+                document.builtin_artifact_dir = output.artifact_dir
+        document.mode = requested_mode
+        document.status_label = status
+        self._refresh_preview_actions()
+        if (
+            requested_mode == "builtin"
+            and document.path.suffix.lower() in OFFICE_SUFFIXES
+            and document.office_available is None
+            and document.last_result is not None
+            and document.last_result.kind != "error"
+        ):
+            availability_request_id = (
+                f"availability:{document_id}:{document.generation}"
+            )
+            document.availability_request_id = availability_request_id
+            self._availability_requests[availability_request_id] = (
+                document_id,
+                document.generation,
+            )
+            self._executor.probe_office(
+                availability_request_id,
+                document.path.suffix.lower(),
+                self._office,
+            )
+
+    @Slot(str, object)
+    def _office_availability_completed(
+        self,
+        request_id: str,
+        available: bool,
+    ) -> None:
+        request = self._availability_requests.pop(request_id, None)
+        if request is None:
+            return
+        document_id, generation = request
+        document = self._documents.get(document_id)
+        if (
+            document is None
+            or document.generation != generation
+            or document.availability_request_id != request_id
+        ):
+            return
+        document.availability_request_id = None
+        document.office_available = bool(available)
+        self._refresh_preview_actions()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._closing = True
         for document_id, document in list(self._documents.items()):
-            self._executor.cancel(document_id)
+            if document.request_id is not None:
+                self._requests.pop(document.request_id, None)
+                self._owned_request_ids.discard(document.request_id)
+                self._executor.cancel(document.request_id)
+            if document.availability_request_id is not None:
+                self._availability_requests.pop(document.availability_request_id, None)
+                self._executor.cancel(document.availability_request_id)
             _cleanup_dir(document.artifact_dir)
+            if document.builtin_artifact_dir != document.artifact_dir:
+                _cleanup_dir(document.builtin_artifact_dir)
         self._documents.clear()
         try:
             self._executor.completed.disconnect(self._preview_completed)
+        except (RuntimeError, TypeError):
+            pass
+        try:
+            self._executor.availability_completed.disconnect(
+                self._office_availability_completed
+            )
         except (RuntimeError, TypeError):
             pass
         if self._owns_executor:
