@@ -71,6 +71,20 @@ class FakeOfficeAvailability:
         return PreviewResult(html="<p>office</p>", status_label="Office 预览", kind="html")
 
 
+class BlockingOfficeAvailability(FakeOfficeAvailability):
+    def __init__(self, available: bool) -> None:
+        super().__init__(available)
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def available_for(self, suffix: str) -> bool:
+        self.calls.append(suffix)
+        self.thread_ids.append(threading.get_ident())
+        self.started.set()
+        assert self.release.wait(3)
+        return self.available
+
+
 def label_viewer(result: PreviewResult, _source_path: Path | None = None) -> QLabel:
     label = QLabel(result.error or result.html)
     label.setObjectName("previewContent")
@@ -113,6 +127,13 @@ def page_text(window, index: int) -> str:
     page = window._tabs.widget(index)
     labels = page.findChildren(QLabel)
     return " ".join(label.text() for label in labels)
+
+
+def preview_content(window, index: int) -> QLabel:
+    page = window._tabs.widget(index)
+    content = page.findChild(QLabel, "previewContent")
+    assert content is not None
+    return content
 
 
 def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Path):
@@ -253,7 +274,45 @@ def test_office_action_is_disabled_for_non_office_suffix(qtbot, tmp_path: Path):
 
     qtbot.waitUntil(lambda: "notes" in page_text(window, 0))
     assert window.actionOfficePreview.isEnabled() is False
+    assert (
+        window.actionOfficePreview.toolTip()
+        != "未检测到 Microsoft Office"
+    )
     assert office.calls == []
+
+
+def test_office_action_shows_neutral_tooltip_while_detecting(qtbot, tmp_path: Path):
+    path = tmp_path / "doc.docx"
+    path.write_bytes(b"x")
+    office = BlockingOfficeAvailability(True)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None, mode="builtin": builtin_result("builtin"),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+
+    try:
+        qtbot.waitUntil(office.started.is_set)
+        assert window.actionOfficePreview.isEnabled() is False
+        assert (
+            window.actionOfficePreview.toolTip()
+            == "正在检测 Microsoft Office…"
+        )
+        assert window._executor.active_count() == 1
+    finally:
+        office.release.set()
+
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    assert (
+        window.actionOfficePreview.toolTip()
+        != "未检测到 Microsoft Office"
+    )
 
 
 def test_switch_to_office_replaces_viewer_and_status(qtbot, tmp_path: Path):
@@ -290,7 +349,16 @@ def test_switch_to_office_replaces_viewer_and_status(qtbot, tmp_path: Path):
     assert modes == ["builtin", "office"]
     assert window.status_text() == "Office 预览"
     assert window.actionOfficePreview.isEnabled() is False
+    assert (
+        window.actionOfficePreview.toolTip()
+        != "未检测到 Microsoft Office"
+    )
     assert window.actionBuiltinPreview.isEnabled() is True
+
+    window.switch_current_tab_to_office()
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert modes == ["builtin", "office"]
 
 
 def test_office_failure_keeps_builtin_content_and_result(qtbot, tmp_path: Path):
@@ -316,11 +384,17 @@ def test_office_failure_keeps_builtin_content_and_result(qtbot, tmp_path: Path):
     qtbot.waitUntil(window.actionOfficePreview.isEnabled)
     document = next(iter(window._documents.values()))
     builtin = document.last_result
+    content_before = preview_content(window, 0)
+    layout = document.page.layout()
+    assert layout is not None
+    assert layout.count() == 1
 
     window.switch_current_tab_to_office()
 
     qtbot.waitUntil(lambda: "Office 导出失败" in window.status_text())
     assert "builtin-stays" in page_text(window, 0)
+    assert preview_content(window, 0) is content_before
+    assert layout.count() == 1
     assert document.mode == "builtin"
     assert document.last_result is builtin
     assert window.actionOfficePreview.isEnabled() is True
@@ -456,6 +530,134 @@ def test_late_office_result_cannot_overwrite_switched_builtin(qtbot, tmp_path: P
     assert window.status_text() == "内置预览"
 
 
+def test_close_tab_while_office_worker_runs_discards_and_cleans_result(
+    qtbot, tmp_path: Path, monkeypatch
+):
+    path = tmp_path / "closing-tab.pptx"
+    path.write_bytes(b"x")
+    office_source_dir = tmp_path / "office-tab-source"
+    office_source_dir.mkdir()
+    office_pdf = office_source_dir / "office.pdf"
+    office_pdf.write_bytes(b"%PDF office")
+    pinned_dir = tmp_path / "pinned-tab"
+    office_started = threading.Event()
+    release_office = threading.Event()
+    viewer_calls: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "office":
+            office_started.set()
+            assert release_office.wait(3)
+            return PreviewResult(
+                html="",
+                status_label="Office 预览",
+                kind="pdf",
+                asset_dir=office_source_dir,
+                pdf_path=office_pdf,
+            )
+        return builtin_result("BUILTIN")
+
+    def viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        viewer_calls.append(result.status_label)
+        return label_viewer(result)
+
+    monkeypatch.setattr(
+        "reader.shell.window.tempfile.mkdtemp",
+        lambda **_kwargs: (pinned_dir.mkdir(), str(pinned_dir))[1],
+    )
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    window.switch_current_tab_to_office()
+    assert office_started.wait(1)
+    assert (
+        window.actionOfficePreview.toolTip()
+        != "未检测到 Microsoft Office"
+    )
+
+    window.close_tab(0)
+    assert window.tab_count() == 0
+    release_office.set()
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert viewer_calls == ["内置预览"]
+    assert window._executor._workers == {}
+    assert window._executor._pending == {}
+    assert not office_source_dir.exists()
+    assert not pinned_dir.exists()
+
+
+def test_close_window_while_office_worker_runs_discards_and_cleans_result(
+    qapp, qtbot, tmp_path: Path, monkeypatch
+):
+    path = tmp_path / "closing-window.xlsx"
+    path.write_bytes(b"x")
+    office_source_dir = tmp_path / "office-window-source"
+    office_source_dir.mkdir()
+    office_pdf = office_source_dir / "office.pdf"
+    office_pdf.write_bytes(b"%PDF office")
+    pinned_dir = tmp_path / "pinned-window"
+    office_started = threading.Event()
+    release_office = threading.Event()
+    viewer_calls: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        if mode == "office":
+            office_started.set()
+            assert release_office.wait(3)
+            return PreviewResult(
+                html="",
+                status_label="Office 预览",
+                kind="pdf",
+                asset_dir=office_source_dir,
+                pdf_path=office_pdf,
+            )
+        return builtin_result("BUILTIN")
+
+    def viewer(result: PreviewResult, _source_path: Path) -> QLabel:
+        viewer_calls.append(result.status_label)
+        return label_viewer(result)
+
+    monkeypatch.setattr(
+        "reader.shell.window.tempfile.mkdtemp",
+        lambda **_kwargs: (pinned_dir.mkdir(), str(pinned_dir))[1],
+    )
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+        office=FakeOfficeAvailability(True),
+    )
+    executor = window._executor
+    registry = qapp._reader_preview_executors
+    window.show()
+    window.open_paths([str(path)])
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    window.switch_current_tab_to_office()
+    assert office_started.wait(1)
+
+    window.close()
+    release_office.set()
+
+    qtbot.waitUntil(lambda: executor.active_count() == 0)
+    qtbot.waitUntil(lambda: executor not in registry)
+    assert viewer_calls == ["内置预览"]
+    assert executor._workers == {}
+    assert executor._pending == {}
+    assert not office_source_dir.exists()
+    assert not pinned_dir.exists()
+
+
 def test_switching_tabs_restores_per_tab_mode_and_status(qtbot, tmp_path: Path):
     first = tmp_path / "first.docx"
     second = tmp_path / "second.docx"
@@ -492,6 +694,38 @@ def test_switching_tabs_restores_per_tab_mode_and_status(qtbot, tmp_path: Path):
     assert window.status_text() == "Office 预览"
     assert window.actionOfficePreview.isEnabled() is False
     assert window.actionBuiltinPreview.isEnabled() is True
+
+
+def test_restart_cancels_inflight_availability_request(qtbot, tmp_path: Path):
+    path = tmp_path / "restart.docx"
+    path.write_bytes(b"x")
+    office = BlockingOfficeAvailability(True)
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda _path, office=None, mode="builtin": builtin_result("builtin"),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(office.started.is_set)
+    document_id, document = next(iter(window._documents.items()))
+    availability_request_id = document.availability_request_id
+    assert availability_request_id is not None
+
+    try:
+        window._restart_preview(document_id, "builtin")
+
+        assert availability_request_id not in window._availability_requests
+        assert document.availability_request_id is None
+        assert availability_request_id in window._executor._cancelled
+    finally:
+        office.release.set()
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
 
 
 def test_cache_failure_does_not_block_preview(qtbot, tmp_path: Path):
@@ -799,6 +1033,70 @@ def test_shared_executor_delivers_each_result_only_to_owner_window(
     assert second.tab_title(0) == "second.pptx"
     assert pinned[0].exists()
     assert pinned[0] != source_pdf
+
+
+def test_shared_executor_routes_office_availability_to_owner_windows(
+    reader_app, qtbot, tmp_path: Path
+):
+    app, _ipc = reader_app
+    first_path = tmp_path / "first.docx"
+    second_path = tmp_path / "second.xlsx"
+    first_path.write_bytes(b"docx")
+    second_path.write_bytes(b"xlsx")
+    first_office = BlockingOfficeAvailability(True)
+    second_office = BlockingOfficeAvailability(False)
+    first = app.new_window()
+    second = app.new_window()
+    first._preview_fn = (
+        lambda _path, office=None, mode="builtin": builtin_result("FIRST")
+    )
+    second._preview_fn = (
+        lambda _path, office=None, mode="builtin": builtin_result("SECOND")
+    )
+    first._cache_factory = FakeCache
+    second._cache_factory = FakeCache
+    first._viewer_factory = label_viewer
+    second._viewer_factory = label_viewer
+    first._office = first_office
+    second._office = second_office
+
+    first.open_paths([str(first_path)])
+    second.open_paths([str(second_path)])
+
+    qtbot.waitUntil(first_office.started.is_set)
+    qtbot.waitUntil(
+        lambda: all(
+            document.availability_request_id is not None
+            for window in (first, second)
+            for document in window._documents.values()
+        )
+    )
+    first_state = dict(first._availability_requests)
+    second_state = dict(second._availability_requests)
+    assert first_state
+    assert second_state
+
+    app._executor.availability_completed.emit("availability:unknown:999", True)
+    qtbot.wait(10)
+
+    assert first._availability_requests == first_state
+    assert second._availability_requests == second_state
+    first_office.release.set()
+    qtbot.waitUntil(second_office.started.is_set)
+    second_office.release.set()
+
+    qtbot.waitUntil(first.actionOfficePreview.isEnabled)
+    qtbot.waitUntil(
+        lambda: next(iter(second._documents.values())).office_available is False
+    )
+    assert (
+        second.actionOfficePreview.toolTip()
+        == "未检测到 Microsoft Office"
+    )
+    assert first.actionOfficePreview.isEnabled() is True
+    assert second.actionOfficePreview.isEnabled() is False
+    assert first_office.calls == [".docx"]
+    assert second_office.calls == [".xlsx"]
 
 
 def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):

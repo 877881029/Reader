@@ -251,7 +251,11 @@ class PreviewExecutor(QObject):
         return completion
 
     def active_count(self) -> int:
-        return len(self._workers) + len(self._pending)
+        return (
+            len(self._workers)
+            + len(self._availability_workers)
+            + len(self._pending)
+        )
 
     def is_running(self, request_id: str) -> bool:
         return request_id in self._workers
@@ -264,11 +268,7 @@ class PreviewExecutor(QObject):
         self._release_if_idle()
 
     def _release_if_idle(self) -> None:
-        if (
-            not self._release_requested
-            or self.active_count() != 0
-            or self._availability_workers
-        ):
+        if not self._release_requested or self.active_count() != 0:
             return
         if self._owner_registry is not None:
             try:
@@ -513,17 +513,25 @@ class MainWindow(QMainWindow):
     def _refresh_preview_actions(self, _index: int | None = None) -> None:
         document_id = self._current_document_id()
         document = self._documents.get(document_id) if document_id is not None else None
-        office_enabled = (
+        office_suffix = (
             document is not None
             and document.path.suffix.lower() in OFFICE_SUFFIXES
+        )
+        office_enabled = (
+            office_suffix
+            and document is not None
             and document.office_available is True
             and document.mode != "office"
             and document.last_result is not None
         )
         self.actionOfficePreview.setEnabled(office_enabled)
-        self.actionOfficePreview.setToolTip(
-            "" if office_enabled else "未检测到 Microsoft Office"
-        )
+        if office_suffix and document is not None and document.office_available is None:
+            office_tooltip = "正在检测 Microsoft Office…"
+        elif office_suffix and document is not None and document.office_available is False:
+            office_tooltip = "未检测到 Microsoft Office"
+        else:
+            office_tooltip = ""
+        self.actionOfficePreview.setToolTip(office_tooltip)
         self.actionBuiltinPreview.setEnabled(
             document is not None
             and document.mode != "builtin"
@@ -545,9 +553,7 @@ class MainWindow(QMainWindow):
                 self._requests.pop(document.request_id, None)
                 self._owned_request_ids.discard(document.request_id)
                 self._executor.cancel(document.request_id)
-            if document.availability_request_id is not None:
-                self._availability_requests.pop(document.availability_request_id, None)
-                self._executor.cancel(document.availability_request_id)
+            self._cancel_availability_probe(document)
             _cleanup_dir(document.artifact_dir)
             if document.builtin_artifact_dir != document.artifact_dir:
                 _cleanup_dir(document.builtin_artifact_dir)
@@ -659,6 +665,8 @@ class MainWindow(QMainWindow):
         if document_id is None:
             return
         document = self._documents[document_id]
+        if document.mode == "office":
+            return
         if (
             document.path.suffix.lower() not in OFFICE_SUFFIXES
             or document.office_available is not True
@@ -677,6 +685,7 @@ class MainWindow(QMainWindow):
             self._restart_preview(document_id, "builtin")
             return
 
+        self._cancel_availability_probe(document)
         document.generation += 1
         if document.request_id is not None:
             self._requests.pop(document.request_id, None)
@@ -699,8 +708,17 @@ class MainWindow(QMainWindow):
         document.status_label = document.last_result.status_label
         self._refresh_preview_actions()
 
+    def _cancel_availability_probe(self, document: _Document) -> None:
+        request_id = document.availability_request_id
+        if request_id is None:
+            return
+        self._availability_requests.pop(request_id, None)
+        self._executor.cancel(request_id)
+        document.availability_request_id = None
+
     def _restart_preview(self, document_id: str, mode: PreviewMode) -> None:
         document = self._documents[document_id]
+        self._cancel_availability_probe(document)
         document.generation += 1
         if document.request_id is not None:
             self._requests.pop(document.request_id, None)
@@ -896,9 +914,7 @@ class MainWindow(QMainWindow):
                 self._requests.pop(document.request_id, None)
                 self._owned_request_ids.discard(document.request_id)
                 self._executor.cancel(document.request_id)
-            if document.availability_request_id is not None:
-                self._availability_requests.pop(document.availability_request_id, None)
-                self._executor.cancel(document.availability_request_id)
+            self._cancel_availability_probe(document)
             _cleanup_dir(document.artifact_dir)
             if document.builtin_artifact_dir != document.artifact_dir:
                 _cleanup_dir(document.builtin_artifact_dir)
