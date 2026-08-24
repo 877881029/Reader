@@ -306,6 +306,35 @@ def test_new_window_offsets_from_existing_window(reader_app):
     assert second.geometry().topLeft() == first.geometry().topLeft() + QPoint(32, 32)
 
 
+def test_new_window_offsets_increment_for_third_window(monkeypatch, qapp):
+    from reader.app import ReaderApp
+    from reader.shell.window import MainWindow
+
+    base = QPoint(120, 160)
+
+    def fake_center(self, offset: int = 0) -> None:
+        self.move(base + QPoint(offset, offset))
+
+    monkeypatch.setattr(MainWindow, "center_on_screen", fake_center)
+    app = ReaderApp(qapp, ipc=FakeIpc())
+    try:
+        first = app.new_window()
+        second = app.new_window()
+        third = app.new_window()
+    finally:
+        app.close_all()
+
+    first_top_left = first.geometry().topLeft()
+    second_top_left = second.geometry().topLeft()
+    third_top_left = third.geometry().topLeft()
+
+    assert first_top_left != second_top_left
+    assert second_top_left != third_top_left
+    assert first_top_left != third_top_left
+    assert second_top_left == first_top_left + QPoint(32, 32)
+    assert third_top_left == second_top_left + QPoint(32, 32)
+
+
 def test_main_window_icon_loading_supports_injected_path(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 

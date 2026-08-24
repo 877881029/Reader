@@ -87,7 +87,7 @@ class ReaderApp:
         return window
 
     def _place_window(self, window: MainWindow) -> None:
-        offset = 32 if len(self._windows) > 1 else 0
+        offset = max(0, len(self._windows) - 1) * 32
         window.center_on_screen(offset)
 
     def _drop(self, window_id: int) -> None:
