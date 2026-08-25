@@ -13,7 +13,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 **PPTX 视觉预览（不依赖 PowerPoint）**
 
-- 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（用户已口头批准设计；待用户确认书面规格后写实施计划）
+- 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
+- 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
 - 方案：`QWebEngineView` + 本地许可兼容 Web 渲染器；左缩略图、右单页、缩放翻页
 - 首版：静态高保真（背景/图片/文本/形状/表格/基础图表）；不做动画/视频/宏
 - 禁止复制 `astx-jp.vscode-pptx-viewer` 专有代码
@@ -27,10 +28,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户审阅 PPTX 视觉预览规格  
-2. 写 TDD 实施计划并提交推送  
-3. 按任务实现、每任务提交并推送 `origin/main`  
-4. 回归、重建 exe、按需更新快捷方式  
+1. 按计划 Task 1-9 实现，每任务 TDD、独立审查、提交并推送 `origin/main`  
+2. 全量回归并重建 `dist/Reader/Reader.exe`  
+3. 验证 PPTX 视觉 frozen smoke，更新桌面快捷方式  
 
 ## 接手检查清单
 
