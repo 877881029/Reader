@@ -15,6 +15,7 @@ body,
   width: 100%;
   height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 .viewer-shell {
@@ -45,11 +46,18 @@ body,
   min-height: 56px;
   font-weight: 600;
   cursor: pointer;
+  padding: 4px;
 }
 
 .viewer-shell__thumb.is-active {
   border-color: #38bdf8;
   box-shadow: 0 0 0 1px #38bdf8 inset;
+}
+
+.viewer-shell__thumb svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .viewer-shell__main {
@@ -112,4 +120,22 @@ body,
   place-items: center;
   font-size: 24px;
   font-weight: 600;
+}
+
+.viewer-shell__host > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.viewer-shell__slide-error,
+.viewer-bootstrap-error {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  color: #f8fafc;
+  background: #3f3f46;
 }

@@ -1,4 +1,16 @@
+import {
+  getThumbnails,
+  loadPresentation,
+  renderSlideToElement,
+  type LoadedPresentation,
+} from "pptx-viewer";
 import { createNavigationState, fitScale, type NavigationState } from "./state";
+
+export interface ViewerBridge {
+  viewerReady(count: number): void;
+  viewerError(message: string): void;
+  slideChanged(index: number): void;
+}
 
 export interface ViewerElements {
   rail: HTMLElement;
@@ -13,6 +25,7 @@ export interface ViewerOptions {
   slideWidth: number;
   slideHeight: number;
   onRender?: (index: number, host: HTMLElement) => void;
+  onDestroy?: () => void;
 }
 
 export interface ViewerController {
@@ -77,6 +90,7 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   const elements = buildViewerDom(root);
   const thumbnails: HTMLButtonElement[] = [];
   let fitEnabled = true;
+  let disposed = false;
 
   elements.host.style.width = `${options.slideWidth}px`;
   elements.host.style.height = `${options.slideHeight}px`;
@@ -231,9 +245,14 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
     setZoom,
     zoomBy,
     destroy() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKeyDown);
       observer?.disconnect();
+      options.onDestroy?.();
       if (rootControllerMap.get(root) === controller) {
         rootControllerMap.delete(root);
       }
@@ -250,4 +269,92 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   rootControllerMap.set(root, controller);
 
   return controller;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function requireLocalFileUrl(sourceUrl: string): void {
+  let source: URL;
+  try {
+    source = new URL(sourceUrl);
+  } catch {
+    throw new Error("Reader requires a local file URL");
+  }
+  if (source.protocol !== "file:") {
+    throw new Error("Reader requires a local file URL");
+  }
+}
+
+export async function startViewer(
+  root: HTMLElement,
+  sourceUrl: string,
+  bridge: ViewerBridge,
+  options: { testFailSlide?: number } = {},
+): Promise<ViewerController> {
+  let presentation: LoadedPresentation | undefined;
+  let controller: ViewerController | undefined;
+
+  try {
+    requireLocalFileUrl(sourceUrl);
+    presentation = await loadPresentation(sourceUrl);
+    if (presentation.slides.length === 0) {
+      throw new Error("presentation has no slides");
+    }
+
+    const renderWidth = presentation.slideSize.width;
+    const renderHeight = presentation.slideSize.height;
+    controller = createViewer(root, {
+      slideCount: presentation.slides.length,
+      slideWidth: renderWidth,
+      slideHeight: renderHeight,
+      onRender(index, host) {
+        try {
+          if (options.testFailSlide === index) {
+            throw new Error("injected slide failure");
+          }
+          renderSlideToElement(presentation!, index, host, {
+            width: renderWidth,
+            height: renderHeight,
+          });
+          delete host.dataset.slideError;
+        } catch (error) {
+          const placeholder = root.ownerDocument.createElement("div");
+          placeholder.className = "viewer-shell__slide-error";
+          placeholder.textContent = `第 ${index + 1} 页无法渲染`;
+          host.replaceChildren(placeholder);
+          host.dataset.slideError = errorMessage(error);
+        }
+        bridge.slideChanged(index);
+      },
+      onDestroy() {
+        presentation?.cleanup();
+        root.replaceChildren();
+      },
+    });
+
+    try {
+      const thumbnails = getThumbnails(presentation, 200);
+      const buttons = controller.elements.rail.querySelectorAll<HTMLButtonElement>(
+        "[data-slide-index]",
+      );
+      thumbnails.forEach((thumbnail, index) => {
+        buttons[index]?.replaceChildren(thumbnail);
+      });
+    } catch (error) {
+      controller.elements.rail.dataset.thumbnailError = errorMessage(error);
+    }
+
+    bridge.viewerReady(presentation.slides.length);
+    return controller;
+  } catch (error) {
+    if (controller) {
+      controller.destroy();
+    } else {
+      presentation?.cleanup();
+    }
+    bridge.viewerError(errorMessage(error));
+    throw error;
+  }
 }

@@ -44,6 +44,7 @@ def test_web_scaffold_keeps_local_bootstrap_only():
     index_html = (WEB / "index.html").read_text(encoding="utf-8")
     main_ts = (WEB / "src" / "main.ts").read_text(encoding="utf-8")
     assert '<main id="app"></main>' in index_html
+    assert '<script src="qrc:///qtwebchannel/qwebchannel.js"></script>' in index_html
     assert "from \"http://" not in main_ts
     assert "from \"https://" not in main_ts
     assert not re.search(r"import\s*\(\s*['\"]https?://", main_ts)
