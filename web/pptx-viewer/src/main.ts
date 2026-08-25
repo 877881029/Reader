@@ -9,6 +9,7 @@ interface ReaderViewerBridge extends ViewerBridge {
 declare global {
   interface Window {
     qt?: { webChannelTransport: unknown };
+    readerPptxDispose?: () => void;
     QWebChannel?: new (
       transport: unknown,
       callback: (channel: { objects: { bridge: ReaderViewerBridge } }) => void,
@@ -22,6 +23,25 @@ if (!app) {
   throw new Error("viewer mount #app is missing");
 }
 const mount = app;
+const abortController = new AbortController();
+let activeController: Awaited<ReturnType<typeof startViewer>>;
+let disposed = false;
+
+function disposeViewer(): void {
+  if (disposed) {
+    return;
+  }
+  disposed = true;
+  window.removeEventListener("pagehide", disposeViewer);
+  window.removeEventListener("beforeunload", disposeViewer);
+  abortController.abort();
+  activeController?.destroy();
+  activeController = undefined;
+}
+
+window.readerPptxDispose = disposeViewer;
+window.addEventListener("pagehide", disposeViewer, { once: true });
+window.addEventListener("beforeunload", disposeViewer, { once: true });
 
 function showBootstrapError(message: string): void {
   mount.className = "viewer-bootstrap-error";
@@ -50,8 +70,17 @@ if (!window.qt?.webChannelTransport || !window.QWebChannel) {
 
     void startViewer(mount, bridge.sourceUrl, bridge, {
       testFailSlide: bridge.testFailSlide,
-    }).catch((error: unknown) => {
-      showBootstrapError(error instanceof Error ? error.message : String(error));
-    });
+      signal: abortController.signal,
+    })
+      .then((controller) => {
+        if (disposed) {
+          controller?.destroy();
+          return;
+        }
+        activeController = controller;
+      })
+      .catch((error: unknown) => {
+        showBootstrapError(error instanceof Error ? error.message : String(error));
+      });
   });
 }

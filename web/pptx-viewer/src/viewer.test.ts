@@ -43,6 +43,22 @@ function dispatchArrowRight(target: HTMLElement): void {
   target.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
 }
 
+function fakePresentation(
+  cleanup = vi.fn(),
+  slideCount = 1,
+): pptxViewer.LoadedPresentation {
+  return {
+    slides: Array.from({ length: slideCount }, (_, index) => ({
+      id: `slide-${index + 1}`,
+      elements: [],
+    })),
+    slideSize: { width: 960, height: 540 },
+    slideLayouts: new Map(),
+    slideMasters: new Map(),
+    cleanup,
+  } as unknown as pptxViewer.LoadedPresentation;
+}
+
 describe("viewer controls", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -215,6 +231,50 @@ describe("viewer controls", () => {
     thumb1?.click();
     expect(document.activeElement).toBe(root);
   });
+
+  it("atomically cleans listeners and observer when initial render throws", () => {
+    const root = mountRoot();
+    const disconnect = vi.fn();
+    const originalObserver = globalThis.ResizeObserver;
+    class FakeResizeObserver {
+      constructor(_callback: ResizeObserverCallback) {}
+      observe(): void {}
+      disconnect(): void {
+        disconnect();
+      }
+    }
+    // @ts-expect-error test stub
+    globalThis.ResizeObserver = FakeResizeObserver;
+    const failedRender = vi.fn(() => {
+      throw new Error("bridge slideChanged failed");
+    });
+
+    expect(() =>
+      createViewer(root, {
+        slideCount: 4,
+        slideWidth: 960,
+        slideHeight: 540,
+        onRender: failedRender,
+      }),
+    ).toThrow("bridge slideChanged failed");
+    expect(disconnect).toHaveBeenCalledOnce();
+
+    const successfulRender = vi.fn();
+    const second = createViewer(root, {
+      slideCount: 4,
+      slideWidth: 960,
+      slideHeight: 540,
+      onRender: successfulRender,
+    });
+    dispatchArrowRight(root);
+    root.querySelector<HTMLButtonElement>('[data-action="next"]')?.click();
+
+    expect(failedRender).toHaveBeenCalledOnce();
+    expect(successfulRender.mock.calls.map(([index]) => index)).toEqual([0, 1, 2]);
+    expect(second.state.currentIndex).toBe(2);
+    second.destroy();
+    globalThis.ResizeObserver = originalObserver;
+  });
 });
 
 describe("official renderer integration", () => {
@@ -295,6 +355,9 @@ describe("official renderer integration", () => {
     const controller = await startViewer(root, "file:///fixture.pptx", bridge, {
       testFailSlide: 1,
     });
+    if (!controller) {
+      throw new Error("viewer unexpectedly cancelled");
+    }
 
     expect(bridge.viewerReady).toHaveBeenCalledWith(4);
     expect(root.querySelector(".viewer-shell__thumb svg")).not.toBeNull();
@@ -313,6 +376,10 @@ describe("official renderer integration", () => {
     expect(controller.elements.host.querySelector(".viewer-shell__slide-error")).toBeNull();
     expect(bridge.viewerError).not.toHaveBeenCalled();
     expect(bridge.slideChanged).toHaveBeenLastCalledWith(2);
+    root.querySelector<SVGElement>('[data-slide-index="3"] svg')?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+    expect(bridge.slideChanged).toHaveBeenLastCalledWith(3);
 
     for (let count = 0; count < 50; count += 1) {
       root.querySelector<HTMLButtonElement>('[data-action="zoom-in"]')?.click();
@@ -324,9 +391,11 @@ describe("official renderer integration", () => {
     expect(controller.elements.zoom.textContent).toBe("25%");
 
     controller.destroy();
+    controller.destroy();
     expect(disconnect).toHaveBeenCalledOnce();
     expect(cleanup).toHaveBeenCalledOnce();
     expect(root.children).toHaveLength(0);
+    expect(() => controller.render(0)).toThrow("viewer is disposed");
   });
 
   it("rejects an empty deck as a whole-presentation error and cleans it up", async () => {
@@ -346,5 +415,104 @@ describe("official renderer integration", () => {
     );
     expect(bridge.viewerError).toHaveBeenCalledWith("presentation has no slides");
     expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("cancels while presentation loading without mounting or reporting ready", async () => {
+    let resolveLoad!: (presentation: pptxViewer.LoadedPresentation) => void;
+    vi.mocked(pptxViewer.loadPresentation).mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoad = resolve;
+      }),
+    );
+    const cleanup = vi.fn();
+    const bridge = {
+      viewerReady: vi.fn(),
+      viewerError: vi.fn(),
+      slideChanged: vi.fn(),
+    };
+    const abortController = new AbortController();
+    const root = mountRoot();
+
+    const pending = startViewer(root, "file:///deferred.pptx", bridge, {
+      signal: abortController.signal,
+    });
+    abortController.abort();
+    resolveLoad(fakePresentation(cleanup));
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(root.children).toHaveLength(0);
+    expect(bridge.viewerReady).not.toHaveBeenCalled();
+    expect(bridge.slideChanged).not.toHaveBeenCalled();
+    expect(bridge.viewerError).not.toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("aborts a mounted controller once and makes public render reject disposal", async () => {
+    const cleanup = vi.fn();
+    vi.mocked(pptxViewer.loadPresentation).mockResolvedValue(fakePresentation(cleanup));
+    const bridge = {
+      viewerReady: vi.fn(),
+      viewerError: vi.fn(),
+      slideChanged: vi.fn(),
+    };
+    const abortController = new AbortController();
+    const root = mountRoot();
+    const controller = await startViewer(root, "file:///mounted.pptx", bridge, {
+      signal: abortController.signal,
+    });
+
+    expect(controller).toBeDefined();
+    abortController.abort();
+    abortController.abort();
+    controller?.destroy();
+
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(root.children).toHaveLength(0);
+    expect(() => controller?.render(0)).toThrow("viewer is disposed");
+  });
+
+  it("cleans an initialization-time slideChanged failure and remounts once", async () => {
+    const disconnect = vi.fn();
+    class FakeResizeObserver {
+      constructor(_callback: ResizeObserverCallback) {}
+      observe(): void {}
+      disconnect(): void {
+        disconnect();
+      }
+    }
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    const firstCleanup = vi.fn();
+    const secondCleanup = vi.fn();
+    vi.mocked(pptxViewer.loadPresentation)
+      .mockResolvedValueOnce(fakePresentation(firstCleanup))
+      .mockResolvedValueOnce(fakePresentation(secondCleanup, 4));
+    const badBridge = {
+      viewerReady: vi.fn(),
+      viewerError: vi.fn(),
+      slideChanged: vi.fn(() => {
+        throw new Error("bridge slideChanged failed");
+      }),
+    };
+    const root = mountRoot();
+
+    await expect(startViewer(root, "file:///first.pptx", badBridge)).rejects.toThrow(
+      "bridge slideChanged failed",
+    );
+    expect(firstCleanup).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledOnce();
+
+    const goodBridge = {
+      viewerReady: vi.fn(),
+      viewerError: vi.fn(),
+      slideChanged: vi.fn(),
+    };
+    const second = await startViewer(root, "file:///second.pptx", goodBridge);
+    dispatchArrowRight(root);
+    root.querySelector<HTMLButtonElement>('[data-action="next"]')?.click();
+
+    expect(badBridge.slideChanged).toHaveBeenCalledOnce();
+    expect(goodBridge.slideChanged.mock.calls.map(([index]) => index)).toEqual([0, 1, 2]);
+    second?.destroy();
+    expect(secondCleanup).toHaveBeenCalledOnce();
   });
 });

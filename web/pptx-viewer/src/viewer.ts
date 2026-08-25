@@ -28,6 +28,11 @@ export interface ViewerOptions {
   onDestroy?: () => void;
 }
 
+export interface StartViewerOptions {
+  testFailSlide?: number;
+  signal?: AbortSignal;
+}
+
 export interface ViewerController {
   readonly state: NavigationState;
   readonly elements: ViewerElements;
@@ -39,6 +44,7 @@ export interface ViewerController {
 }
 
 const ROOT_CONTROLLER_KEY = Symbol("reader-pptx-viewer-controller");
+type ViewerRoot = HTMLElement & { [ROOT_CONTROLLER_KEY]?: ViewerController };
 const rootControllerMap = new WeakMap<HTMLElement, ViewerController>();
 
 function focusRoot(root: HTMLElement): void {
@@ -91,6 +97,7 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   const thumbnails: HTMLButtonElement[] = [];
   let fitEnabled = true;
   let disposed = false;
+  let observer: ResizeObserver | null = null;
 
   elements.host.style.width = `${options.slideWidth}px`;
   elements.host.style.height = `${options.slideHeight}px`;
@@ -123,6 +130,9 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   };
 
   const render = (index: number): number => {
+    if (disposed) {
+      throw new Error("viewer is disposed");
+    }
     const nextIndex = state.goTo(index);
     options.onRender?.(nextIndex, elements.host);
     updateStatus();
@@ -222,21 +232,6 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKeyDown);
 
-  const resizeObserverCtor = globalThis.ResizeObserver;
-  const observer =
-    resizeObserverCtor === undefined
-      ? null
-      : new resizeObserverCtor(() => {
-          if (fitEnabled) {
-            fit();
-          }
-        });
-  observer?.observe(elements.stage);
-
-  render(0);
-  fit();
-  focusRoot(root);
-
   const controller: ViewerController = {
     state,
     elements,
@@ -252,23 +247,50 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKeyDown);
       observer?.disconnect();
-      options.onDestroy?.();
-      if (rootControllerMap.get(root) === controller) {
-        rootControllerMap.delete(root);
+      try {
+        options.onDestroy?.();
+      } finally {
+        if (rootControllerMap.get(root) === controller) {
+          rootControllerMap.delete(root);
+        }
+        const ownedRoot = root as ViewerRoot;
+        if (ownedRoot[ROOT_CONTROLLER_KEY] === controller) {
+          delete ownedRoot[ROOT_CONTROLLER_KEY];
+        }
       }
     },
   };
 
-  // Keep a discoverable reference on root for diagnostics and leak checks.
-  Object.defineProperty(root, ROOT_CONTROLLER_KEY, {
-    configurable: true,
-    enumerable: false,
-    writable: true,
-    value: controller,
-  });
-  rootControllerMap.set(root, controller);
+  try {
+    const resizeObserverCtor = globalThis.ResizeObserver;
+    observer =
+      resizeObserverCtor === undefined
+        ? null
+        : new resizeObserverCtor(() => {
+            if (fitEnabled) {
+              fit();
+            }
+          });
+    observer?.observe(elements.stage);
 
-  return controller;
+    // Register before callbacks so any initialization failure can remove all ownership atomically.
+    Object.defineProperty(root, ROOT_CONTROLLER_KEY, {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: controller,
+    });
+    rootControllerMap.set(root, controller);
+
+    render(0);
+    fit();
+    focusRoot(root);
+    return controller;
+  } catch (error) {
+    controller.destroy();
+    root.replaceChildren();
+    throw error;
+  }
 }
 
 function errorMessage(error: unknown): string {
@@ -291,14 +313,35 @@ export async function startViewer(
   root: HTMLElement,
   sourceUrl: string,
   bridge: ViewerBridge,
-  options: { testFailSlide?: number } = {},
-): Promise<ViewerController> {
+  options: StartViewerOptions = {},
+): Promise<ViewerController | undefined> {
   let presentation: LoadedPresentation | undefined;
   let controller: ViewerController | undefined;
+  let cleaned = false;
+  const cleanupPresentation = (): void => {
+    if (cleaned) {
+      return;
+    }
+    cleaned = true;
+    presentation?.cleanup();
+  };
+  const onAbort = (): void => {
+    controller?.destroy();
+  };
+  options.signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
     requireLocalFileUrl(sourceUrl);
+    if (options.signal?.aborted) {
+      options.signal.removeEventListener("abort", onAbort);
+      return undefined;
+    }
     presentation = await loadPresentation(sourceUrl);
+    if (options.signal?.aborted) {
+      cleanupPresentation();
+      options.signal.removeEventListener("abort", onAbort);
+      return undefined;
+    }
     if (presentation.slides.length === 0) {
       throw new Error("presentation has no slides");
     }
@@ -329,10 +372,18 @@ export async function startViewer(
         bridge.slideChanged(index);
       },
       onDestroy() {
-        presentation?.cleanup();
-        root.replaceChildren();
+        options.signal?.removeEventListener("abort", onAbort);
+        try {
+          cleanupPresentation();
+        } finally {
+          root.replaceChildren();
+        }
       },
     });
+    if (options.signal?.aborted) {
+      controller.destroy();
+      return undefined;
+    }
 
     try {
       const thumbnails = getThumbnails(presentation, 200);
@@ -349,10 +400,11 @@ export async function startViewer(
     bridge.viewerReady(presentation.slides.length);
     return controller;
   } catch (error) {
+    options.signal?.removeEventListener("abort", onAbort);
     if (controller) {
       controller.destroy();
     } else {
-      presentation?.cleanup();
+      cleanupPresentation();
     }
     bridge.viewerError(errorMessage(error));
     throw error;

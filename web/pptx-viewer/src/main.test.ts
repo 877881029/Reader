@@ -38,14 +38,17 @@ function makeBridge(sourceUrl: string) {
 }
 
 beforeEach(() => {
+  window.readerPptxDispose?.();
   vi.resetModules();
   startViewer.mockReset();
   document.body.innerHTML = '<main id="app"></main>';
   delete window.qt;
   delete window.QWebChannel;
+  delete window.readerPptxDispose;
 });
 
 afterEach(() => {
+  window.readerPptxDispose?.();
   vi.restoreAllMocks();
 });
 
@@ -54,6 +57,7 @@ it("shows a fatal bootstrap error when WebChannel is unavailable", async () => {
 
   expect(document.querySelector("#app")?.textContent).toContain("Reader bridge unavailable");
   expect(document.querySelector("#app")?.classList).toContain("viewer-bootstrap-error");
+  expect(window.readerPptxDispose).toBeTypeOf("function");
 });
 
 it("reports and blocks a non-file source URL", async () => {
@@ -70,7 +74,7 @@ it("reports and blocks a non-file source URL", async () => {
 it("starts from bridge.sourceUrl and forwards the bridge callbacks", async () => {
   const bridge = makeBridge("file:///C:/decks/visual-elements.pptx");
   installChannel(bridge);
-  startViewer.mockResolvedValue({});
+  startViewer.mockResolvedValue(undefined);
 
   await import("./main");
 
@@ -78,8 +82,27 @@ it("starts from bridge.sourceUrl and forwards the bridge callbacks", async () =>
     document.querySelector("#app"),
     bridge.sourceUrl,
     bridge,
-    { testFailSlide: -1 },
+    expect.objectContaining({
+      testFailSlide: -1,
+      signal: expect.any(AbortSignal),
+    }),
   );
+});
+
+it("retains the resolved controller and disposes it exactly once", async () => {
+  const bridge = makeBridge("file:///C:/decks/visual-elements.pptx");
+  installChannel(bridge);
+  const controller = { destroy: vi.fn() };
+  startViewer.mockResolvedValue(controller);
+
+  await import("./main");
+  await Promise.resolve();
+  window.readerPptxDispose?.();
+  window.readerPptxDispose?.();
+
+  expect(controller.destroy).toHaveBeenCalledOnce();
+  const options = startViewer.mock.calls[0]?.[3] as { signal: AbortSignal };
+  expect(options.signal.aborted).toBe(true);
 });
 
 describe("scaffold smoke", () => {
