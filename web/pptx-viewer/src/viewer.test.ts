@@ -25,6 +25,10 @@ function trackElementSize(element: HTMLElement, width: number, height: number): 
   };
 }
 
+function dispatchArrowRight(target: HTMLElement): void {
+  target.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+}
+
 describe("viewer controls", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -55,14 +59,67 @@ describe("viewer controls", () => {
     prev?.click();
     thumb3?.click();
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Home" }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "End" }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageUp" }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+    root.focus();
+    root.dispatchEvent(new KeyboardEvent("keydown", { key: "Home" }));
+    root.dispatchEvent(new KeyboardEvent("keydown", { key: "End" }));
+    root.dispatchEvent(new KeyboardEvent("keydown", { key: "PageUp" }));
+    root.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
 
     expect(viewer.state.currentIndex).toBe(4);
     expect(rendered).toContain(3);
     expect(viewer.elements.page.textContent).toContain("5 / 5");
+  });
+
+  it("routes ArrowRight only to the focused viewer and ignores destroyed viewer keydown", () => {
+    const firstRoot = document.createElement("div");
+    const secondRoot = document.createElement("div");
+    document.body.append(firstRoot, secondRoot);
+
+    const first = createViewer(firstRoot, {
+      slideCount: 5,
+      slideWidth: 1600,
+      slideHeight: 900,
+    });
+    const second = createViewer(secondRoot, {
+      slideCount: 5,
+      slideWidth: 1600,
+      slideHeight: 900,
+    });
+
+    firstRoot.focus();
+    dispatchArrowRight(firstRoot);
+    expect(first.state.currentIndex).toBe(1);
+    expect(second.state.currentIndex).toBe(0);
+
+    secondRoot.focus();
+    dispatchArrowRight(secondRoot);
+    expect(first.state.currentIndex).toBe(1);
+    expect(second.state.currentIndex).toBe(1);
+
+    first.destroy();
+    firstRoot.focus();
+    dispatchArrowRight(firstRoot);
+    expect(first.state.currentIndex).toBe(1);
+    expect(second.state.currentIndex).toBe(1);
+  });
+
+  it("auto-destroys previous controller when mounting again on same root", () => {
+    const root = mountRoot();
+    const first = createViewer(root, {
+      slideCount: 5,
+      slideWidth: 1600,
+      slideHeight: 900,
+    });
+    const second = createViewer(root, {
+      slideCount: 5,
+      slideWidth: 1600,
+      slideHeight: 900,
+    });
+
+    root.focus();
+    dispatchArrowRight(root);
+    expect(second.state.currentIndex).toBe(1);
+    expect(first.state.currentIndex).toBe(0);
   });
 
   it("applies real zoom in/out and clamps to 25%-400%", () => {
@@ -125,5 +182,23 @@ describe("viewer controls", () => {
     viewer.destroy();
     expect(disconnect).toHaveBeenCalledTimes(1);
     globalThis.ResizeObserver = originalObserver;
+  });
+
+  it("focuses root after control and thumbnail clicks", () => {
+    const root = mountRoot();
+    createViewer(root, {
+      slideCount: 3,
+      slideWidth: 1600,
+      slideHeight: 900,
+    });
+
+    const zoomIn = root.querySelector<HTMLButtonElement>('[data-action="zoom-in"]');
+    const thumb1 = root.querySelector<HTMLButtonElement>('[data-slide-index="1"]');
+
+    zoomIn?.click();
+    expect(document.activeElement).toBe(root);
+
+    thumb1?.click();
+    expect(document.activeElement).toBe(root);
   });
 });

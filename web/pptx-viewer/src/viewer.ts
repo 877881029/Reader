@@ -25,6 +25,17 @@ export interface ViewerController {
   destroy(): void;
 }
 
+const ROOT_CONTROLLER_KEY = Symbol("reader-pptx-viewer-controller");
+const rootControllerMap = new WeakMap<HTMLElement, ViewerController>();
+
+function focusRoot(root: HTMLElement): void {
+  try {
+    root.focus({ preventScroll: true });
+  } catch {
+    root.focus();
+  }
+}
+
 export function buildViewerDom(root: HTMLElement): ViewerElements {
   root.innerHTML = `
     <section class="viewer-shell">
@@ -57,6 +68,11 @@ export function buildViewerDom(root: HTMLElement): ViewerElements {
 }
 
 export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerController {
+  const previousController = rootControllerMap.get(root);
+  previousController?.destroy();
+
+  root.tabIndex = 0;
+
   const state = createNavigationState(options.slideCount);
   const elements = buildViewerDom(root);
   const thumbnails: HTMLButtonElement[] = [];
@@ -138,6 +154,7 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
     if (!target) {
       return;
     }
+    focusRoot(root);
     if (target.dataset.slideIndex !== undefined) {
       render(Number(target.dataset.slideIndex));
       return;
@@ -189,7 +206,7 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   };
 
   root.addEventListener("click", onClick);
-  window.addEventListener("keydown", onKeyDown);
+  root.addEventListener("keydown", onKeyDown);
 
   const resizeObserverCtor = globalThis.ResizeObserver;
   const observer =
@@ -204,8 +221,9 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
 
   render(0);
   fit();
+  focusRoot(root);
 
-  return {
+  const controller: ViewerController = {
     state,
     elements,
     render,
@@ -214,8 +232,22 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
     zoomBy,
     destroy() {
       root.removeEventListener("click", onClick);
-      window.removeEventListener("keydown", onKeyDown);
+      root.removeEventListener("keydown", onKeyDown);
       observer?.disconnect();
+      if (rootControllerMap.get(root) === controller) {
+        rootControllerMap.delete(root);
+      }
     },
   };
+
+  // Keep a discoverable reference on root for diagnostics and leak checks.
+  Object.defineProperty(root, ROOT_CONTROLLER_KEY, {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: controller,
+  });
+  rootControllerMap.set(root, controller);
+
+  return controller;
 }
