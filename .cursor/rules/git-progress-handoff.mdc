@@ -1,0 +1,13 @@
+---
+description: Keep goals and progress in git so a new AI session can resume Reader without chat history.
+alwaysApply: true
+---
+
+# Git 进度同步（强制）
+
+- 权威来源是 git，不是聊天。开场先读 `docs/STATUS.md` 和 `docs/superpowers/process.md`。
+- 用户已确认的目标、规格、计划、完成/阻塞状态必须写入仓库：`docs/STATUS.md` + 对应 `docs/superpowers/specs/` 或 `plans/`。
+- 在这些边界提交并推送 `origin/main`：规格批准、计划写完、每个实现任务完成、会话结束前。
+- 提交信息写目标变化（为什么），并更新 STATUS 的「当前目标 / 已完成 / 下一步」。
+- 未推送不算同步。推送失败要记在 STATUS 阻塞项。
+- 不要只改代码不改 STATUS，也不要只在对话里说“下一步”。
