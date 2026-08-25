@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Task 5 待实施**
+**PPTX 视觉预览（不依赖 PowerPoint）：Task 6 待实施**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -39,11 +39,17 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 4：保留 worker 完整 `try/_pin_pdf/emit` 控制流；迁移 4 个 builtin `.pptx` FakeCache PDF 用例到 `.docx`（含 reentrancy），避免视觉模式引入误回归
 - PPTX Visual Preview Task 4 验证：`tests/test_formats_pptx.py tests/test_pipeline.py tests/test_cache.py tests/test_window.py -v` 共 `100 passed`
 - PPTX Visual Preview Task 4（Important 修复）：`to_visual` 异常回退改为固定安全文案，不再暴露异常细节/绝对路径/HTML 片段；`python -m pytest -v` 全量 `208 passed`
+- PPTX Visual Preview Task 5：新增 `PptxVisualView` 显式 `start()` 生命周期；构造阶段仅建立独立 off-the-record profile/page/channel/bridge，不自动 load，15 秒超时且 bundle URL 不携带 source query
+- PPTX Visual Preview Task 5：独立 profile 仅允许本地内容访问 file URL、禁止 remote URL；请求拦截器仅放行 `file/qrc/data/blob`，以锁保护 blocked URL 快照且不从 Chromium 线程发 Qt Signal
+- PPTX Visual Preview Task 5：显式注册 QtWebChannel qrc 并在 `DocumentCreation/MainWorld` 注入 `qwebchannel.js`；bridge 完整提供 `sourceUrl/testFailSlide` 常量属性及 ready/error/slide slots，source URL 仅做一次 `FullyEncoded`
+- PPTX Visual Preview Task 5：load failure、15 秒 timeout、bridge error 与 WebChannel 缺失统一进入幂等安全 HTML fallback 并发出 `render_failed`；ready/slide 信号已对外转发
+- PPTX Visual Preview Task 5：幂等 shutdown 调用 `readerPptxDispose()`，再按 profile interceptor → load signal → WebChannel/page → bridge/channel/interceptor/profile 的所有权顺序拆除；ready 后已排队的超时回调不再误触发 fallback；未接入 MainWindow（留给 Task 6）
+- PPTX Visual Preview Task 5 验证：聚焦 `tests/test_pptx_view.py -v` 为 `9 passed`；Python 全量 `217 passed`；IDE lint 通过
 
 ## 下一步
 
-1. 按计划推进 PPTX Visual Preview Task 5：接入 `QWebEngineView` viewer 与 Python bridge（本任务明确不接 WebEngine）  
-2. Task 5 完成后执行真实产品链路与 frozen smoke  
+1. 按计划推进 PPTX Visual Preview Task 6：将 `PptxVisualView` 接入窗口安装/销毁路径，增加手动“文本模式/视觉模式”操作与 stale event guard
+2. Task 6 完成后推进真实 WebEngine fidelity/offline 测试与 frozen smoke
 3. 全部视觉预览任务完成后重建 `dist/Reader/Reader.exe`，按需更新桌面快捷方式  
 
 ## 接手检查清单
