@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Task 6 已完成，Task 7 待实施**
+**PPTX 视觉预览（不依赖 PowerPoint）：Task 7 已完成，Task 8 待实施**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -55,11 +55,18 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 6（Important）：`_install_document_content` 在同步 `start()` 后重新校验 closing、document identity、generation 与 layout ownership；同步关闭 tab/window 会返回失败、清理 output artifact，且不会写 artifact 状态或启动幽灵 Office availability probe
 - PPTX Visual Preview Task 6（Important）验证：RED 聚焦 `3 failed, 1 passed, 1 error`（连接存储缺失、同步关闭后仍探测 Office，window 测试 teardown 随后修正）；GREEN 聚焦 `4 passed`、窗口 `83 passed`、Python 全量 `240 passed`；IDE lint 与 `git diff --check` 通过
 - PPTX Visual Preview Task 6 按本次用户指令只提交、不推送；本地提交将领先 `origin/main`
+- PPTX Visual Preview Task 7：真实四页 fixture 现由 `scripts/generate_pptx_visual_fixture.py` 字节级确定性生成；固定外层 PPTX 与嵌入图表 XLSX 的 ZIP 元数据和 core 时间，fixture SHA256 为 `b93eab8f2a4b77aa8d2a3eca02941f27be59c118c2092a5528d6743dc5d43321`
+- PPTX Visual Preview Task 7：新增真实 QWebEngine 集成覆盖主题背景、PNG `<image>`、`foreignObject table`、基础 chart 结构、缺失字体、四缩略图/首选中、六键导航、缩略图点击、zoom/fit 和 stage resize
+- PPTX Visual Preview Task 7：真实 Chromium 请求验证 HTTP/HTTPS/WS/WSS 全由 `OfflineRequestInterceptor` 记录并阻断；测试仅临时绕过第一层 local-content remote policy 以直接验证第二层，产品默认仍保持 remote access 关闭
+- PPTX Visual Preview Task 7：constructor-only `test_fail_slide` 经 WebChannel 注入且不进入 query；单页故障显示占位后可继续渲染其他页，无整 deck fallback
+- PPTX Visual Preview Task 7：真实 `MainWindow` 默认工厂加载四页并在关闭时释放 off-the-record profile；缺失 bundle/`QtWebEngineProcess.exe` 或进程启动失败显式 skip，注册 `webengine` marker
+- PPTX Visual Preview Task 7 验证：RED `2 failed, 2 passed`（generator 不支持输出/不确定、DOM 元素类型探针缺失）；GREEN 聚焦 `20 passed`；npm `23 passed`；Python 全量 `244 passed`；npm typecheck/build、IDE lint 与 `git diff --check` 通过
+- PPTX Visual Preview Task 7 按本次用户指令只提交、不推送、不修改 git config
 
 ## 下一步
 
-1. 按计划推进 PPTX Visual Preview Task 7：真实 WebEngine fidelity/offline 测试
-2. Task 7 完成后推进 frozen resource/build 与独立视觉 smoke
+1. 按计划推进 PPTX Visual Preview Task 8：frozen resource/build 与 bundle hash
+2. Task 8 完成后推进独立 frozen visual smoke 与最终回归
 3. 全部视觉预览任务完成后重建 `dist/Reader/Reader.exe`，按需更新桌面快捷方式  
 
 ## 接手检查清单

@@ -348,6 +348,11 @@ export async function startViewer(
 
     const renderWidth = presentation.slideSize.width;
     const renderHeight = presentation.slideSize.height;
+    root.dataset.elementTypes = JSON.stringify(
+      presentation.slides.map((slide) =>
+        [...new Set(slide.elements.map((element) => element.type))].sort().join(","),
+      ),
+    );
     controller = createViewer(root, {
       slideCount: presentation.slides.length,
       slideWidth: renderWidth,

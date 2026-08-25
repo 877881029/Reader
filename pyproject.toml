@@ -35,4 +35,5 @@ where = ["src"]
 testpaths = ["tests"]
 markers = [
     "office: requires Microsoft Office COM",
+    "webengine: requires Qt WebEngine process and committed viewer bundle",
 ]
