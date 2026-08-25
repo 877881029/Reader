@@ -25,10 +25,11 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - UX 与打包：窗口 1200×800、空白标签、多开、builtin-first、Office 切换、图标、关联、onedir、IPC、冻结 smoke
 - 规格/计划：`docs/superpowers/specs/2026-08-24-reader-ux-packaging-design.md`、`docs/superpowers/plans/2026-08-24-reader-ux-packaging.md`
 - 桌面快捷方式已指向 `dist/Reader/Reader.exe`（用户可再要求刷新）
+- PPTX Visual Preview Task 1：完成确定性 Web scaffold 与许可基线（`web/pptx-viewer`、锁定 `pptx-viewer@0.2.2`、唯一 runtime 传递依赖 `fflate`、`THIRD_PARTY_NOTICES.txt`、输出到 `assets/pptx-viewer/`）
 
 ## 下一步
 
-1. 按计划 Task 1-9 实现，每任务 TDD、独立审查、提交并推送 `origin/main`  
+1. 按计划推进 PPTX Visual Preview Task 2（桥接协议与离线加载基线），延续每任务 TDD、独立审查、提交并推送 `origin/main`  
 2. 全量回归并重建 `dist/Reader/Reader.exe`  
 3. 验证 PPTX 视觉 frozen smoke，更新桌面快捷方式  
 
