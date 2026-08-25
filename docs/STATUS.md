@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Task 8 已完成，Task 9 待实施**
+**PPTX 视觉预览（不依赖 PowerPoint）：Tasks 1–9 已完成，待用户验收**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -77,12 +77,21 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 8（Important/Minor）：source/frozen manifest 共用严格的 SHA256 行格式与空行 guard；测试锁定 Vite `outDir`/`emptyOutDir: true`，显式 opt-in 真实 npm build 证明 stale asset 被删除且自动恢复 bundle，普通 pytest 不调用 npm
 - PPTX Visual Preview Task 8（审查验证）：RED `3 failed, 17 passed`；显式 npm 聚焦 `20 passed`；普通全量 `251 passed, 1 skipped`；clean `build_windows.ps1` exit 0 并记录使用 `C:\Program Files\nodejs\node.exe`；同时将既有 Office availability 测试等待条件收紧到最终 tooltip，消除双 queued signal 竞态
 - PPTX Visual Preview Task 8（审查修复）按本次用户指令创建新提交，不 amend、不 push、不修改 git config
+- PPTX Visual Preview Task 9：新增 `READER_SMOKE_VISUAL_LOG` 可选 JSONL telemetry；`append_visual_ready()` 写入 path/kind/slides/status 后显式 flush + `os.fsync`，默认禁用且无文件副作用
+- PPTX Visual Preview Task 9：窗口仅在 document identity、generation、widget、visual mode、layout ownership 与 closing guards 全部通过后记录 ready；关闭 tab 后的迟到 ready 不更新状态也不落盘
+- PPTX Visual Preview Task 9：`smoke_windows.ps1` 严格拆分 Phase A/Phase B；Phase A 独立 frozen Reader + 真实四页 fixture + 独立 60 秒 deadline，验证 `visual-ready slides=4` 且无 `renderer-failure`，完整停止 Reader/QtWebEngine 树并删除 visual profile/namespace 后，Phase B 才创建全新 `$ipcPrimary` 执行原有两批 IPC
+- PPTX Visual Preview Task 9：AMD/D3D 常驻驱动会长期锁定被重定向 `LOCALAPPDATA` 下的 shader cache；Phase A 因此只复用主机系统 GPU cache 路径，同时继续隔离 Reader/Chromium `USERPROFILE`、`APPDATA`、显式 Chromium user-data-dir、TEMP 与 IPC namespace；Phase B 保持完整 profile 隔离
+- PPTX Visual Preview Task 9 验证：RED 聚焦 `5 failed, 3 passed`；GREEN 聚焦 `8 passed`；Web `23 passed`；Python 全量 `255 passed, 1 skipped`；npm typecheck/build、IDE lint、clean PyInstaller build 均通过
+- PPTX Visual Preview Task 9 frozen smoke：Phase A 收到真实 fixture `ready/slides=4`，Phase B 精确收到两批各 2 文件 IPC；结束后 `ReaderProcesses=0`、visual/ipc 隔离根均不存在
+- PPTX Visual Preview 最终依赖/产物：`pptx-viewer 0.2.2`、lock 解析 `fflate 0.8.3`、Node `22.22.0`、npm `11.15.0`、PySide6 `6.11.2`、PyInstaller `6.22.2`；bundle manifest SHA256 `f6f32aa6416717bb47aebcd4f365cc976dd01c24d86a8e768a12b70042fc2633`
+- 最终 `dist/Reader/Reader.exe`：`5884468 bytes`，SHA256 `1a40cb1760499c44d73283895a83752ae0dd4fc84aa96e2412f97dfd9eac0219`；桌面 `Reader.lnk` 已刷新并验证 target/workdir/icon 均指向该 exe
+- PPTX Visual Preview Task 9 按本次用户指令只提交、不 push、不修改 git config
 
 ## 下一步
 
-1. 按计划推进 PPTX Visual Preview Task 9：独立 frozen visual smoke、最终回归与可持久 telemetry
-2. Task 9 完成后记录最终 EXE hash，并按需更新桌面快捷方式
-3. 完成用户验收：真实日常 PPTX 的视觉保真、文本回退与 Office 切换
+1. 用户验收真实日常 PPTX：视觉保真、缩略图/翻页/缩放/适合窗口、缺失字体与单页失败
+2. 用户验收“文本模式”回退与可选“Office 高保真”往返切换
+3. 若验收发现特定 PPTX 兼容问题，以最小真实 fixture 补充回归后修复
 
 ## 接手检查清单
 

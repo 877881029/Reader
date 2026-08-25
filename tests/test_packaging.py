@@ -213,7 +213,28 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "READER_SKIP_SHELL_INTEGRATION" in script
     assert "READER_IPC_NAMESPACE" in script
     assert "READER_SMOKE_BATCH_LOG" in script
+    assert "READER_SMOKE_VISUAL_LOG" in script
     assert "QTWEBENGINE_CHROMIUM_FLAGS" in script
+    assert "visual-elements.pptx" in script
+    assert "$visualProcess" in script
+    assert "$ipcPrimary" in script
+    assert "$visualDeadline" in script
+    assert "AddSeconds(60)" in script
+    assert "$visualProcess = $null" in script
+    assert "$ipcPrimary = $null" in script
+    assert "$primary" not in script
+    visual_phase, ipc_phase = script.split("# Phase B", 1)
+    assert "# Phase A" in visual_phase
+    assert "slides -eq 4" in visual_phase
+    assert "renderer-failure" in visual_phase
+    assert "Stop-VisualProcesses" in visual_phase
+    assert "Remove-VisualIsolation" in visual_phase
+    assert "-LocalAppDataRoot $hostLocalAppData" in visual_phase
+    assert "$ipcPrimary = Start-Process" in ipc_phase
+    assert (
+        '-LocalAppDataRoot (Join-Path $ipcProfileRoot "AppData\\Local")'
+        in ipc_phase
+    )
     assert '"TEMP"' in script
     assert '"TMP"' in script
     assert script.count("Start-Process") >= 2
@@ -225,8 +246,9 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "reader-single-instance-locks" in script
     assert "WaitForExit" in script
     assert "Stop-Process" in script
-    assert "Stop-Process -Id $processId -Force" in script
+    assert "Stop-Process -Id $trackedId -Force" in script
     assert "Failed to remove smoke test root" in script
+    assert "$attempt -le 120" in script
     assert not re.search(
         r"Remove-Item[^\r\n]*-ErrorAction\s+SilentlyContinue",
         script,

@@ -237,6 +237,64 @@ def test_visual_worker_completion_binds_events_before_start(qtbot, tmp_path: Pat
     assert current_content(window) is visual
 
 
+def test_late_visual_ready_after_close_is_not_logged(
+    qtbot, tmp_path: Path, monkeypatch
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "late-ready.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    calls = []
+    monkeypatch.setattr(
+        "reader.shell.window.append_visual_ready",
+        lambda source, count: calls.append((source, count)),
+    )
+
+    window.close_tab(0)
+    visual.ready.emit(4)
+    qtbot.wait(10)
+
+    assert calls == []
+
+
+def test_current_visual_ready_is_logged_after_state_update(
+    qtbot, tmp_path: Path, monkeypatch
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "current-ready.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    calls = []
+    monkeypatch.setattr(
+        "reader.shell.window.append_visual_ready",
+        lambda source, count: calls.append((source, count)),
+    )
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+
+    visual.ready.emit(4)
+    qtbot.waitUntil(lambda: calls == [(str(path), 4)])
+
+    document = next(iter(window._documents.values()))
+    assert document.visual_slide_count == 4
+
+
 def test_visual_render_failure_updates_status_but_keeps_visual_mode(
     qtbot, tmp_path: Path
 ):
