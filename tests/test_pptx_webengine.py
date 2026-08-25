@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import hashlib
+from contextlib import contextmanager
 import itertools
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -21,7 +19,6 @@ from reader.shell.window import MainWindow
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "pptx" / "visual-elements.pptx"
-GENERATOR = ROOT / "scripts" / "generate_pptx_visual_fixture.py"
 TRACKER_URL = "https://example.invalid/tracker.png"
 OUTBOUND_URLS = (
     "http://example.invalid/pixel.png",
@@ -77,6 +74,11 @@ def run_json(qtbot, view: QWebEngineView, expression: str):
     )
 
 
+def _percent(text: str) -> int:
+    assert text.endswith("%")
+    return int(text.removesuffix("%"))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def webengine_process_probe(qapp):
     if WEBENGINE_MISSING:
@@ -110,64 +112,39 @@ def webengine_process_probe(qapp):
     yield
 
 
-def _start_real_view(qtbot, *, fail_slide: int | None = None):
+@contextmanager
+def _started_real_view(qtbot, *, fail_slide: int | None = None):
     view = PptxVisualView(_result(), FIXTURE, test_fail_slide=fail_slide)
+    profile = view.profile
+    assert profile is not None
     qtbot.addWidget(view)
-    view.resize(1200, 800)
-    view.show()
-    ready: list[int] = []
-    changed: list[int] = []
-    failures: list[str] = []
-    view.ready.connect(ready.append)
-    view.slide_changed.connect(changed.append)
-    view.render_failed.connect(failures.append)
-    view.start()
-    qtbot.waitUntil(lambda: ready == [4], timeout=20_000)
-    return view, changed, failures
-
-
-def test_fixture_generator_is_byte_deterministic_and_contains_real_elements(
-    tmp_path,
-):
-    first = tmp_path / "first.pptx"
-    second = tmp_path / "second.pptx"
-    for output in (first, second):
-        subprocess.run(
-            [sys.executable, str(GENERATOR), "--output", str(output)],
-            cwd=ROOT,
-            check=True,
+    try:
+        view.resize(1200, 800)
+        view.show()
+        ready: list[int] = []
+        changed: list[int] = []
+        failures: list[str] = []
+        view.ready.connect(ready.append)
+        view.slide_changed.connect(changed.append)
+        view.render_failed.connect(failures.append)
+        view.start()
+        qtbot.waitUntil(lambda: ready == [4], timeout=20_000)
+        yield view, changed, failures
+    finally:
+        view.shutdown()
+        qtbot.waitUntil(
+            lambda: not shiboken6.isValid(profile), timeout=10_000
         )
-
-    assert hashlib.sha256(first.read_bytes()).digest() == hashlib.sha256(
-        second.read_bytes()
-    ).digest()
-    assert first.read_bytes() == FIXTURE.read_bytes()
-
-    from pptx import Presentation
-
-    presentation = Presentation(first)
-    assert len(presentation.slides) == 4
-    assert presentation.slides[0].background.fill.fore_color.rgb is not None
-    assert any(
-        shape.shape_type is not None and hasattr(shape, "image")
-        for shape in presentation.slides[0].shapes
-    )
-    assert any(shape.has_table for shape in presentation.slides[1].shapes)
-    assert any(shape.has_chart for shape in presentation.slides[2].shapes)
-    assert (
-        presentation.slides[3]
-        .shapes[0]
-        .text_frame.paragraphs[0]
-        .runs[0]
-        .font.name
-        == "ReaderMissingFontZZ"
-    )
 
 
 def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
     qtbot,
 ):
-    view, changed, failures = _start_real_view(qtbot)
+    with _started_real_view(qtbot) as started:
+        _verify_real_view_fidelity(qtbot, *started)
+
+
+def _verify_real_view_fidelity(qtbot, view, changed, failures):
     interceptor = view.interceptor
     assert interceptor is not None
 
@@ -175,18 +152,35 @@ def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
         qtbot,
         view,
         """
-        (() => ({
-          count: document.querySelectorAll("[data-slide-index]").length,
-          active: document.querySelector(".viewer-shell__thumb.is-active")
-            ?.getAttribute("data-slide-index"),
-          image: Boolean(document.querySelector(".viewer-shell__host svg image")),
-          types: document.querySelector("#app")?.getAttribute("data-element-types"),
-        }))()
+        (() => {
+          const svg = document.querySelector(".viewer-shell__host svg");
+          const painted = [svg, ...svg.querySelectorAll("*")];
+          return {
+            count: document.querySelectorAll("[data-slide-index]").length,
+            active: document.querySelector(".viewer-shell__thumb.is-active")
+              ?.getAttribute("data-slide-index"),
+            image: Boolean(svg.querySelector("image")),
+            title: svg.textContent,
+            paints: painted.flatMap((node) => [
+              node.getAttribute("fill") || "",
+              node.getAttribute("style") || "",
+              getComputedStyle(node).fill,
+              getComputedStyle(node).backgroundColor,
+            ]).join("|").toLowerCase().replaceAll(" ", ""),
+            types: document.querySelector("#app")
+              ?.getAttribute("data-element-types"),
+          };
+        })()
         """,
     )
     assert first_slide["count"] == 4
     assert first_slide["active"] == "0"
     assert first_slide["image"] is True
+    assert "Inherited title" in first_slide["title"]
+    assert (
+        "#14305a" in first_slide["paints"]
+        or "rgb(20,48,90)" in first_slide["paints"]
+    )
     element_types = json.loads(first_slide["types"])
     assert "image" in element_types[0].split(",")
     assert "table" in element_types[1].split(",")
@@ -259,19 +253,36 @@ def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
         )
         qtbot.waitUntil(lambda expected=index: changed[-1:] == [expected])
 
-    assert (
-        run_js(
-            qtbot,
-            view,
-            """
-            (() => {
-              document.querySelector('[data-action="zoom-in"]').click();
-              return document.querySelector(".viewer-shell__zoom").textContent;
-            })()
-            """,
-        )
-        != "100%"
+    zoom_before = run_json(
+        qtbot,
+        view,
+        """
+        (() => ({
+          text: document.querySelector(".viewer-shell__zoom").textContent,
+          transform: document.querySelector(".viewer-shell__host").style.transform,
+        }))()
+        """,
     )
+    zoom_after = run_json(
+        qtbot,
+        view,
+        """
+        (() => {
+          document.querySelector('[data-action="zoom-in"]').click();
+          return {
+            text: document.querySelector(".viewer-shell__zoom").textContent,
+            transform: document.querySelector(
+              ".viewer-shell__host"
+            ).style.transform,
+          };
+        })()
+        """,
+    )
+    before_percent = _percent(zoom_before["text"])
+    after_percent = _percent(zoom_after["text"])
+    assert 25 <= before_percent < after_percent <= 400
+    assert after_percent == min(400, before_percent + 10)
+    assert zoom_after["transform"] != zoom_before["transform"]
 
     run_js(
         qtbot,
@@ -293,6 +304,9 @@ def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
           document.querySelector('[data-action="fit"]').click();
           return {
             zoom: document.querySelector(".viewer-shell__zoom").textContent,
+            transform: document.querySelector(
+              ".viewer-shell__host"
+            ).style.transform,
             width: document.querySelector(".viewer-shell__stage").clientWidth,
           };
         })()
@@ -308,20 +322,33 @@ def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
         != before["width"],
         timeout=10_000,
     )
-    after_zoom = run_js(
+    after_fit = run_json(
         qtbot,
         view,
         """
         (() => {
           document.querySelector('[data-action="fit"]').click();
-          return document.querySelector(".viewer-shell__zoom").textContent;
+          return {
+            zoom: document.querySelector(".viewer-shell__zoom").textContent,
+            transform: document.querySelector(
+              ".viewer-shell__host"
+            ).style.transform,
+          };
         })()
         """,
     )
-    assert after_zoom != before["zoom"]
+    before_fit_percent = _percent(before["zoom"])
+    after_fit_percent = _percent(after_fit["zoom"])
+    assert 25 <= before_fit_percent < after_fit_percent <= 400
+    assert after_fit["transform"] != before["transform"]
 
     # Temporarily bypass the first local-content policy layer so the real
     # Chromium requests reach and exercise the interceptor layer.
+    assert interceptor.blocked_urls() == ()
+    expected_blocked = tuple(
+        QUrl(url).toString(QUrl.ComponentFormattingOption.FullyEncoded)
+        for url in OUTBOUND_URLS
+    )
     view.page().settings().setAttribute(
         QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
     )
@@ -351,14 +378,15 @@ def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
         """,
     )
     qtbot.waitUntil(
-        lambda: set(OUTBOUND_URLS).issubset(
+        lambda: set(expected_blocked).issubset(
             set(interceptor.blocked_urls())
         ),
         timeout=10_000,
     )
     blocked = interceptor.blocked_urls()
+    assert len(blocked) == len(expected_blocked)
+    assert set(blocked) == set(expected_blocked)
     assert blocked.count(TRACKER_URL) == 1
-    assert set(OUTBOUND_URLS).issubset(set(blocked))
     assert run_json(
         qtbot,
         view,
@@ -371,12 +399,14 @@ def test_real_view_renders_fidelity_navigation_zoom_fit_and_blocks_network(
         """,
     )
     assert failures == []
-    view.shutdown()
 
 
 def test_single_slide_failure_stays_local_and_other_slides_continue(qtbot):
-    view, changed, failures = _start_real_view(qtbot, fail_slide=1)
+    with _started_real_view(qtbot, fail_slide=1) as started:
+        _verify_single_slide_failure(qtbot, *started)
 
+
+def _verify_single_slide_failure(qtbot, view, changed, failures):
     assert "testFailSlide" not in view.viewer_url.query()
     assert run_json(
         qtbot,
@@ -415,7 +445,6 @@ def test_single_slide_failure_stays_local_and_other_slides_continue(qtbot):
     qtbot.waitUntil(lambda: changed[-1:] == [2])
     assert failures == []
     assert not view.is_fallback
-    view.shutdown()
 
 
 class _OfflineOffice:
@@ -431,23 +460,31 @@ def test_main_window_default_factory_loads_and_releases_webengine_profile(
         office=_OfflineOffice(),
     )
     qtbot.addWidget(window)
-    window.show()
-    window.open_paths([str(FIXTURE)])
+    profile = None
+    content = None
+    try:
+        window.show()
+        window.open_paths([str(FIXTURE)])
 
-    qtbot.waitUntil(
-        lambda: bool(window._documents)
-        and next(iter(window._documents.values())).visual_slide_count == 4,
-        timeout=20_000,
-    )
-    document = next(iter(window._documents.values()))
-    layout = document.page.layout()
-    assert layout is not None
-    content = layout.itemAt(0).widget()
-    assert isinstance(content, PptxVisualView)
-    profile = content.profile
-    assert profile is not None and profile.isOffTheRecord()
+        qtbot.waitUntil(
+            lambda: bool(window._documents)
+            and next(iter(window._documents.values())).visual_slide_count == 4,
+            timeout=20_000,
+        )
+        document = next(iter(window._documents.values()))
+        layout = document.page.layout()
+        assert layout is not None
+        content = layout.itemAt(0).widget()
+        assert isinstance(content, PptxVisualView)
+        profile = content.profile
+        assert profile is not None and profile.isOffTheRecord()
+    finally:
+        window.close()
+        if profile is not None:
+            qtbot.waitUntil(
+                lambda: not shiboken6.isValid(profile), timeout=10_000
+            )
 
-    window.close()
-    qtbot.waitUntil(lambda: not shiboken6.isValid(profile), timeout=10_000)
+    assert content is not None
     assert content.profile is None
     assert not window._documents

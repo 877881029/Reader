@@ -361,6 +361,13 @@ describe("official renderer integration", () => {
 
     expect(bridge.viewerReady).toHaveBeenCalledWith(4);
     expect(root.querySelector(".viewer-shell__thumb svg")).not.toBeNull();
+    expect(root.dataset.elementTypes).toBe(
+      JSON.stringify(
+        presentation.slides.map((slide) =>
+          [...new Set(slide.elements.map((element) => element.type))].sort().join(","),
+        ),
+      ),
+    );
     const expectedFit = Math.round(
       fitScale(1000, 500, presentation.slideSize.width, presentation.slideSize.height) * 100,
     );

@@ -62,6 +62,11 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 7：真实 `MainWindow` 默认工厂加载四页并在关闭时释放 off-the-record profile；缺失 bundle/`QtWebEngineProcess.exe` 或进程启动失败显式 skip，注册 `webengine` marker
 - PPTX Visual Preview Task 7 验证：RED `2 failed, 2 passed`（generator 不支持输出/不确定、DOM 元素类型探针缺失）；GREEN 聚焦 `20 passed`；npm `23 passed`；Python 全量 `244 passed`；npm typecheck/build、IDE lint 与 `git diff --check` 通过
 - PPTX Visual Preview Task 7 按本次用户指令只提交、不推送、不修改 git config
+- PPTX Visual Preview Task 7（Important 审查修复）：zoom/fit 改为解析百分比并校验 `+10`、25%–400% 范围及 transform；真实 host 同时断言 `Inherited title` 与 `#14305A` 背景 paint；网络注入前 snapshot 必须为空，注入后规范化集合必须精确等于 HTTP/HTTPS/WS/WSS 四项
+- PPTX Visual Preview Task 7（Important 审查修复）：所有直接 `PptxVisualView` 用例统一由 context manager 在 `finally` shutdown 并等待 profile invalid；真实 `MainWindow` 同样保证异常路径清理
+- PPTX Visual Preview Task 7（Minor 审查修复）：fixture/generator/hash 测试移出 `webengine` marker，钉死背景 RGB、`MSO_SHAPE_TYPE.PICTURE` 与 SHA256；Vitest 补充 `data-element-types` 精确断言
+- PPTX Visual Preview Task 7（审查验证）：RED `1 failed, 2 passed`，原生 `qtbot.keyClick(QWebEngineView, Right)` 因 WebEngine 焦点桥接 10 秒无事件，按允许的 Minor 留项撤回；其余强化断言直接验证通过。聚焦连续两轮均 `20 passed`；Python 全量 `244 passed`；npm `23 passed`；typecheck/build 与 IDE lint 通过
+- PPTX Visual Preview Task 7（审查修复）按本次用户指令创建新提交，不 amend、不 push、不修改 git config
 
 ## 下一步
 
