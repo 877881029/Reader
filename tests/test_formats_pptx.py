@@ -3,7 +3,8 @@ from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches
 
-from reader.formats.pptx import to_html
+from reader.formats import pptx as fmt_pptx
+from reader.formats.pptx import to_html, to_visual
 
 
 def test_pptx_emits_one_section_per_slide(tmp_path: Path):
@@ -64,3 +65,37 @@ def test_pptx_escapes_dangerous_characters(tmp_path: Path):
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "&amp;" in html
     assert "&lt;img onerror=alert(1)&gt;" in html
+
+
+def test_to_visual_wraps_builtin_html_as_fallback(tmp_path: Path):
+    path = tmp_path / "visual.pptx"
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "visual-fallback"
+    prs.save(path)
+
+    result = to_visual(path)
+
+    assert result.kind == "pptx"
+    assert result.fallback_html is not None
+    assert "visual-fallback" in result.fallback_html
+
+
+def test_to_visual_escapes_fallback_message_when_text_extract_fails(
+    tmp_path: Path, monkeypatch
+):
+    path = tmp_path / "broken.pptx"
+    path.write_bytes(b"x")
+
+    def boom(_path: Path):
+        raise RuntimeError("parse <script>alert(1)</script>")
+
+    monkeypatch.setattr(fmt_pptx, "to_html", boom)
+
+    result = to_visual(path)
+
+    assert result.kind == "pptx"
+    assert result.fallback_html is not None
+    assert "演示文稿已加密或损坏：" in result.fallback_html
+    assert "<script>" not in result.fallback_html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in result.fallback_html

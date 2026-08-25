@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -22,7 +23,7 @@ class OfficeBackend(Protocol):
     def export(self, path: Path) -> PreviewResult: ...
 
 
-PreviewMode = Literal["builtin", "office"]
+PreviewMode = Literal["builtin", "visual", "text", "office"]
 
 
 def preview(
@@ -33,6 +34,20 @@ def preview(
 ) -> PreviewResult:
     path = Path(path)
     suffix = sniff(path)
+    if mode == "visual" and suffix != ".pptx":
+        raise ValueError("visual mode supports only .pptx")
+
+    if suffix == ".pptx":
+        if mode in {"builtin", "visual"}:
+            return fmt_pptx.to_visual(path)
+        if mode == "text":
+            text = fmt_pptx.to_html(path)
+            return replace(text, status_label="内置预览（文本模式）")
+        if mode == "office":
+            if office is not None and office.available_for(suffix):
+                return office.export(path)
+            return fmt_pptx.to_visual(path)
+
     if (
         mode == "office"
         and suffix != ".md"

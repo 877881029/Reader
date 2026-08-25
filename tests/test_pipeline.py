@@ -51,7 +51,7 @@ def test_docx_defaults_to_builtin_without_office_call(tmp_path: Path):
     assert "builtin-default" in result.html
 
 
-@pytest.mark.parametrize("suffix", [".docx", ".pptx", ".xlsx"])
+@pytest.mark.parametrize("suffix", [".docx", ".xlsx"])
 def test_all_office_formats_are_builtin_first_without_any_com_probe(
     tmp_path: Path, monkeypatch, suffix: str
 ):
@@ -73,6 +73,26 @@ def test_all_office_formats_are_builtin_first_without_any_com_probe(
 
     assert result.status_label == "内置预览"
     assert f"builtin-{suffix}" in result.html
+    assert office.available_calls == []
+    assert office.calls == []
+
+
+def test_pptx_defaults_to_visual_without_any_com_probe(tmp_path: Path):
+    from pptx import Presentation
+
+    path = tmp_path / "builtin-first.pptx"
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "visual-default"
+    prs.save(path)
+    office = FakeOffice(available=True)
+
+    result = preview(path, office=office)
+
+    assert result.kind == "pptx"
+    assert result.status_label == "内置预览（视觉模式）"
+    assert result.fallback_html is not None
+    assert "visual-default" in result.fallback_html
     assert office.available_calls == []
     assert office.calls == []
 
@@ -141,8 +161,25 @@ def test_pptx_falls_back_when_office_missing(tmp_path: Path):
     result = preview(p, office=office, mode="office")
     assert office.available_calls == [".pptx"]
     assert office.calls == []
-    assert result.status_label == "内置预览"
-    assert "pptx-fallback" in result.html
+    assert result.kind == "pptx"
+    assert result.fallback_html is not None
+    assert "pptx-fallback" in result.fallback_html
+
+
+def test_explicit_text_mode_returns_cacheable_html(tmp_path: Path):
+    from pptx import Presentation
+
+    path = tmp_path / "text.pptx"
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "manual-text"
+    prs.save(path)
+
+    result = preview(path, mode="text")
+
+    assert result.kind == "html"
+    assert result.status_label == "内置预览（文本模式）"
+    assert "manual-text" in result.html
 
 
 def test_xlsx_falls_back_when_office_missing(tmp_path: Path):

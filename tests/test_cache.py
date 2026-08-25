@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+import pytest
+
 from reader.preview.result import PreviewResult
 
 
@@ -241,3 +243,23 @@ def test_put_does_not_modify_source(tmp_path: Path):
     after_stat = src.stat()
     assert after_bytes == before_bytes
     assert after_stat.st_size == before_stat.st_size
+
+
+def test_put_rejects_pptx_visual_kind(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "deck.pptx"
+    src.write_bytes(b"pptx")
+    cache = PreviewCache(tmp_path / "c")
+
+    with pytest.raises(ValueError, match="unsupported preview kind: pptx"):
+        cache.put(
+            src,
+            "visual",
+            PreviewResult(
+                html="",
+                status_label="内置预览（视觉模式）",
+                kind="pptx",
+                fallback_html="<p>fallback</p>",
+            ),
+        )

@@ -234,6 +234,47 @@ def test_window_builtin_load_uses_builtin_cache_strategy(qtbot, tmp_path: Path):
     assert ("get", path.resolve(), "builtin") in cache.calls
 
 
+def test_pptx_visual_skips_cache_and_text_mode_uses_text_cache_strategy(
+    qtbot, tmp_path: Path
+):
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    cache = FakeCache()
+    modes: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        modes.append(mode)
+        if mode == "text":
+            return PreviewResult(
+                html="TEXT",
+                status_label="内置预览（文本模式）",
+                kind="html",
+            )
+        return PreviewResult(
+            html="VISUAL",
+            status_label="内置预览（视觉模式）",
+            kind="pptx",
+            fallback_html="<p>VISUAL</p>",
+        )
+
+    window = make_window(preview_fn, cache)
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "VISUAL" in page_text(window, 0))
+    assert modes == ["visual"]
+    assert cache.calls == []
+
+    document_id = next(iter(window._documents))
+    window._restart_preview(document_id, "text")
+    qtbot.waitUntil(lambda: "TEXT" in page_text(window, 0))
+    assert modes == ["visual", "text"]
+    assert cache.calls == [
+        ("get", path.resolve(), "text"),
+        ("put", path.resolve(), "text"),
+    ]
+
+
 def test_office_action_disabled_when_office_missing(qtbot, tmp_path: Path):
     path = tmp_path / "doc.docx"
     path.write_bytes(b"x")
@@ -441,8 +482,8 @@ def test_switch_back_to_builtin_restores_last_builtin_without_rerender(qtbot, tm
 def test_switch_back_preserves_builtin_pdf_and_cleans_both_artifacts(
     qtbot, tmp_path: Path
 ):
-    path = tmp_path / "deck.pptx"
-    path.write_bytes(b"pptx")
+    path = tmp_path / "deck.docx"
+    path.write_bytes(b"docx")
     builtin_pdf = tmp_path / "builtin.pdf"
     office_pdf = tmp_path / "office.pdf"
     builtin_pdf.write_bytes(b"%PDF builtin")
@@ -1657,8 +1698,8 @@ def test_viewer_receives_source_path_and_html_base(qtbot, tmp_path: Path):
 
 
 def test_pdf_is_pinned_until_tab_closes(qtbot, tmp_path: Path):
-    source = tmp_path / "deck.pptx"
-    source.write_bytes(b"pptx")
+    source = tmp_path / "deck.docx"
+    source.write_bytes(b"docx")
     cached_pdf = tmp_path / "cache-slot" / "preview.pdf"
     cached_pdf.parent.mkdir()
     cached_pdf.write_bytes(b"%PDF pinned")
@@ -1762,8 +1803,8 @@ def test_failed_pdf_pin_cleans_owned_office_temp_dir(qtbot, tmp_path: Path):
 
 
 def test_window_close_cleans_loaded_pdf_pin(qtbot, tmp_path: Path):
-    source = tmp_path / "loaded.pptx"
-    source.write_bytes(b"pptx")
+    source = tmp_path / "loaded.docx"
+    source.write_bytes(b"docx")
     cached_pdf = tmp_path / "cache.pdf"
     cached_pdf.write_bytes(b"%PDF")
     pinned: list[Path] = []
@@ -1798,8 +1839,8 @@ def test_window_close_cleans_loaded_pdf_pin(qtbot, tmp_path: Path):
 
 
 def test_viewer_reentrancy_close_discards_widget_and_artifact(qtbot, tmp_path: Path):
-    source = tmp_path / "close-during-viewer.pptx"
-    source.write_bytes(b"pptx")
+    source = tmp_path / "close-during-viewer.docx"
+    source.write_bytes(b"docx")
     pdf = tmp_path / "preview.pdf"
     pdf.write_bytes(b"%PDF")
     cache = FakeCache(

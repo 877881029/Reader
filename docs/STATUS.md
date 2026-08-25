@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Task 4 待实施**
+**PPTX 视觉预览（不依赖 PowerPoint）：Task 5 待实施**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -33,11 +33,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 3（Important 审查修复）：`startViewer` 支持 `AbortSignal` 取消加载与挂载后销毁；`main.ts` 保留 controller 所有权并暴露 `window.readerPptxDispose()`，同时处理 pagehide/beforeunload
 - PPTX Visual Preview Task 3（Important 审查修复）：`createViewer` 初始化失败会原子移除 listeners、disconnect observer、清除 root ownership 并 rethrow；销毁后 public render 明确报 disposed，double destroy/abort 幂等
 - PPTX Visual Preview Task 3 验证：Web 23 tests、TypeScript typecheck/build、Python Web 资源 4 tests、Python 全量 203 tests 全部通过；未改 Python 产品链路
+- PPTX Visual Preview Task 4：完成 `PreviewMode` 扩展（`builtin/visual/text/office`）与 `.pptx` 默认 `visual`；`fmt_pptx.to_visual()` 返回 `kind="pptx"` 并携带 `fallback_html`（复用 `to_html`）
+- PPTX Visual Preview Task 4：`text` 模式显式返回 HTML（`内置预览（文本模式）`）；`office` 在 `.pptx` 不可用时回退到 visual（不触发 COM 导出）
+- PPTX Visual Preview Task 4：建立缓存契约——visual 跳过 cache `get/put` 且不复用旧 builtin HTML/PDF 缓存，text 使用独立 `text` strategy，`PreviewCache.put` 对 `kind="pptx"` 维持拒绝
+- PPTX Visual Preview Task 4：保留 worker 完整 `try/_pin_pdf/emit` 控制流；迁移 4 个 builtin `.pptx` FakeCache PDF 用例到 `.docx`（含 reentrancy），避免视觉模式引入误回归
+- PPTX Visual Preview Task 4 验证：`tests/test_formats_pptx.py tests/test_pipeline.py tests/test_cache.py tests/test_window.py -v` 共 `100 passed`
 
 ## 下一步
 
-1. 按计划推进 PPTX Visual Preview Task 4：新增 visual/text 结果模式与 cache contract，并延续任务级 TDD  
-2. Task 5 接入 `QWebEngineView` 与 Python bridge 后，再执行真实产品链路及 frozen smoke  
+1. 按计划推进 PPTX Visual Preview Task 5：接入 `QWebEngineView` viewer 与 Python bridge（本任务明确不接 WebEngine）  
+2. Task 5 完成后执行真实产品链路与 frozen smoke  
 3. 全部视觉预览任务完成后重建 `dist/Reader/Reader.exe`，按需更新桌面快捷方式  
 
 ## 接手检查清单

@@ -7,6 +7,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
@@ -150,12 +151,20 @@ class _PreviewWorker(QRunnable):
     def run(self) -> None:
         result: PreviewResult | None = None
         try:
+            strategy = (
+                "visual"
+                if self.path.suffix.lower() == ".pptx"
+                and self.mode in {"builtin", "visual"}
+                else self.mode
+            )
             cache: PreviewCache | None
-            try:
-                cache = self.cache_factory()
-                result = cache.get(self.path, self.mode)
-            except Exception:
-                cache = None
+            cache = None
+            if strategy != "visual":
+                try:
+                    cache = self.cache_factory()
+                    result = cache.get(self.path, strategy)
+                except Exception:
+                    cache = None
 
             if result is None:
                 result = self.preview_fn(self.path, office=self.office, mode=self.mode)
@@ -164,7 +173,7 @@ class _PreviewWorker(QRunnable):
                 )
                 if cache is not None and cacheable:
                     try:
-                        cache.put(self.path, self.mode, result)
+                        cache.put(self.path, strategy, result)
                     except Exception:
                         pass
             output = _pin_pdf(result)
@@ -332,6 +341,7 @@ class _Document:
     artifact_dir: Path | None = None
     builtin_artifact_dir: Path | None = None
     mode: PreviewMode = "builtin"
+    builtin_mode: Literal["builtin", "visual", "text"] = "builtin"
     last_result: PreviewResult | None = None
     office_available: bool | None = None
     status_label: str = "正在加载…"
@@ -560,7 +570,7 @@ class MainWindow(QMainWindow):
         self.actionOfficePreview.setToolTip(office_tooltip)
         self.actionBuiltinPreview.setEnabled(
             document is not None
-            and document.mode != "builtin"
+            and document.mode != document.builtin_mode
             and document.last_result is not None
         )
         self.statusBar().showMessage(document.status_label if document is not None else "")
@@ -659,6 +669,9 @@ class MainWindow(QMainWindow):
     def _start_preview(self, path: Path, *, replace_tab_index: int | None = None) -> None:
         if self._closing:
             return
+        initial_mode: Literal["builtin", "visual"] = (
+            "visual" if path.suffix.lower() == ".pptx" else "builtin"
+        )
         document_id = uuid4().hex
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -666,9 +679,15 @@ class MainWindow(QMainWindow):
         loading.setObjectName("previewLoading")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(loading)
-        document = _Document(path=path, page=page, request_id=document_id)
+        document = _Document(
+            path=path,
+            page=page,
+            request_id=document_id,
+            mode=initial_mode,
+            builtin_mode=initial_mode,
+        )
         self._documents[document_id] = document
-        self._requests[document_id] = (document_id, 0, "builtin")
+        self._requests[document_id] = (document_id, 0, initial_mode)
         self._owned_request_ids.add(document_id)
         if replace_tab_index is None:
             self._tabs.addTab(page, path.name)
@@ -686,7 +705,7 @@ class MainWindow(QMainWindow):
             self._preview_fn,
             self._office,
             self._cache_factory,
-            mode="builtin",
+            mode=initial_mode,
         )
 
     def switch_current_tab_to_office(self) -> None:
@@ -711,7 +730,7 @@ class MainWindow(QMainWindow):
             return
         document = self._documents[document_id]
         if document.last_result is None:
-            self._restart_preview(document_id, "builtin")
+            self._restart_preview(document_id, document.builtin_mode)
             return
 
         self._cancel_availability_probe(document)
@@ -733,7 +752,7 @@ class MainWindow(QMainWindow):
         if document.artifact_dir != document.builtin_artifact_dir:
             _cleanup_dir(document.artifact_dir)
         document.artifact_dir = document.builtin_artifact_dir
-        document.mode = "builtin"
+        document.mode = document.builtin_mode
         document.status_label = document.last_result.status_label
         self._refresh_preview_actions()
 
@@ -841,7 +860,7 @@ class MainWindow(QMainWindow):
         if office_failed and document.last_result is not None:
             if output is not None:
                 _cleanup_dir(output.artifact_dir)
-            document.mode = "builtin"
+            document.mode = document.builtin_mode
             document.status_label = "内置预览（Office 导出失败）"
             self._refresh_preview_actions()
             return
@@ -867,7 +886,7 @@ class MainWindow(QMainWindow):
                 except Exception as exc:
                     _cleanup_dir(output.artifact_dir)
                     if requested_mode == "office" and document.last_result is not None:
-                        document.mode = "builtin"
+                        document.mode = document.builtin_mode
                         document.status_label = "内置预览（Office 导出失败）"
                         self._refresh_preview_actions()
                         return
@@ -883,19 +902,20 @@ class MainWindow(QMainWindow):
 
         if output is not None:
             if (
-                requested_mode == "builtin"
+                requested_mode != "office"
                 or document.artifact_dir != document.builtin_artifact_dir
             ):
                 _cleanup_dir(document.artifact_dir)
             document.artifact_dir = output.artifact_dir
-            if requested_mode == "builtin":
+            if requested_mode != "office":
                 document.last_result = output.result
                 document.builtin_artifact_dir = output.artifact_dir
+                document.builtin_mode = requested_mode
         document.mode = requested_mode
         document.status_label = status
         self._refresh_preview_actions()
         if (
-            requested_mode == "builtin"
+            requested_mode != "office"
             and document.path.suffix.lower() in OFFICE_SUFFIXES
             and document.office_available is None
             and document.last_result is not None

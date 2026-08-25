@@ -40,3 +40,20 @@ def to_html(path: Path) -> PreviewResult:
         f"</head><body>{body}</body></html>"
     )
     return PreviewResult(html=html, status_label="内置预览", kind="html")
+
+
+def to_visual(path: Path) -> PreviewResult:
+    try:
+        fallback = to_html(path).html
+    except Exception as exc:
+        msg = escape(str(exc))
+        fallback = (
+            "<!DOCTYPE html><html><head><meta charset='utf-8'></head>"
+            f"<body><p>演示文稿已加密或损坏：{msg}</p></body></html>"
+        )
+    return PreviewResult(
+        html="",
+        status_label="内置预览（视觉模式）",
+        kind="pptx",
+        fallback_html=fallback,
+    )
