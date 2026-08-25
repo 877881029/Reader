@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import subprocess
@@ -24,6 +25,16 @@ def test_reader_spec_references_onedir_icon_version_and_webengine() -> None:
     assert "(str(ROOT / 'assets/icons/reader-r.svg'), 'assets/icons')" in spec
 
 
+def test_reader_spec_collects_complete_pptx_runtime_and_webchannel() -> None:
+    spec = (ROOT / "reader.spec").read_text(encoding="utf-8")
+    normalized = spec.replace("\\", "/")
+
+    assert "collect_submodules('PySide6.QtWebChannel')" in spec
+    assert (
+        "(str(ROOT / 'assets/pptx-viewer'), 'assets/pptx-viewer')" in normalized
+    )
+
+
 def test_build_windows_script_is_clean_and_runs_the_spec() -> None:
     script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
 
@@ -37,6 +48,97 @@ def test_build_windows_script_is_clean_and_runs_the_spec() -> None:
     ) in script
     assert script.count("$LASTEXITCODE -ne 0") >= 5
     assert "dist\\Reader\\Reader.exe" in script
+
+
+def test_build_script_runs_native_npm_checks_before_pyinstaller() -> None:
+    script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
+
+    required = [
+        "Get-Command node.exe",
+        "Get-Command npm.cmd",
+        "Start-Process",
+        '"/d", "/s", "/c"',
+        "$process.ExitCode",
+        'Invoke-Npm "ci --prefix web\\pptx-viewer"',
+        'Invoke-Npm "run build --prefix web\\pptx-viewer"',
+        "Node.js 18+ is required",
+    ]
+    for fragment in required:
+        assert fragment in script
+    assert "$major -lt 18" in script
+
+    npm_ci = script.index('Invoke-Npm "ci --prefix web\\pptx-viewer"')
+    npm_build = script.index('Invoke-Npm "run build --prefix web\\pptx-viewer"')
+    manifest = script.index("manifest.sha256")
+    pyinstaller = script.index("-m PyInstaller")
+    assert npm_ci < npm_build < manifest < pyinstaller
+
+
+def test_manifest_paths_support_windows_powershell() -> None:
+    script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
+
+    assert "[IO.Path]::GetRelativePath" not in script
+    assert ".Substring($bundleRoot.Length + 1)" in script
+
+
+def test_build_verifies_frozen_pptx_runtime_and_webchannel() -> None:
+    script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
+
+    assert "_internal\\assets\\pptx-viewer\\index.html" in script
+    assert "_internal\\assets\\pptx-viewer\\manifest.sha256" in script
+    assert "_internal\\assets\\pptx-viewer\\THIRD_PARTY_NOTICES.txt" in script
+    assert "_internal\\PySide6\\QtWebChannel.pyd" in script
+    assert "Frozen runtime resource is missing" in script
+
+
+def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
+    powershell = shutil.which("powershell.exe")
+    node = shutil.which("node.exe")
+    if powershell is None or node is None:
+        pytest.skip("PowerShell and Node.js are required for native build failure test")
+
+    root = tmp_path / "isolated-build"
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(ROOT / "scripts" / "build_windows.ps1", scripts / "build_windows.ps1")
+    sentinel = root / "dist" / "must-survive.txt"
+    sentinel.parent.mkdir()
+    sentinel.write_text("not touched", encoding="utf-8")
+
+    fake_bin = tmp_path / "fake bin"
+    fake_bin.mkdir()
+    npm_log = tmp_path / "npm.log"
+    (fake_bin / "npm.cmd").write_text(
+        '@echo off\r\necho %*>>"%READER_FAKE_NPM_LOG%"\r\nexit /b 23\r\n',
+        encoding="ascii",
+    )
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join((str(fake_bin), str(Path(node).parent), env["PATH"]))
+    env["READER_FAKE_NPM_LOG"] = str(npm_log)
+
+    result = subprocess.run(
+        [
+            powershell,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(scripts / "build_windows.ps1"),
+        ],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+    assert result.returncode != 0
+    assert npm_log.read_text(encoding="utf-8").strip() == "ci --prefix web\\pptx-viewer"
+    assert "npm ci --prefix web\\pptx-viewer failed (exit 23)" in (
+        result.stdout + result.stderr
+    )
+    assert sentinel.read_text(encoding="utf-8") == "not touched"
 
 
 def test_reader_spec_is_not_ignored_by_git() -> None:

@@ -17,6 +17,7 @@ pyside6_datas = collect_data_files('PySide6',
 pyside6_hidden = (
     collect_submodules('PySide6.QtWebEngineCore')
     + collect_submodules('PySide6.QtWebEngineWidgets')
+    + collect_submodules('PySide6.QtWebChannel')
 )
 
 a = Analysis(
@@ -27,6 +28,7 @@ a = Analysis(
     + [
         (str(ROOT / 'assets/icons/reader.ico'), 'assets/icons'),
         (str(ROOT / 'assets/icons/reader-r.svg'), 'assets/icons'),
+        (str(ROOT / 'assets/pptx-viewer'), 'assets/pptx-viewer'),
     ],
     hiddenimports=pyside6_hidden,
     hookspath=[],

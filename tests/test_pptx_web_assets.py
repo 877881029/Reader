@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -48,3 +49,37 @@ def test_web_scaffold_keeps_local_bootstrap_only():
     assert "from \"http://" not in main_ts
     assert "from \"https://" not in main_ts
     assert not re.search(r"import\s*\(\s*['\"]https?://", main_ts)
+
+
+def test_committed_bundle_has_a_deterministic_sha256_manifest():
+    bundle = ROOT / "assets" / "pptx-viewer"
+    manifest = bundle / "manifest.sha256"
+    assert (bundle / "index.html").is_file()
+    assert (bundle / "THIRD_PARTY_NOTICES.txt").is_file()
+    assert manifest.is_file()
+
+    expected = []
+    for path in sorted(
+        (path for path in bundle.rglob("*") if path.is_file() and path != manifest),
+        key=lambda path: path.relative_to(bundle).as_posix(),
+    ):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        expected.append(f"{digest}  {path.relative_to(bundle).as_posix()}")
+    assert manifest.read_text(encoding="ascii").splitlines() == expected
+
+
+def test_ordinary_pytest_configuration_has_no_npm_hook():
+    config_files = [
+        ROOT / "pyproject.toml",
+        ROOT / "pytest.ini",
+        ROOT / "setup.cfg",
+        ROOT / "tox.ini",
+        *sorted((ROOT / "tests").rglob("conftest.py")),
+    ]
+    configured = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in config_files
+        if path.is_file()
+    ).lower()
+    assert "npm " not in configured
+    assert "npm.cmd" not in configured

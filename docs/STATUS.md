@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Task 7 已完成，Task 8 待实施**
+**PPTX 视觉预览（不依赖 PowerPoint）：Task 8 已完成，Task 9 待实施**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -67,12 +67,18 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 7（Minor 审查修复）：fixture/generator/hash 测试移出 `webengine` marker，钉死背景 RGB、`MSO_SHAPE_TYPE.PICTURE` 与 SHA256；Vitest 补充 `data-element-types` 精确断言
 - PPTX Visual Preview Task 7（审查验证）：RED `1 failed, 2 passed`，原生 `qtbot.keyClick(QWebEngineView, Right)` 因 WebEngine 焦点桥接 10 秒无事件，按允许的 Minor 留项撤回；其余强化断言直接验证通过。聚焦连续两轮均 `20 passed`；Python 全量 `244 passed`；npm `23 passed`；typecheck/build 与 IDE lint 通过
 - PPTX Visual Preview Task 7（审查修复）按本次用户指令创建新提交，不 amend、不 push、不修改 git config
+- PPTX Visual Preview Task 8：`reader.spec` 收集完整 `assets/pptx-viewer`（bundle、notice、manifest）并显式收集 `PySide6.QtWebChannel` 隐式模块
+- PPTX Visual Preview Task 8：Windows 构建在 Python/PyInstaller 前验证 Node.js 18+ 与 `npm.cmd`，通过 `cmd /d /s /c call` + `Start-Process -Wait -PassThru` 保留原生退出码；含空格 npm 路径与退出码 23 的模拟证明失败时不清理 dist、不运行 PyInstaller
+- PPTX Visual Preview Task 8：生产构建依次执行 `npm ci`、包含 typecheck 的 `npm run build`，生成 ordinal 排序的 `manifest.sha256` 并在源 bundle 与 frozen bundle 两次验 hash
+- PPTX Visual Preview Task 8：最终 clean build 成功，确认 `dist/Reader/_internal/assets/pptx-viewer/{index.html,manifest.sha256,THIRD_PARTY_NOTICES.txt}`、bundle assets 与 `PySide6/QtWebChannel.pyd` 存在；源/frozen manifest 文件 SHA256 均为 `f6f32aa6416717bb47aebcd4f365cc976dd01c24d86a8e768a12b70042fc2633`
+- PPTX Visual Preview Task 8 验证：RED 初始 `4 failed, 13 passed`，另以含空格 npm 路径及 Windows PowerShell `.NET` API 兼容性测试复现两项真实构建问题；GREEN 聚焦 `19 passed`，Python 全量 `251 passed`，最终 `build_windows.ps1` exit 0，IDE lint 与 `git diff --check` 通过
+- PPTX Visual Preview Task 8 按本次用户指令只提交、不推送、不修改 git config
 
 ## 下一步
 
-1. 按计划推进 PPTX Visual Preview Task 8：frozen resource/build 与 bundle hash
-2. Task 8 完成后推进独立 frozen visual smoke 与最终回归
-3. 全部视觉预览任务完成后重建 `dist/Reader/Reader.exe`，按需更新桌面快捷方式  
+1. 按计划推进 PPTX Visual Preview Task 9：独立 frozen visual smoke、最终回归与可持久 telemetry
+2. Task 9 完成后记录最终 EXE hash，并按需更新桌面快捷方式
+3. 完成用户验收：真实日常 PPTX 的视觉保真、文本回退与 Office 切换
 
 ## 接手检查清单
 
