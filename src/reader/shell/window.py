@@ -346,6 +346,8 @@ class _Document:
     office_available: bool | None = None
     status_label: str = "正在加载…"
     generation: int = 0
+    visual_slide_count: int | None = None
+    visual_slide_index: int | None = None
     request_id: str | None = None
     availability_request_id: str | None = None
 
@@ -359,6 +361,11 @@ def _html_base_url(result: PreviewResult, source_path: Path) -> QUrl:
 
 
 def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
+    if result.kind == "pptx":
+        from reader.preview.pptx_view import PptxVisualView
+
+        return PptxVisualView(result, source_path)
+
     from PySide6.QtWebEngineWidgets import QWebEngineView
 
     web = QWebEngineView()
@@ -367,6 +374,16 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
     else:
         web.setHtml(result.html, _html_base_url(result, source_path))
     return web
+
+
+def _dispose_widget(widget: QWidget) -> None:
+    try:
+        shutdown = getattr(widget, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+    finally:
+        widget.setParent(None)
+        widget.deleteLater()
 
 
 class MainWindow(QMainWindow):
@@ -471,6 +488,16 @@ class MainWindow(QMainWindow):
         self.actionBuiltinPreview.triggered.connect(self.switch_current_tab_to_builtin)
         preview_menu.addAction(self.actionBuiltinPreview)
 
+        self.actionTextPreview = QAction("文本模式", self)
+        self.actionTextPreview.setObjectName("actionTextPreview")
+        self.actionTextPreview.triggered.connect(self.switch_current_tab_to_text)
+        preview_menu.addAction(self.actionTextPreview)
+
+        self.actionVisualPreview = QAction("视觉模式", self)
+        self.actionVisualPreview.setObjectName("actionVisualPreview")
+        self.actionVisualPreview.triggered.connect(self.switch_current_tab_to_visual)
+        preview_menu.addAction(self.actionVisualPreview)
+
         self._tabs.currentChanged.connect(self._refresh_preview_actions)
         self._refresh_preview_actions()
 
@@ -573,6 +600,15 @@ class MainWindow(QMainWindow):
             and document.mode != document.builtin_mode
             and document.last_result is not None
         )
+        is_pptx = (
+            document is not None and document.path.suffix.lower() == ".pptx"
+        )
+        self.actionTextPreview.setEnabled(
+            is_pptx and document is not None and document.mode != "text"
+        )
+        self.actionVisualPreview.setEnabled(
+            is_pptx and document is not None and document.mode != "visual"
+        )
         self.statusBar().showMessage(document.status_label if document is not None else "")
 
     def close_tab(self, index: int) -> None:
@@ -590,6 +626,7 @@ class MainWindow(QMainWindow):
                 self._owned_request_ids.discard(document.request_id)
                 self._executor.cancel(document.request_id)
             self._cancel_availability_probe(document)
+            self._dispose_document_content(document)
             _cleanup_dir(document.artifact_dir)
             if document.builtin_artifact_dir != document.artifact_dir:
                 _cleanup_dir(document.builtin_artifact_dir)
@@ -747,14 +784,37 @@ class MainWindow(QMainWindow):
             self._refresh_preview_actions()
             return
 
-        if not self._replace_document_content(document_id, document, content):
+        document.mode = document.builtin_mode
+        document.status_label = document.last_result.status_label
+        if not self._install_document_content(
+            document_id,
+            document,
+            content,
+            document.generation,
+        ):
             return
         if document.artifact_dir != document.builtin_artifact_dir:
             _cleanup_dir(document.artifact_dir)
         document.artifact_dir = document.builtin_artifact_dir
-        document.mode = document.builtin_mode
-        document.status_label = document.last_result.status_label
         self._refresh_preview_actions()
+
+    def switch_current_tab_to_text(self) -> None:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        if document.path.suffix.lower() != ".pptx" or document.mode == "text":
+            return
+        self._restart_preview(document_id, "text")
+
+    def switch_current_tab_to_visual(self) -> None:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        if document.path.suffix.lower() != ".pptx" or document.mode == "visual":
+            return
+        self._restart_preview(document_id, "visual")
 
     def _cancel_availability_probe(self, document: _Document) -> None:
         request_id = document.availability_request_id
@@ -776,6 +836,8 @@ class MainWindow(QMainWindow):
         document.request_id = request_id
         document.mode = mode
         document.status_label = "正在加载…"
+        document.visual_slide_count = None
+        document.visual_slide_index = None
         self._requests[request_id] = (document_id, document.generation, mode)
         self._owned_request_ids.add(request_id)
         self._refresh_preview_actions()
@@ -788,27 +850,146 @@ class MainWindow(QMainWindow):
             mode=mode,
         )
 
-    def _replace_document_content(
+    def _dispose_document_content(self, document: _Document) -> None:
+        layout = document.page.layout()
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                _dispose_widget(widget)
+
+    def _install_document_content(
         self,
         document_id: str,
         document: _Document,
         content: QWidget,
+        generation: int,
     ) -> bool:
         current = self._documents.get(document_id)
-        if current is None or current.page is not document.page or self._closing:
-            content.deleteLater()
+        if (
+            current is not document
+            or document.generation != generation
+            or self._closing
+            or self._tabs.indexOf(document.page) < 0
+        ):
+            _dispose_widget(content)
             return False
         layout = document.page.layout()
         if layout is None:
-            content.deleteLater()
+            _dispose_widget(content)
             return False
-        while layout.count():
-            item = layout.takeAt(0)
-            old_widget = item.widget()
-            if old_widget is not None:
-                old_widget.deleteLater()
+        self._dispose_document_content(document)
         layout.addWidget(content)
+        self._bind_visual_events(document_id, generation, content)
+        start = getattr(content, "start", None)
+        if callable(start):
+            start()
         return True
+
+    def _bind_visual_events(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+    ) -> None:
+        failed = getattr(widget, "render_failed", None)
+        if failed is not None:
+            failed.connect(
+                lambda message: self._visual_render_failed(
+                    document_id,
+                    generation,
+                    widget,
+                    message,
+                )
+            )
+        ready = getattr(widget, "ready", None)
+        if ready is not None:
+            ready.connect(
+                lambda count: self._visual_ready(
+                    document_id,
+                    generation,
+                    widget,
+                    count,
+                )
+            )
+        changed = getattr(widget, "slide_changed", None)
+        if changed is not None:
+            changed.connect(
+                lambda index: self._visual_slide_changed(
+                    document_id,
+                    generation,
+                    widget,
+                    index,
+                )
+            )
+
+    def _active_visual_document(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+    ) -> _Document | None:
+        document = self._documents.get(document_id)
+        layout = document.page.layout() if document is not None else None
+        if (
+            document is None
+            or self._closing
+            or document.generation != generation
+            or document.mode != "visual"
+            or layout is None
+            or layout.indexOf(widget) < 0
+        ):
+            return None
+        return document
+
+    def _visual_ready(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+        count: int,
+    ) -> None:
+        document = self._active_visual_document(
+            document_id,
+            generation,
+            widget,
+        )
+        if document is not None:
+            document.visual_slide_count = count
+
+    def _visual_slide_changed(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+        index: int,
+    ) -> None:
+        document = self._active_visual_document(
+            document_id,
+            generation,
+            widget,
+        )
+        if document is not None:
+            document.visual_slide_index = index
+
+    def _visual_render_failed(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+        _message: str,
+    ) -> None:
+        document = self._active_visual_document(
+            document_id,
+            generation,
+            widget,
+        )
+        if document is None:
+            return
+        document.status_label = "内置预览（视觉渲染失败）"
+        self._refresh_preview_actions()
 
     @Slot(str)
     def _preview_completed(self, request_id: str) -> None:
@@ -862,6 +1043,19 @@ class MainWindow(QMainWindow):
                 _cleanup_dir(output.artifact_dir)
             document.mode = document.builtin_mode
             document.status_label = "内置预览（Office 导出失败）"
+            if document.mode == "visual":
+                layout = document.page.layout()
+                current_widget = (
+                    layout.itemAt(0).widget()
+                    if layout is not None and layout.count()
+                    else None
+                )
+                if current_widget is not None:
+                    self._bind_visual_events(
+                        document_id,
+                        document.generation,
+                        current_widget,
+                    )
             self._refresh_preview_actions()
             return
 
@@ -888,6 +1082,19 @@ class MainWindow(QMainWindow):
                     if requested_mode == "office" and document.last_result is not None:
                         document.mode = document.builtin_mode
                         document.status_label = "内置预览（Office 导出失败）"
+                        if document.mode == "visual":
+                            layout = document.page.layout()
+                            current_widget = (
+                                layout.itemAt(0).widget()
+                                if layout is not None and layout.count()
+                                else None
+                            )
+                            if current_widget is not None:
+                                self._bind_visual_events(
+                                    document_id,
+                                    document.generation,
+                                    current_widget,
+                                )
                         self._refresh_preview_actions()
                         return
                     content = QLabel(str(exc))
@@ -895,7 +1102,21 @@ class MainWindow(QMainWindow):
                     status = f"预览失败：{document.path.name}"
                     output = None
 
-        if not self._replace_document_content(document_id, document, content):
+        previous_mode = document.mode
+        previous_status = document.status_label
+        document.mode = requested_mode
+        document.status_label = status
+        if output is not None and requested_mode != "office":
+            document.last_result = output.result
+            document.builtin_mode = requested_mode
+        if not self._install_document_content(
+            document_id,
+            document,
+            content,
+            generation,
+        ):
+            document.mode = previous_mode
+            document.status_label = previous_status
             if output is not None:
                 _cleanup_dir(output.artifact_dir)
             return
@@ -908,11 +1129,7 @@ class MainWindow(QMainWindow):
                 _cleanup_dir(document.artifact_dir)
             document.artifact_dir = output.artifact_dir
             if requested_mode != "office":
-                document.last_result = output.result
                 document.builtin_artifact_dir = output.artifact_dir
-                document.builtin_mode = requested_mode
-        document.mode = requested_mode
-        document.status_label = status
         self._refresh_preview_actions()
         if (
             requested_mode != "office"
@@ -969,6 +1186,7 @@ class MainWindow(QMainWindow):
                 self._owned_request_ids.discard(document.request_id)
                 self._executor.cancel(document.request_id)
             self._cancel_availability_probe(document)
+            self._dispose_document_content(document)
             _cleanup_dir(document.artifact_dir)
             if document.builtin_artifact_dir != document.artifact_dir:
                 _cleanup_dir(document.builtin_artifact_dir)

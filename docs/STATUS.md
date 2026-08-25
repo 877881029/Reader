@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Task 6 待实施**
+**PPTX 视觉预览（不依赖 PowerPoint）：Task 6 已完成，Task 7 待实施**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -46,11 +46,17 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 5（Important）：fallback 前断开 load、停止加载、清 scripts、解绑 channel/bridge、关闭 JavaScript，使用空 base URL；超大 fallback 改用固定安全文本，qrc 缺失改为 view 子 QTimer，ready/未启动/销毁后的失败事件不再误触发 fallback
 - PPTX Visual Preview Task 5（Important）：删除 shutdown 中假同步 `runJavaScript(readerPptxDispose)`；依赖 pagehide/beforeunload 与 JS context 销毁释放 renderer，换 inert page 后再 unparent/deleteLater，重复 shutdown 幂等
 - PPTX Visual Preview Task 5 验证：聚焦 `tests/test_pptx_view.py -v` 为 `16 passed`；Python 全量 `224 passed`；IDE lint 与 `git diff --check` 通过；未接入 MainWindow（留给 Task 6）
+- PPTX Visual Preview Task 6：默认 viewer factory 对 `kind="pptx"` 创建 `PptxVisualView`；所有文档内容替换统一经 `_install_document_content`，先绑定 ready/slide/render-failed 事件再 `start()`，所有内容销毁统一经 `_dispose_widget` 调用 `shutdown()` 后 `deleteLater()`
+- PPTX Visual Preview Task 6：新增 PPTX 专用“文本模式/视觉模式”动作；手动文本使用独立 `text` 缓存，Office 切回恢复最近 builtin visual/text，Office 失败保留当前内容并回到 `builtin_mode`
+- PPTX Visual Preview Task 6：视觉整体失败由 view 内部展示 fallback，窗口状态精确为 `内置预览（视觉渲染失败）` 且保持 visual；ready/slide/failure 事件均受 document identity、generation、widget、mode 与 closing guard 保护
+- PPTX Visual Preview Task 6：切换 Office、切换文本/视觉、关闭标签和关闭窗口均显式销毁 visual；补齐 worker 完成、Office 共存/失败、手动模式、缓存、重入与迟到事件测试
+- PPTX Visual Preview Task 6 验证：RED 聚焦 `10 failed, 1 passed`（缺失功能符合预期）；窗口完整 `77 passed`（后续补测后为 80 项）；Python 全量 `237 passed`；IDE lint 与 `git diff --check` 通过
+- PPTX Visual Preview Task 6 按本次用户指令只提交、不推送；本地提交将领先 `origin/main`
 
 ## 下一步
 
-1. 按计划推进 PPTX Visual Preview Task 6：将 `PptxVisualView` 接入窗口安装/销毁路径，增加手动“文本模式/视觉模式”操作与 stale event guard
-2. Task 6 完成后推进真实 WebEngine fidelity/offline 测试与 frozen smoke
+1. 按计划推进 PPTX Visual Preview Task 7：真实 WebEngine fidelity/offline 测试
+2. Task 7 完成后推进 frozen resource/build 与独立视觉 smoke
 3. 全部视觉预览任务完成后重建 `dist/Reader/Reader.exe`，按需更新桌面快捷方式  
 
 ## 接手检查清单

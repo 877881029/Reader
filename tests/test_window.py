@@ -9,9 +9,9 @@ import weakref
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl, Signal
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QDialog, QLabel
+from PySide6.QtWidgets import QDialog, QLabel, QWidget
 
 from reader.preview.result import PreviewResult
 
@@ -98,6 +98,42 @@ def builtin_result(text: str = "ready") -> PreviewResult:
     return PreviewResult(html=text, status_label="内置预览")
 
 
+def visual_result() -> PreviewResult:
+    return PreviewResult(
+        html="",
+        fallback_html="<p>TEXT FALLBACK</p>",
+        status_label="内置预览",
+        kind="pptx",
+    )
+
+
+class FakeVisual(QWidget):
+    ready = Signal(int)
+    slide_changed = Signal(int)
+    render_failed = Signal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.start_calls = 0
+        self.shutdown_calls = 0
+
+    def start(self) -> None:
+        self.start_calls += 1
+
+    def shutdown(self) -> None:
+        self.shutdown_calls += 1
+
+
+class ClosingOnStartVisual(FakeVisual):
+    def __init__(self, close_callback) -> None:
+        super().__init__()
+        self._close_callback = close_callback
+
+    def start(self) -> None:
+        super().start()
+        self._close_callback()
+
+
 @pytest.fixture
 def reader_app(qapp):
     from reader.app import ReaderApp
@@ -137,6 +173,498 @@ def preview_content(window, index: int) -> QLabel:
     content = page.findChild(QLabel, "previewContent")
     assert content is not None
     return content
+
+
+def current_content(window) -> QWidget:
+    page = window._tabs.currentWidget()
+    assert page is not None
+    layout = page.layout()
+    assert layout is not None and layout.count() == 1
+    content = layout.itemAt(0).widget()
+    assert content is not None
+    return content
+
+
+def test_default_viewer_factory_uses_pptx_visual_view(monkeypatch, tmp_path: Path):
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "deck.pptx"
+    source.write_bytes(b"x")
+    expected = QWidget()
+    calls = []
+
+    def fake_visual(result, path):
+        calls.append((result, path))
+        return expected
+
+    monkeypatch.setattr("reader.preview.pptx_view.PptxVisualView", fake_visual)
+
+    assert _default_viewer(visual_result(), source) is expected
+    assert calls == [(visual_result(), source)]
+
+
+def test_visual_worker_completion_binds_events_before_start(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    visual.ready.emit(7)
+    visual.slide_changed.emit(3)
+    qtbot.waitUntil(
+        lambda: next(iter(window._documents.values())).visual_slide_count == 7
+    )
+    document = next(iter(window._documents.values()))
+    assert document.visual_slide_index == 3
+    assert current_content(window) is visual
+
+
+def test_visual_render_failure_updates_status_but_keeps_visual_mode(
+    qtbot, tmp_path: Path
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "fallback.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+
+    visual.render_failed.emit("parse")
+
+    qtbot.waitUntil(
+        lambda: window.status_text() == "内置预览（视觉渲染失败）"
+    )
+    document = next(iter(window._documents.values()))
+    assert current_content(window) is visual
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+    assert document.last_result == visual_result()
+
+
+def test_manual_text_mode_disposes_visual_and_uses_separate_cache(
+    qtbot, tmp_path: Path
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "manual.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    cache = FakeCache()
+    modes = []
+
+    def preview_fn(_path, office=None, mode="visual"):
+        modes.append(mode)
+        if mode == "text":
+            return PreviewResult(
+                html="MANUAL TEXT",
+                status_label="内置预览（文本模式）",
+                kind="html",
+            )
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=lambda: cache,
+        viewer_factory=lambda result, _path: (
+            visual if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    assert window.actionTextPreview.isEnabled() is True
+    assert window.actionVisualPreview.isEnabled() is False
+
+    window.actionTextPreview.trigger()
+
+    qtbot.waitUntil(lambda: "MANUAL TEXT" in page_text(window, 0))
+    document = next(iter(window._documents.values()))
+    assert visual.shutdown_calls == 1
+    assert document.mode == "text"
+    assert document.builtin_mode == "text"
+    assert modes == ["visual", "text"]
+    assert cache.calls == [
+        ("get", path.resolve(), "text"),
+        ("put", path.resolve(), "text"),
+    ]
+    assert window.actionTextPreview.isEnabled() is False
+    assert window.actionVisualPreview.isEnabled() is True
+
+
+def test_manual_visual_mode_creates_fresh_bound_visual(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "fresh.pptx"
+    path.write_bytes(b"x")
+    visuals = [FakeVisual(), FakeVisual()]
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "text":
+            return PreviewResult(
+                html="TEXT",
+                status_label="内置预览（文本模式）",
+                kind="html",
+            )
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            visuals.pop(0) if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(
+        lambda: bool(
+            [
+                widget
+                for widget in window.findChildren(FakeVisual)
+                if widget.start_calls == 1
+            ]
+        )
+    )
+    first = current_content(window)
+    assert isinstance(first, FakeVisual)
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    window.actionTextPreview.trigger()
+    qtbot.waitUntil(lambda: "TEXT" in page_text(window, 0))
+
+    window.actionVisualPreview.trigger()
+
+    qtbot.waitUntil(lambda: isinstance(current_content(window), FakeVisual))
+    second = current_content(window)
+    assert isinstance(second, FakeVisual)
+    qtbot.waitUntil(lambda: second.start_calls == 1)
+    second.ready.emit(5)
+    second.slide_changed.emit(2)
+    qtbot.waitUntil(
+        lambda: next(iter(window._documents.values())).visual_slide_count == 5
+    )
+    document = next(iter(window._documents.values()))
+    assert second is not first
+    assert document.visual_slide_index == 2
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+
+
+def test_office_switch_disposes_visual_and_switch_back_starts_fresh_visual(
+    qtbot, tmp_path: Path
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "office.pptx"
+    path.write_bytes(b"x")
+    first = FakeVisual()
+    restored = FakeVisual()
+    visuals = iter((first, restored))
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "office":
+            return PreviewResult(html="OFFICE", status_label="Office 预览")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            next(visuals) if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+
+    window.switch_current_tab_to_office()
+
+    qtbot.waitUntil(lambda: "OFFICE" in page_text(window, 0))
+    assert first.shutdown_calls == 1
+    window.switch_current_tab_to_builtin()
+    qtbot.waitUntil(lambda: restored.start_calls == 1)
+    assert current_content(window) is restored
+    document = next(iter(window._documents.values()))
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+
+
+def test_office_failure_preserves_current_visual_fallback(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "office":
+            raise RuntimeError("COM failed")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda _result, _path: visual,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    visual.render_failed.emit("parse")
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+
+    window.switch_current_tab_to_office()
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    document = next(iter(window._documents.values()))
+    assert current_content(window) is visual
+    assert visual.shutdown_calls == 0
+    assert window.status_text() == "内置预览（Office 导出失败）"
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+
+
+def test_stale_visual_events_after_replacement_are_ignored(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "stale.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    office_started = threading.Event()
+    release_office = threading.Event()
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "office":
+            office_started.set()
+            assert release_office.wait(3)
+            return PreviewResult(html="CURRENT OFFICE", status_label="Office 预览")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            visual if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    window.switch_current_tab_to_office()
+    assert office_started.wait(1)
+    document = next(iter(window._documents.values()))
+    assert document.visual_slide_count is None
+    assert document.visual_slide_index is None
+
+    try:
+        visual.ready.emit(99)
+        visual.slide_changed.emit(88)
+        visual.render_failed.emit("late")
+        qtbot.wait(10)
+
+        assert window.status_text() == "正在加载…"
+        assert document.mode == "office"
+        assert document.builtin_mode == "visual"
+        assert document.visual_slide_count is None
+        assert document.visual_slide_index is None
+    finally:
+        release_office.set()
+    qtbot.waitUntil(lambda: "CURRENT OFFICE" in page_text(window, 0))
+    assert visual.shutdown_calls == 1
+
+
+def test_close_tab_and_window_shutdown_visuals(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    first_path = tmp_path / "tab.pptx"
+    second_path = tmp_path / "window.pptx"
+    first_path.write_bytes(b"x")
+    second_path.write_bytes(b"x")
+    first = FakeVisual()
+    second = FakeVisual()
+    visuals = iter((first, second))
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: next(visuals),
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(first_path), str(second_path)])
+    qtbot.waitUntil(lambda: second.start_calls == 1)
+
+    window.close_tab(0)
+
+    assert first.shutdown_calls == 1
+    window.close()
+    assert second.shutdown_calls == 1
+
+
+def test_late_visual_events_after_window_close_are_ignored(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "closed.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+
+    window.close()
+    visual.ready.emit(4)
+    visual.slide_changed.emit(2)
+    visual.render_failed.emit("late")
+    qtbot.wait(10)
+
+    assert visual.shutdown_calls == 1
+    assert window.is_closing() is True
+
+
+def test_visual_start_reentrancy_closes_and_disposes_once(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "reentrant.pptx"
+    path.write_bytes(b"x")
+    visuals = []
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visuals.append(
+            ClosingOnStartVisual(lambda: window.close_tab(0))
+        )
+        or visuals[-1],
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert window.tab_count() == 0
+    assert len(visuals) == 1
+    assert visuals[0].start_calls == 1
+    assert visuals[0].shutdown_calls == 1
+    assert window._documents == {}
+
+
+def test_office_switch_back_restores_manual_text_mode(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "text-office.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    modes = []
+
+    def preview_fn(_path, office=None, mode="visual"):
+        modes.append(mode)
+        if mode == "text":
+            return PreviewResult(
+                html="LAST TEXT",
+                status_label="内置预览（文本模式）",
+            )
+        if mode == "office":
+            return PreviewResult(html="OFFICE", status_label="Office 预览")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            visual if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    window.actionTextPreview.trigger()
+    qtbot.waitUntil(lambda: "LAST TEXT" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+
+    window.switch_current_tab_to_office()
+    qtbot.waitUntil(lambda: "OFFICE" in page_text(window, 0))
+    window.switch_current_tab_to_builtin()
+    qtbot.waitUntil(lambda: "LAST TEXT" in page_text(window, 0))
+
+    document = next(iter(window._documents.values()))
+    assert modes == ["visual", "text", "office"]
+    assert document.mode == "text"
+    assert document.builtin_mode == "text"
+    assert window.status_text() == "内置预览（文本模式）"
+
+
+def test_office_failure_preserves_manual_text_content(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "text-office-failure.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "text":
+            return PreviewResult(
+                html="TEXT STAYS",
+                status_label="内置预览（文本模式）",
+            )
+        if mode == "office":
+            raise RuntimeError("COM failed")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            visual if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    window.actionTextPreview.trigger()
+    qtbot.waitUntil(lambda: "TEXT STAYS" in page_text(window, 0))
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    text_widget = current_content(window)
+
+    window.switch_current_tab_to_office()
+
+    qtbot.waitUntil(
+        lambda: window.status_text() == "内置预览（Office 导出失败）"
+    )
+    document = next(iter(window._documents.values()))
+    assert current_content(window) is text_widget
+    assert document.mode == "text"
+    assert document.builtin_mode == "text"
 
 
 def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Path):
