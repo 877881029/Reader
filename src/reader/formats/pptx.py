@@ -45,11 +45,10 @@ def to_html(path: Path) -> PreviewResult:
 def to_visual(path: Path) -> PreviewResult:
     try:
         fallback = to_html(path).html
-    except Exception as exc:
-        msg = escape(str(exc))
+    except Exception:
         fallback = (
             "<!DOCTYPE html><html><head><meta charset='utf-8'></head>"
-            f"<body><p>演示文稿已加密或损坏：{msg}</p></body></html>"
+            "<body><p>演示文稿已加密或损坏，无法生成文本回退。</p></body></html>"
         )
     return PreviewResult(
         html="",

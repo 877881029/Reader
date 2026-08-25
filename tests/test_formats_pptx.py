@@ -81,14 +81,16 @@ def test_to_visual_wraps_builtin_html_as_fallback(tmp_path: Path):
     assert "visual-fallback" in result.fallback_html
 
 
-def test_to_visual_escapes_fallback_message_when_text_extract_fails(
+def test_to_visual_uses_fixed_safe_message_when_text_extract_fails(
     tmp_path: Path, monkeypatch
 ):
     path = tmp_path / "broken.pptx"
     path.write_bytes(b"x")
 
     def boom(_path: Path):
-        raise RuntimeError("parse <script>alert(1)</script>")
+        raise RuntimeError(
+            r"parse failed at C:\secret\dir\broken.pptx <script>alert(1)</script>"
+        )
 
     monkeypatch.setattr(fmt_pptx, "to_html", boom)
 
@@ -96,6 +98,8 @@ def test_to_visual_escapes_fallback_message_when_text_extract_fails(
 
     assert result.kind == "pptx"
     assert result.fallback_html is not None
-    assert "演示文稿已加密或损坏：" in result.fallback_html
+    assert "演示文稿已加密或损坏，无法生成文本回退。" in result.fallback_html
+    assert "parse failed" not in result.fallback_html
+    assert "C:\\secret\\dir\\broken.pptx" not in result.fallback_html
+    assert "broken.pptx" not in result.fallback_html
     assert "<script>" not in result.fallback_html
-    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in result.fallback_html
