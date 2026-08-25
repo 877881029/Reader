@@ -23,16 +23,102 @@ from PySide6.QtWebEngineCore import (
     QWebEngineUrlRequestInterceptor,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QApplication, QWidget
 
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
 
 _ALLOWED_SCHEMES = frozenset({"file", "qrc", "data", "blob"})
-_DISPOSE_SCRIPT = (
-    "if (typeof window.readerPptxDispose === 'function') "
-    "{ window.readerPptxDispose(); }"
+_SAFE_FALLBACK_HTML = (
+    "<!doctype html><meta charset='utf-8'>"
+    "<p>演示文稿无法进行视觉渲染。</p>"
 )
+_SET_HTML_SAFE_BYTES = 1_900_000
+
+
+def _install_interceptor(profile, interceptor) -> None:
+    profile.setUrlRequestInterceptor(interceptor)
+
+
+class _WebEngineResources(QObject):
+    """Own WebEngine objects independently from the view being destroyed."""
+
+    def __init__(self, parent: QObject) -> None:
+        super().__init__(parent)
+        self.profile: QWebEngineProfile | None = None
+        self.page: QWebEnginePage | None = None
+        self.channel: QWebChannel | None = None
+        self.bridge: PptxBridge | None = None
+        self.interceptor: OfflineRequestInterceptor | None = None
+        self._channel_detached = False
+        self._released = False
+
+    def secure_fallback(self) -> None:
+        if self._released:
+            return
+        page = self.page
+        channel = self.channel
+        bridge = self.bridge
+        if page is not None:
+            page.scripts().clear()
+            page.setWebChannel(None)
+        if channel is not None and bridge is not None:
+            channel.deregisterObject(bridge)
+        self._channel_detached = True
+        if page is not None:
+            page.settings().setAttribute(
+                QWebEngineSettings.WebAttribute.JavascriptEnabled, False
+            )
+
+    def secure_page(self, *, detach_interceptor: bool) -> None:
+        if self._released:
+            return
+        profile = self.profile
+        page = self.page
+        channel = self.channel
+        bridge = self.bridge
+        if detach_interceptor and profile is not None:
+            _install_interceptor(profile, None)
+        if not self._channel_detached:
+            if channel is not None and bridge is not None:
+                channel.deregisterObject(bridge)
+            if page is not None:
+                page.setWebChannel(None)
+            self._channel_detached = True
+        if page is not None:
+            page.scripts().clear()
+            page.settings().setAttribute(
+                QWebEngineSettings.WebAttribute.JavascriptEnabled, False
+            )
+
+    @Slot()
+    def cleanup(self) -> None:
+        if self._released:
+            return
+        self.secure_page(detach_interceptor=True)
+        self.release_detached()
+
+    def release_detached(self) -> None:
+        if self._released:
+            return
+        self._released = True
+        objects = (
+            self.page,
+            self.bridge,
+            self.channel,
+            self.interceptor,
+            self.profile,
+        )
+        self.page = None
+        self.bridge = None
+        self.channel = None
+        self.interceptor = None
+        self.profile = None
+        for obj in objects:
+            if obj is not None:
+                obj.setParent(None)
+                obj.deleteLater()
+        self.deleteLater()
 
 
 class OfflineRequestInterceptor(QWebEngineUrlRequestInterceptor):
@@ -117,6 +203,9 @@ class PptxVisualView(QWebEngineView):
         self._startup_complete = False
         self._load_connected = False
         self._bootstrap_error: str | None = None
+        self._bootstrap_timer = QTimer(self)
+        self._bootstrap_timer.setSingleShot(True)
+        self._bootstrap_timer.timeout.connect(self._bootstrap_failed)
 
         self.viewer_url = QUrl.fromLocalFile(
             str(resource_path("assets", "pptx-viewer", "index.html").resolve())
@@ -126,11 +215,18 @@ class PptxVisualView(QWebEngineView):
         self.startup_timer.setInterval(15_000)
         self.startup_timer.timeout.connect(self._startup_timeout)
 
-        self.profile: QWebEngineProfile | None = QWebEngineProfile(self)
+        app = QApplication.instance()
+        if app is None:
+            raise RuntimeError("PptxVisualView requires QApplication")
+        resources = _WebEngineResources(app)
+        self._resources: _WebEngineResources | None = resources
+        self.destroyed.connect(resources.cleanup)
+
+        self.profile: QWebEngineProfile | None = QWebEngineProfile(app)
         self.interceptor: OfflineRequestInterceptor | None = OfflineRequestInterceptor(
             self.profile
         )
-        self.profile.setUrlRequestInterceptor(self.interceptor)
+        _install_interceptor(self.profile, self.interceptor)
 
         page = QWebEnginePage(self.profile, self.profile)
         settings = page.settings()
@@ -141,13 +237,18 @@ class PptxVisualView(QWebEngineView):
             QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False
         )
 
-        self.channel: QWebChannel | None = QWebChannel(self)
+        self.channel: QWebChannel | None = QWebChannel(resources)
         self.bridge: PptxBridge | None = PptxBridge(
             self._source, test_fail_slide, self.channel
         )
         self.channel.registerObject("bridge", self.bridge)
         page.setWebChannel(self.channel)
         self.setPage(page)
+        resources.profile = self.profile
+        resources.page = page
+        resources.channel = self.channel
+        resources.bridge = self.bridge
+        resources.interceptor = self.interceptor
 
         self.loadFinished.connect(self._load_finished)
         self._load_connected = True
@@ -168,12 +269,7 @@ class PptxVisualView(QWebEngineView):
             page.scripts().insert(script)
         else:
             self._bootstrap_error = "Qt WebChannel script unavailable"
-            QTimer.singleShot(
-                0,
-                lambda: self._show_fallback(self._bootstrap_error)
-                if self._bootstrap_error is not None
-                else None,
-            )
+            self._bootstrap_timer.start(0)
 
     @staticmethod
     def _read_webchannel_script() -> str:
@@ -202,14 +298,26 @@ class PptxVisualView(QWebEngineView):
 
     @Slot(bool)
     def _load_finished(self, succeeded: bool) -> None:
-        if not succeeded:
-            self._show_fallback("viewer bundle failed to load")
+        if (
+            succeeded
+            or not self.started
+            or self._startup_complete
+            or self.is_fallback
+            or self._shutdown
+        ):
+            return
+        self._show_fallback("viewer bundle failed to load")
 
     @Slot()
     def _startup_timeout(self) -> None:
         if self._startup_complete:
             return
         self._show_fallback("viewer startup timed out")
+
+    @Slot()
+    def _bootstrap_failed(self) -> None:
+        if self._bootstrap_error is not None:
+            self._show_fallback(self._bootstrap_error)
 
     @Slot(int)
     def _viewer_ready(self, count: int) -> None:
@@ -236,17 +344,17 @@ class PptxVisualView(QWebEngineView):
         if self.is_fallback or self._shutdown:
             return
         self.is_fallback = True
+        self._bootstrap_timer.stop()
         self.startup_timer.stop()
-        self.stop()
         self._disconnect_load_finished()
-        fallback = self._result.fallback_html or (
-            "<!doctype html><meta charset='utf-8'>"
-            "<p>演示文稿无法进行视觉渲染。</p>"
-        )
-        self.setHtml(
-            fallback,
-            QUrl.fromLocalFile(str(self._source.parent.resolve()) + "/"),
-        )
+        self.stop()
+        resources = self._resources
+        if resources is not None:
+            resources.secure_fallback()
+        fallback = self._result.fallback_html or _SAFE_FALLBACK_HTML
+        if len(fallback.encode("utf-8")) > _SET_HTML_SAFE_BYTES:
+            fallback = _SAFE_FALLBACK_HTML
+        self.setHtml(fallback, QUrl())
         self.render_failed.emit(reason or "viewer render failed")
 
     def shutdown(self) -> None:
@@ -254,36 +362,25 @@ class PptxVisualView(QWebEngineView):
             return
         self._shutdown = True
 
-        page = self.page()
-        profile = self.profile
-        interceptor = self.interceptor
-        channel = self.channel
-        bridge = self.bridge
-
-        page.runJavaScript(_DISPOSE_SCRIPT)
+        self._bootstrap_timer.stop()
         self.startup_timer.stop()
         self.stop()
-        if profile is not None:
-            profile.setUrlRequestInterceptor(None)
         self._disconnect_load_finished()
-        page.setWebChannel(None)
-        if channel is not None and bridge is not None:
-            channel.deregisterObject(bridge)
+        resources = self._resources
+        if resources is not None:
+            resources.secure_page(detach_interceptor=True)
 
         inert_page = QWebEnginePage(self)
         self.setPage(inert_page)
 
+        if resources is not None:
+            resources.release_detached()
+        self._resources = None
         self.profile = None
         self.interceptor = None
         self.channel = None
         self.bridge = None
 
-        page.deleteLater()
-        if bridge is not None:
-            bridge.deleteLater()
-        if channel is not None:
-            channel.deleteLater()
-        if interceptor is not None:
-            interceptor.deleteLater()
-        if profile is not None:
-            profile.deleteLater()
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt virtual method
+        self.shutdown()
+        super().closeEvent(event)

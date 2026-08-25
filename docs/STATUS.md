@@ -39,12 +39,13 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 4：保留 worker 完整 `try/_pin_pdf/emit` 控制流；迁移 4 个 builtin `.pptx` FakeCache PDF 用例到 `.docx`（含 reentrancy），避免视觉模式引入误回归
 - PPTX Visual Preview Task 4 验证：`tests/test_formats_pptx.py tests/test_pipeline.py tests/test_cache.py tests/test_window.py -v` 共 `100 passed`
 - PPTX Visual Preview Task 4（Important 修复）：`to_visual` 异常回退改为固定安全文案，不再暴露异常细节/绝对路径/HTML 片段；`python -m pytest -v` 全量 `208 passed`
-- PPTX Visual Preview Task 5：新增 `PptxVisualView` 显式 `start()` 生命周期；构造阶段仅建立独立 off-the-record profile/page/channel/bridge，不自动 load，15 秒超时且 bundle URL 不携带 source query
-- PPTX Visual Preview Task 5：独立 profile 仅允许本地内容访问 file URL、禁止 remote URL；请求拦截器仅放行 `file/qrc/data/blob`，以锁保护 blocked URL 快照且不从 Chromium 线程发 Qt Signal
-- PPTX Visual Preview Task 5：显式注册 QtWebChannel qrc 并在 `DocumentCreation/MainWorld` 注入 `qwebchannel.js`；bridge 完整提供 `sourceUrl/testFailSlide` 常量属性及 ready/error/slide slots，source URL 仅做一次 `FullyEncoded`
-- PPTX Visual Preview Task 5：load failure、15 秒 timeout、bridge error 与 WebChannel 缺失统一进入幂等安全 HTML fallback 并发出 `render_failed`；ready/slide 信号已对外转发
-- PPTX Visual Preview Task 5：幂等 shutdown 调用 `readerPptxDispose()`，再按 profile interceptor → load signal → WebChannel/page → bridge/channel/interceptor/profile 的所有权顺序拆除；ready 后已排队的超时回调不再误触发 fallback；未接入 MainWindow（留给 Task 6）
-- PPTX Visual Preview Task 5 验证：聚焦 `tests/test_pptx_view.py -v` 为 `9 passed`；Python 全量 `217 passed`；IDE lint 通过
+- PPTX Visual Preview Task 5：新增 `PptxVisualView` 显式 `start()` 生命周期；构造阶段仅建立互相隔离的 off-the-record profile/page/channel/bridge，不自动 load，15 秒超时且 bundle URL 不携带 source query
+- PPTX Visual Preview Task 5：profile 由 QApplication 生命周期资源守卫持有而非 view；显式 shutdown、closeEvent 和遗漏 shutdown 的 destroyed cleanup 均按 interceptor → channel → page → profile 安全释放
+- PPTX Visual Preview Task 5：请求拦截器仅放行 `file/qrc/data/blob`，以锁保护 blocked URL 快照且不从 Chromium 线程发 Qt Signal；显式 helper 保证 profile 安装/卸载 interceptor
+- PPTX Visual Preview Task 5：显式注册 QtWebChannel qrc 并在 `DocumentCreation/MainWorld` 注入 `qwebchannel.js`；bridge 提供一次 FullyEncoded 的 `sourceUrl`、`testFailSlide` 及 ready/error/slide relay
+- PPTX Visual Preview Task 5（Important）：fallback 前断开 load、停止加载、清 scripts、解绑 channel/bridge、关闭 JavaScript，使用空 base URL；超大 fallback 改用固定安全文本，qrc 缺失改为 view 子 QTimer，ready/未启动/销毁后的失败事件不再误触发 fallback
+- PPTX Visual Preview Task 5（Important）：删除 shutdown 中假同步 `runJavaScript(readerPptxDispose)`；依赖 pagehide/beforeunload 与 JS context 销毁释放 renderer，换 inert page 后再 unparent/deleteLater，重复 shutdown 幂等
+- PPTX Visual Preview Task 5 验证：聚焦 `tests/test_pptx_view.py -v` 为 `16 passed`；Python 全量 `224 passed`；IDE lint 与 `git diff --check` 通过；未接入 MainWindow（留给 Task 6）
 
 ## 下一步
 

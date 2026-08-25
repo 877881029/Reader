@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+import shiboken6
+from PySide6.QtCore import QCoreApplication, QEvent, QUrl
 from PySide6.QtWebEngineCore import QWebEngineScript, QWebEngineSettings
+from PySide6.QtWidgets import QApplication
 
 from reader.preview.pptx_view import (
     OfflineRequestInterceptor,
     PptxBridge,
     PptxVisualView,
+    _install_interceptor,
 )
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
@@ -29,6 +32,19 @@ def _source(tmp_path: Path, name: str = "deck.pptx") -> Path:
     return source
 
 
+def test_install_interceptor_calls_profile_policy_api():
+    calls = []
+
+    class FakeProfile:
+        def setUrlRequestInterceptor(self, interceptor):
+            calls.append(interceptor)
+
+    marker = object()
+    _install_interceptor(FakeProfile(), marker)
+
+    assert calls == [marker]
+
+
 def test_constructor_does_not_load_and_source_is_once_encoded(
     qtbot, tmp_path, monkeypatch
 ):
@@ -44,14 +60,19 @@ def test_constructor_does_not_load_and_source_is_once_encoded(
     assert view.bridge.sourceUrl == QUrl.fromLocalFile(
         str(source.resolve())
     ).toString(QUrl.ComponentFormattingOption.FullyEncoded)
+    assert "%23" in view.bridge.sourceUrl
+    assert "%25" in view.bridge.sourceUrl
+    assert "%E5%AD%A3%E5%BA%A6" in view.bridge.sourceUrl
     assert "%2523" not in view.bridge.sourceUrl
     assert "source" not in view.viewer_url.query().lower()
     view.shutdown()
 
 
 def test_profile_page_channel_and_webchannel_script_are_isolated(qtbot, tmp_path):
-    view = PptxVisualView(_result(), _source(tmp_path))
+    view = PptxVisualView(_result(), _source(tmp_path, "one.pptx"))
+    other = PptxVisualView(_result(), _source(tmp_path, "two.pptx"))
     qtbot.addWidget(view)
+    qtbot.addWidget(other)
 
     settings = view.page().settings()
     assert settings.testAttribute(
@@ -61,6 +82,11 @@ def test_profile_page_channel_and_webchannel_script_are_isolated(qtbot, tmp_path
         QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls
     )
     assert view.page().profile() is view.profile
+    assert view.page().parent() is view.profile
+    assert view.profile is not other.profile
+    assert view.profile.isOffTheRecord()
+    assert other.profile.isOffTheRecord()
+    assert view.profile.parent() is QApplication.instance()
     assert view.page().webChannel() is view.channel
     assert view.channel.registeredObjects()["bridge"] is view.bridge
     scripts = list(view.page().scripts().toList())
@@ -74,6 +100,7 @@ def test_profile_page_channel_and_webchannel_script_are_isolated(qtbot, tmp_path
     assert injected[0].worldId() == QWebEngineScript.ScriptWorldId.MainWorld
     assert not injected[0].runsOnSubFrames()
     view.shutdown()
+    other.shutdown()
 
 
 def test_start_loads_bundle_once_and_arms_fifteen_second_timer(
@@ -109,6 +136,8 @@ def test_start_failure_timeout_and_bridge_error_fallback_only_once(
     )
     view = PptxVisualView(_result(), _source(tmp_path))
     qtbot.addWidget(view)
+    page = view.page()
+    channel = view.channel
     failures: list[str] = []
     view.render_failed.connect(failures.append)
 
@@ -119,8 +148,63 @@ def test_start_failure_timeout_and_bridge_error_fallback_only_once(
 
     assert failures == ["viewer bundle failed to load"]
     assert fallback_calls[0][0] == "<p>safe fallback</p>"
+    assert fallback_calls[0][1].isEmpty()
     assert len(fallback_calls) == 1
     assert view.is_fallback
+    assert list(page.scripts().toList()) == []
+    assert page.webChannel() is None
+    assert "bridge" not in channel.registeredObjects()
+    assert not page.settings().testAttribute(
+        QWebEngineSettings.WebAttribute.JavascriptEnabled
+    )
+    view.shutdown()
+
+
+def test_oversized_fallback_uses_fixed_safe_text(qtbot, tmp_path, monkeypatch):
+    result = PreviewResult(
+        html="",
+        fallback_html="<p>" + ("x" * (2 * 1024 * 1024)) + "</p>",
+        status_label="内置预览",
+        kind="pptx",
+    )
+    monkeypatch.setattr(PptxVisualView, "load", lambda *_args: None)
+    fallback_calls: list[tuple[str, QUrl]] = []
+    monkeypatch.setattr(
+        PptxVisualView,
+        "setHtml",
+        lambda _self, html, base=QUrl(): fallback_calls.append((html, base)),
+    )
+    view = PptxVisualView(result, _source(tmp_path, "oversized.pptx"))
+    qtbot.addWidget(view)
+
+    view.start()
+    view._load_finished(False)
+
+    assert len(fallback_calls) == 1
+    assert "演示文稿无法进行视觉渲染" in fallback_calls[0][0]
+    assert len(fallback_calls[0][0]) < 1024
+    assert fallback_calls[0][1].isEmpty()
+    view.shutdown()
+
+
+def test_fallback_disconnects_load_signal_before_stopping(qtbot, tmp_path, monkeypatch):
+    monkeypatch.setattr(PptxVisualView, "load", lambda *_args: None)
+    monkeypatch.setattr(PptxVisualView, "setHtml", lambda *_args: None)
+    view = PptxVisualView(_result(), _source(tmp_path, "fallback-order.pptx"))
+    qtbot.addWidget(view)
+    events: list[str] = []
+    disconnect = view._disconnect_load_finished
+    monkeypatch.setattr(
+        view,
+        "_disconnect_load_finished",
+        lambda: (events.append("disconnect"), disconnect())[1],
+    )
+    monkeypatch.setattr(view, "stop", lambda: events.append("stop"))
+
+    view.start()
+    view._load_finished(False)
+
+    assert events[:2] == ["disconnect", "stop"]
     view.shutdown()
 
 
@@ -177,6 +261,26 @@ def test_queued_startup_timeout_after_ready_is_ignored(qtbot, tmp_path, monkeypa
     view.shutdown()
 
 
+def test_load_failure_is_ignored_before_start_and_after_ready(
+    qtbot, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(PptxVisualView, "load", lambda *_args: None)
+    monkeypatch.setattr(PptxVisualView, "setHtml", lambda *_args: None)
+    view = PptxVisualView(_result(), _source(tmp_path, "load-race.pptx"))
+    qtbot.addWidget(view)
+    failures: list[str] = []
+    view.render_failed.connect(failures.append)
+
+    view._load_finished(False)
+    view.start()
+    view.bridge.viewerReady(4)
+    view._load_finished(False)
+
+    assert failures == []
+    assert not view.is_fallback
+    view.shutdown()
+
+
 def test_missing_webchannel_resource_queues_safe_fallback(
     qtbot, tmp_path, monkeypatch
 ):
@@ -196,6 +300,21 @@ def test_missing_webchannel_resource_queues_safe_fallback(
     assert view.is_fallback
     assert failures == ["Qt WebChannel script unavailable"]
     view.shutdown()
+
+
+def test_missing_webchannel_timer_dies_with_view(qtbot, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        PptxVisualView, "_read_webchannel_script", staticmethod(lambda: "")
+    )
+    failures: list[str] = []
+    view = PptxVisualView(_result(), _source(tmp_path, "deleted-qrc.pptx"))
+    view.render_failed.connect(failures.append)
+
+    view.deleteLater()
+    QCoreApplication.sendPostedEvents(view, QEvent.Type.DeferredDelete)
+    QCoreApplication.processEvents()
+
+    assert failures == []
 
 
 class _FakeRequest:
@@ -222,35 +341,99 @@ def test_interceptor_allows_offline_schemes_and_snapshots_blocked_urls():
         interceptor.interceptRequest(request)
         assert request.blocked == []
 
-    blocked = _FakeRequest("https://example.invalid/tracker.png")
-    interceptor.interceptRequest(blocked)
+    blocked_urls = (
+        "http://example.invalid/a",
+        "https://example.invalid/tracker.png",
+        "ws://example.invalid/socket",
+        "ftp://example.invalid/file",
+        "javascript:alert(1)",
+    )
+    for url in blocked_urls:
+        blocked = _FakeRequest(url)
+        interceptor.interceptRequest(blocked)
+        assert blocked.blocked == [True]
 
-    assert blocked.blocked == [True]
     snapshot = interceptor.blocked_urls()
-    assert snapshot == ("https://example.invalid/tracker.png",)
+    assert snapshot == blocked_urls
     assert isinstance(snapshot, tuple)
     interceptor.deleteLater()
 
 
-def test_shutdown_calls_dispose_detaches_owned_objects_and_is_idempotent(
+def test_shutdown_detaches_in_safe_order_without_javascript_callback(
     qtbot, tmp_path, monkeypatch
 ):
     view = PptxVisualView(_result(), _source(tmp_path))
     qtbot.addWidget(view)
     old_page = view.page()
-    scripts: list[str] = []
-    monkeypatch.setattr(old_page, "runJavaScript", lambda script: scripts.append(script))
+    profile = view.profile
+    channel = view.channel
+    bridge = view.bridge
+    events: list[str] = []
+    javascript_calls: list[tuple] = []
+    monkeypatch.setattr(
+        old_page, "runJavaScript", lambda *args: javascript_calls.append(args)
+    )
+    monkeypatch.setattr(
+        profile,
+        "setUrlRequestInterceptor",
+        lambda interceptor: events.append(f"interceptor:{interceptor is None}"),
+    )
+    monkeypatch.setattr(
+        channel,
+        "deregisterObject",
+        lambda candidate: events.append(f"deregister:{candidate is bridge}"),
+    )
+    monkeypatch.setattr(
+        old_page,
+        "setWebChannel",
+        lambda candidate: events.append(f"channel:{candidate is None}"),
+    )
+    real_set_page = view.setPage
+
+    def record_set_page(page):
+        events.append("page")
+        real_set_page(page)
+
+    monkeypatch.setattr(view, "setPage", record_set_page)
 
     view.shutdown()
     inert_page = view.page()
     view.shutdown()
 
-    assert scripts == [
-        "if (typeof window.readerPptxDispose === 'function') "
-        "{ window.readerPptxDispose(); }"
+    assert javascript_calls == []
+    assert events[:4] == [
+        "interceptor:True",
+        "deregister:True",
+        "channel:True",
+        "page",
     ]
     assert inert_page is not old_page
     assert view.profile is None
     assert view.channel is None
     assert view.bridge is None
     assert view.interceptor is None
+
+
+def test_close_event_performs_explicit_shutdown(qtbot, tmp_path):
+    view = PptxVisualView(_result(), _source(tmp_path, "close.pptx"))
+    qtbot.addWidget(view)
+
+    view.close()
+
+    assert view.profile is None
+    assert view.page().parent() is view
+
+
+def test_view_deletion_without_shutdown_eventually_releases_profile(qtbot, tmp_path):
+    view = PptxVisualView(_result(), _source(tmp_path, "implicit-close.pptx"))
+    profile = view.profile
+    destroyed: list[bool] = []
+    profile.destroyed.connect(lambda: destroyed.append(True))
+
+    view.deleteLater()
+    QCoreApplication.sendPostedEvents(view, QEvent.Type.DeferredDelete)
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    QCoreApplication.processEvents()
+
+    qtbot.waitUntil(lambda: bool(destroyed))
+    assert not shiboken6.isValid(profile)
