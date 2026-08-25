@@ -134,6 +134,13 @@ class ClosingOnStartVisual(FakeVisual):
         self._close_callback()
 
 
+class EmittingOnStartVisual(FakeVisual):
+    def start(self) -> None:
+        super().start()
+        self.ready.emit(6)
+        self.render_failed.emit("sync failure")
+
+
 @pytest.fixture
 def reader_app(qapp):
     from reader.app import ReaderApp
@@ -446,6 +453,94 @@ def test_office_failure_preserves_current_visual_fallback(qtbot, tmp_path: Path)
     assert document.builtin_mode == "visual"
 
 
+def test_repeated_office_failure_replaces_visual_signal_connections(
+    qtbot, tmp_path: Path
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "repeat-office-failure.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "office":
+            raise RuntimeError("COM failed")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda _result, _path: visual,
+        office=FakeOfficeAvailability(True),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    document = next(iter(window._documents.values()))
+    ready_calls = 0
+    failed_calls = 0
+    original_ready = window._visual_ready
+    original_failed = window._visual_render_failed
+
+    def counted_ready(*args):
+        nonlocal ready_calls
+        ready_calls += 1
+        original_ready(*args)
+
+    def counted_failed(*args):
+        nonlocal failed_calls
+        failed_calls += 1
+        original_failed(*args)
+
+    window._visual_ready = counted_ready
+    window._visual_render_failed = counted_failed
+
+    for _attempt in range(3):
+        window.switch_current_tab_to_office()
+        qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+        assert window.status_text() == "内置预览（Office 导出失败）"
+
+    assert len(document.visual_connections) == 3
+    visual.ready.emit(9)
+    visual.render_failed.emit("current")
+    qtbot.wait(10)
+
+    assert ready_calls == 1
+    assert failed_calls == 1
+    assert document.visual_slide_count == 9
+    assert current_content(window) is visual
+    assert document.builtin_mode == "visual"
+    assert window.status_text() == "内置预览（视觉渲染失败）"
+
+
+def test_visual_start_sync_signals_update_state_and_actions(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "sync-signals.pptx"
+    path.write_bytes(b"x")
+    visual = EmittingOnStartVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(
+        lambda: window.status_text() == "内置预览（视觉渲染失败）"
+    )
+    document = next(iter(window._documents.values()))
+    assert document.visual_slide_count == 6
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+    assert window.actionTextPreview.isEnabled() is True
+    assert window.actionVisualPreview.isEnabled() is False
+
+
 def test_stale_visual_events_after_replacement_are_ignored(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow
 
@@ -516,12 +611,17 @@ def test_close_tab_and_window_shutdown_visuals(qtbot, tmp_path: Path):
     qtbot.addWidget(window)
     window.open_paths([str(first_path), str(second_path)])
     qtbot.waitUntil(lambda: second.start_calls == 1)
+    documents = {
+        document.path.name: document for document in window._documents.values()
+    }
 
     window.close_tab(0)
 
     assert first.shutdown_calls == 1
+    assert documents[first_path.name].visual_connections == []
     window.close()
     assert second.shutdown_calls == 1
+    assert documents[second_path.name].visual_connections == []
 
 
 def test_late_visual_events_after_window_close_are_ignored(qtbot, tmp_path: Path):
@@ -550,31 +650,59 @@ def test_late_visual_events_after_window_close_are_ignored(qtbot, tmp_path: Path
     assert window.is_closing() is True
 
 
-def test_visual_start_reentrancy_closes_and_disposes_once(qtbot, tmp_path: Path):
+@pytest.mark.parametrize("close_target", ["tab", "window"])
+def test_visual_start_reentrancy_discards_artifact_without_office_probe(
+    qtbot, tmp_path: Path, close_target: str
+):
     from reader.shell.window import MainWindow
 
-    path = tmp_path / "reentrant.pptx"
+    path = tmp_path / f"reentrant-{close_target}.docx"
     path.write_bytes(b"x")
+    artifact = tmp_path / f"artifact-{close_target}"
+    artifact.mkdir()
+    (artifact / "image.png").write_bytes(b"image")
     visuals = []
+    office = FakeOfficeAvailability(True)
     window = MainWindow(
-        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        preview_fn=lambda *_args, **_kwargs: PreviewResult(
+            html="<img src='image.png'>",
+            status_label="内置预览",
+            asset_dir=artifact,
+        ),
         cache_factory=FakeCache,
         viewer_factory=lambda *_args: visuals.append(
-            ClosingOnStartVisual(lambda: window.close_tab(0))
+            ClosingOnStartVisual(
+                lambda: (
+                    window.close_tab(0)
+                    if close_target == "tab"
+                    else window.close()
+                )
+            )
         )
         or visuals[-1],
-        office=FakeOfficeAvailability(False),
+        office=office,
     )
-    qtbot.addWidget(window)
+    executor = window._executor
+    documents = window._documents
+    availability_requests = window._availability_requests
+    if close_target == "tab":
+        qtbot.addWidget(window)
+    else:
+        window.show()
 
     window.open_paths([str(path)])
 
-    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
-    assert window.tab_count() == 0
+    qtbot.waitUntil(lambda: executor.active_count() == 0)
+    if close_target == "tab":
+        assert window.tab_count() == 0
     assert len(visuals) == 1
     assert visuals[0].start_calls == 1
     assert visuals[0].shutdown_calls == 1
-    assert window._documents == {}
+    assert documents == {}
+    assert availability_requests == {}
+    assert executor._availability_workers == {}
+    assert office.calls == []
+    assert not artifact.exists()
 
 
 def test_office_switch_back_restores_manual_text_mode(qtbot, tmp_path: Path):

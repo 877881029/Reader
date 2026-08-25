@@ -5,9 +5,9 @@ import shutil
 import tempfile
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
@@ -348,6 +348,10 @@ class _Document:
     generation: int = 0
     visual_slide_count: int | None = None
     visual_slide_index: int | None = None
+    visual_widget: QWidget | None = None
+    visual_connections: list[tuple[Any, Callable[..., None]]] = field(
+        default_factory=list
+    )
     request_id: str | None = None
     availability_request_id: str | None = None
 
@@ -827,6 +831,7 @@ class MainWindow(QMainWindow):
     def _restart_preview(self, document_id: str, mode: PreviewMode) -> None:
         document = self._documents[document_id]
         self._cancel_availability_probe(document)
+        self._disconnect_visual_events(document)
         document.generation += 1
         if document.request_id is not None:
             self._requests.pop(document.request_id, None)
@@ -851,6 +856,7 @@ class MainWindow(QMainWindow):
         )
 
     def _dispose_document_content(self, document: _Document) -> None:
+        self._disconnect_visual_events(document)
         layout = document.page.layout()
         if layout is None:
             return
@@ -886,7 +892,28 @@ class MainWindow(QMainWindow):
         start = getattr(content, "start", None)
         if callable(start):
             start()
+        if (
+            self._closing
+            or self._documents.get(document_id) is not document
+            or document.generation != generation
+            or layout.indexOf(content) < 0
+        ):
+            if document.visual_widget is content:
+                self._disconnect_visual_events(document)
+            if layout.indexOf(content) >= 0:
+                layout.removeWidget(content)
+                _dispose_widget(content)
+            return False
         return True
+
+    def _disconnect_visual_events(self, document: _Document) -> None:
+        for signal, slot in document.visual_connections:
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        document.visual_connections.clear()
+        document.visual_widget = None
 
     def _bind_visual_events(
         self,
@@ -894,36 +921,42 @@ class MainWindow(QMainWindow):
         generation: int,
         widget: QWidget,
     ) -> None:
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+        self._disconnect_visual_events(document)
         failed = getattr(widget, "render_failed", None)
         if failed is not None:
-            failed.connect(
-                lambda message: self._visual_render_failed(
-                    document_id,
-                    generation,
-                    widget,
-                    message,
-                )
+            failed_slot = lambda message: self._visual_render_failed(
+                document_id,
+                generation,
+                widget,
+                message,
             )
+            failed.connect(failed_slot)
+            document.visual_connections.append((failed, failed_slot))
         ready = getattr(widget, "ready", None)
         if ready is not None:
-            ready.connect(
-                lambda count: self._visual_ready(
-                    document_id,
-                    generation,
-                    widget,
-                    count,
-                )
+            ready_slot = lambda count: self._visual_ready(
+                document_id,
+                generation,
+                widget,
+                count,
             )
+            ready.connect(ready_slot)
+            document.visual_connections.append((ready, ready_slot))
         changed = getattr(widget, "slide_changed", None)
         if changed is not None:
-            changed.connect(
-                lambda index: self._visual_slide_changed(
-                    document_id,
-                    generation,
-                    widget,
-                    index,
-                )
+            changed_slot = lambda index: self._visual_slide_changed(
+                document_id,
+                generation,
+                widget,
+                index,
             )
+            changed.connect(changed_slot)
+            document.visual_connections.append((changed, changed_slot))
+        if document.visual_connections:
+            document.visual_widget = widget
 
     def _active_visual_document(
         self,
@@ -1104,6 +1137,8 @@ class MainWindow(QMainWindow):
 
         previous_mode = document.mode
         previous_status = document.status_label
+        previous_last_result = document.last_result
+        previous_builtin_mode = document.builtin_mode
         document.mode = requested_mode
         document.status_label = status
         if output is not None and requested_mode != "office":
@@ -1117,6 +1152,8 @@ class MainWindow(QMainWindow):
         ):
             document.mode = previous_mode
             document.status_label = previous_status
+            document.last_result = previous_last_result
+            document.builtin_mode = previous_builtin_mode
             if output is not None:
                 _cleanup_dir(output.artifact_dir)
             return
