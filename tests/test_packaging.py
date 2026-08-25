@@ -56,21 +56,31 @@ def test_build_script_runs_native_npm_checks_before_pyinstaller() -> None:
     required = [
         "Get-Command node.exe",
         "Get-Command npm.cmd",
+        "$npmDir = Split-Path -Parent $npm.Source",
+        '$npmRelativeNode = Join-Path $npmDir "node.exe"',
+        "Test-Path $npmRelativeNode -PathType Leaf",
+        "$nodePath = (Resolve-Path $npmRelativeNode).Path",
+        "$nodePath = (Get-Command node.exe -ErrorAction Stop).Source",
+        "& $nodePath --version",
+        "Node.js 18+ is required at $nodePath",
         "Start-Process",
         '"/d", "/s", "/c"',
         "$process.ExitCode",
         'Invoke-Npm "ci --prefix web\\pptx-viewer"',
         'Invoke-Npm "run build --prefix web\\pptx-viewer"',
-        "Node.js 18+ is required",
     ]
     for fragment in required:
         assert fragment in script
     assert "$major -lt 18" in script
 
+    npm_lookup = script.index("Get-Command npm.cmd")
+    npm_relative = script.index("$npmRelativeNode")
+    fallback = script.index("Get-Command node.exe")
     npm_ci = script.index('Invoke-Npm "ci --prefix web\\pptx-viewer"')
     npm_build = script.index('Invoke-Npm "run build --prefix web\\pptx-viewer"')
     manifest = script.index("manifest.sha256")
     pyinstaller = script.index("-m PyInstaller")
+    assert npm_lookup < npm_relative < fallback < npm_ci
     assert npm_ci < npm_build < manifest < pyinstaller
 
 
@@ -89,6 +99,10 @@ def test_build_verifies_frozen_pptx_runtime_and_webchannel() -> None:
     assert "_internal\\assets\\pptx-viewer\\THIRD_PARTY_NOTICES.txt" in script
     assert "_internal\\PySide6\\QtWebChannel.pyd" in script
     assert "Frozen runtime resource is missing" in script
+    assert "function Test-PptxManifest" in script
+    assert script.count("Test-PptxManifest -ManifestPath") == 2
+    assert "[string]::IsNullOrWhiteSpace($line)" in script
+    assert '$line -notmatch "^[0-9a-f]{64}  .+$"' in script
 
 
 def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
@@ -107,13 +121,18 @@ def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
 
     fake_bin = tmp_path / "fake bin"
     fake_bin.mkdir()
+    npm_relative_node = fake_bin / "node.exe"
+    shutil.copy2(node, npm_relative_node)
     npm_log = tmp_path / "npm.log"
     (fake_bin / "npm.cmd").write_text(
         '@echo off\r\necho %*>>"%READER_FAKE_NPM_LOG%"\r\nexit /b 23\r\n',
         encoding="ascii",
     )
+    path_first = tmp_path / "path-first-node"
+    path_first.mkdir()
+    shutil.copy2(node, path_first / "node.exe")
     env = os.environ.copy()
-    env["PATH"] = os.pathsep.join((str(fake_bin), str(Path(node).parent), env["PATH"]))
+    env["PATH"] = os.pathsep.join((str(path_first), str(fake_bin), env["PATH"]))
     env["READER_FAKE_NPM_LOG"] = str(npm_log)
 
     result = subprocess.run(
@@ -134,10 +153,11 @@ def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
     )
 
     assert result.returncode != 0
+    output = result.stdout + result.stderr
+    assert f"Using Node.js from {npm_relative_node}" in output
+    assert f"Using Node.js from {path_first / 'node.exe'}" not in output
     assert npm_log.read_text(encoding="utf-8").strip() == "ci --prefix web\\pptx-viewer"
-    assert "npm ci --prefix web\\pptx-viewer failed (exit 23)" in (
-        result.stdout + result.stderr
-    )
+    assert "npm ci --prefix web\\pptx-viewer failed (exit 23)" in output
     assert sentinel.read_text(encoding="utf-8") == "not touched"
 
 

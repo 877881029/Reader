@@ -949,7 +949,10 @@ def test_office_action_disabled_when_office_missing(qtbot, tmp_path: Path):
     window.open_paths([str(path)])
 
     qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
-    qtbot.waitUntil(lambda: office.calls == [".docx"])
+    qtbot.waitUntil(
+        lambda: window.actionOfficePreview.toolTip()
+        == "未检测到 Microsoft Office"
+    )
     assert window.actionOfficePreview.isEnabled() is False
     assert window.actionOfficePreview.toolTip() == "未检测到 Microsoft Office"
     assert office.calls == [".docx"]

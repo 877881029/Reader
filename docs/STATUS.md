@@ -73,6 +73,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 8：最终 clean build 成功，确认 `dist/Reader/_internal/assets/pptx-viewer/{index.html,manifest.sha256,THIRD_PARTY_NOTICES.txt}`、bundle assets 与 `PySide6/QtWebChannel.pyd` 存在；源/frozen manifest 文件 SHA256 均为 `f6f32aa6416717bb47aebcd4f365cc976dd01c24d86a8e768a12b70042fc2633`
 - PPTX Visual Preview Task 8 验证：RED 初始 `4 failed, 13 passed`，另以含空格 npm 路径及 Windows PowerShell `.NET` API 兼容性测试复现两项真实构建问题；GREEN 聚焦 `19 passed`，Python 全量 `251 passed`，最终 `build_windows.ps1` exit 0，IDE lint 与 `git diff --check` 通过
 - PPTX Visual Preview Task 8 按本次用户指令只提交、不推送、不修改 git config
+- PPTX Visual Preview Task 8（Important）：构建先解析 `npm.cmd`，优先验证其同目录 `node.exe`，仅在不存在时回退 PATH `node.exe`；版本失败消息和正常选择日志均包含实际 Node 路径，避免验证与 npm 执行使用不同安装
+- PPTX Visual Preview Task 8（Important/Minor）：source/frozen manifest 共用严格的 SHA256 行格式与空行 guard；测试锁定 Vite `outDir`/`emptyOutDir: true`，显式 opt-in 真实 npm build 证明 stale asset 被删除且自动恢复 bundle，普通 pytest 不调用 npm
+- PPTX Visual Preview Task 8（审查验证）：RED `3 failed, 17 passed`；显式 npm 聚焦 `20 passed`；普通全量 `251 passed, 1 skipped`；clean `build_windows.ps1` exit 0 并记录使用 `C:\Program Files\nodejs\node.exe`；同时将既有 Office availability 测试等待条件收紧到最终 tooltip，消除双 queued signal 竞态
+- PPTX Visual Preview Task 8（审查修复）按本次用户指令创建新提交，不 amend、不 push、不修改 git config
 
 ## 下一步
 

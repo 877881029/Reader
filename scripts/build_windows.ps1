@@ -2,11 +2,23 @@ $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
 
-$node = Get-Command node.exe -ErrorAction Stop
 $npm = Get-Command npm.cmd -ErrorAction Stop
-$major = [int]((& $node.Source --version).TrimStart("v").Split(".")[0])
-if ($LASTEXITCODE -ne 0 -or $major -lt 18) {
-    throw "Node.js 18+ is required"
+$npmDir = Split-Path -Parent $npm.Source
+$npmRelativeNode = Join-Path $npmDir "node.exe"
+if (Test-Path $npmRelativeNode -PathType Leaf) {
+    $nodePath = (Resolve-Path $npmRelativeNode).Path
+} else {
+    $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
+}
+Write-Host "Using Node.js from $nodePath"
+$nodeVersion = & $nodePath --version
+$nodeExitCode = $LASTEXITCODE
+if ($nodeExitCode -ne 0 -or $nodeVersion -notmatch "^v(\d+)\.") {
+    throw "Node.js 18+ is required at $nodePath (version check failed)"
+}
+$major = [int]$Matches[1]
+if ($major -lt 18) {
+    throw "Node.js 18+ is required at $nodePath (found $nodeVersion)"
 }
 
 function Invoke-Npm([string]$Arguments) {
@@ -15,6 +27,28 @@ function Invoke-Npm([string]$Arguments) {
         -WorkingDirectory $Root -Wait -PassThru -NoNewWindow
     if ($process.ExitCode -ne 0) {
         throw "npm $Arguments failed (exit $($process.ExitCode))"
+    }
+}
+
+function Test-PptxManifest(
+    [string]$ManifestPath,
+    [string]$BundlePath,
+    [string]$MismatchLabel
+) {
+    foreach ($line in Get-Content $ManifestPath) {
+        if (
+            [string]::IsNullOrWhiteSpace($line) -or
+            $line -notmatch "^[0-9a-f]{64}  .+$"
+        ) {
+            throw "Invalid PPTX bundle manifest entry: $line"
+        }
+        $hash, $relative = $line -split "  ", 2
+        $actual = (
+            Get-FileHash (Join-Path $BundlePath $relative) -Algorithm SHA256
+        ).Hash.ToLower()
+        if ($actual -ne $hash) {
+            throw "$MismatchLabel`: $relative"
+        }
     }
 }
 
@@ -43,18 +77,8 @@ $lines = foreach ($relative in $relativePaths) {
 }
 $ManifestPath = Join-Path $BundlePath "manifest.sha256"
 $lines | Set-Content $ManifestPath -Encoding ascii
-foreach ($line in Get-Content $ManifestPath) {
-    $hash, $relative = $line -split "  ", 2
-    if (-not $hash -or -not $relative) {
-        throw "Invalid PPTX bundle manifest entry: $line"
-    }
-    $actual = (
-        Get-FileHash (Join-Path $BundlePath $relative) -Algorithm SHA256
-    ).Hash.ToLower()
-    if ($actual -ne $hash) {
-        throw "PPTX bundle hash mismatch: $relative"
-    }
-}
+Test-PptxManifest -ManifestPath $ManifestPath -BundlePath $BundlePath `
+    -MismatchLabel "PPTX bundle hash mismatch"
 
 if (-not (Test-Path ".venv\Scripts\python.exe")) {
     py -3.12 -m venv .venv
@@ -106,14 +130,8 @@ foreach ($relative in $FrozenRuntimePaths) {
         throw "Frozen runtime resource is missing: $relative"
     }
 }
-foreach ($line in Get-Content (Join-Path $FrozenBundlePath "manifest.sha256")) {
-    $hash, $relative = $line -split "  ", 2
-    $actual = (
-        Get-FileHash (Join-Path $FrozenBundlePath $relative) -Algorithm SHA256
-    ).Hash.ToLower()
-    if ($actual -ne $hash) {
-        throw "Frozen PPTX bundle hash mismatch: $relative"
-    }
-}
+$FrozenManifestPath = Join-Path $FrozenBundlePath "manifest.sha256"
+Test-PptxManifest -ManifestPath $FrozenManifestPath -BundlePath $FrozenBundlePath `
+    -MismatchLabel "Frozen PPTX bundle hash mismatch"
 
 Write-Host "Built dist\Reader\Reader.exe"

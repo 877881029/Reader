@@ -1,7 +1,12 @@
 import hashlib
 import json
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web" / "pptx-viewer"
@@ -39,6 +44,40 @@ def test_vite_uses_jsdom_and_relative_bundle():
     config = (WEB / "vite.config.ts").read_text(encoding="utf-8")
     assert 'environment: "jsdom"' in config
     assert 'base: "./"' in config
+    assert 'new URL("../../assets/pptx-viewer", import.meta.url)' in config
+    assert "emptyOutDir: true" in config
+
+
+@pytest.mark.skipif(
+    os.environ.get("READER_RUN_NPM_BUILD_TEST") != "1",
+    reason="real npm build is opt-in so ordinary pytest never invokes npm",
+)
+def test_vite_build_removes_stale_bundle_assets(tmp_path):
+    npm = shutil.which("npm.cmd")
+    if npm is None or not (WEB / "node_modules").is_dir():
+        pytest.skip("npm.cmd and installed locked dependencies are required")
+
+    bundle = ROOT / "assets" / "pptx-viewer"
+    backup = tmp_path / "pptx-viewer-backup"
+    shutil.copytree(bundle, backup)
+    stale = bundle / "assets" / "stale-from-previous-build.js"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("stale", encoding="ascii")
+
+    try:
+        result = subprocess.run(
+            [npm, "run", "build"],
+            cwd=WEB,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert not stale.exists()
+    finally:
+        shutil.rmtree(bundle)
+        shutil.copytree(backup, bundle)
 
 
 def test_web_scaffold_keeps_local_bootstrap_only():

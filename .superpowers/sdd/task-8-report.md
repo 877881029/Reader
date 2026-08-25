@@ -62,6 +62,48 @@
 源与 frozen `manifest.sha256` 文件的 SHA256 均为
 `f6f32aa6416717bb47aebcd4f365cc976dd01c24d86a8e768a12b70042fc2633`。
 
+## Important / Minor 审查修复
+
+### 严格 RED
+
+命令：
+
+`$env:READER_RUN_NPM_BUILD_TEST='1'; .venv\Scripts\python.exe -m pytest tests/test_packaging.py tests/test_pptx_web_assets.py -v`
+
+结果：`3 failed, 17 passed`。
+
+- 构建脚本没有从 `npm.cmd` 目录选择 `node.exe`，静态契约失败。
+- source/frozen manifest 没有共用严格格式与空行 guard，静态契约失败。
+- 进程集成将真实 `node.exe` 同时复制到 PATH 首目录和 fake npm 目录；原脚本没有输出
+  npm-relative Node 路径，选择证据断言失败。
+- Vite `outDir`、`emptyOutDir: true` 与植入 stale asset 后的真实 build 删除行为已存在，
+  两项 Minor 在 RED 轮直接通过。
+
+### 修复
+
+- 先解析 `npm.cmd`，若同目录存在 `node.exe` 则使用其解析后路径；只有同目录 Node
+  不存在时才回退 `Get-Command node.exe`。
+- 用选定路径运行 `--version`；版本命令失败、格式无效或 major 小于 18 时，错误均包含
+  实际 Node 路径。构建同时输出 `Using Node.js from <path>` 作为真实选择证据。
+- fake npm 进程测试令另一个 Node 目录位于 PATH 首位，并断言日志明确选择 fake npm
+  同目录 Node；fake npm 仍返回 23，dist sentinel 保留，PyInstaller 前 fail-fast 不变。
+- source/frozen bundle 都通过同一个 `Test-PptxManifest` 验证器，拒绝空行和不符合
+  `64 lowercase hex + two spaces + relative path` 的条目。
+- Vite stale asset 测试仅在 `READER_RUN_NPM_BUILD_TEST=1` 时运行；它在 `finally`
+  恢复完整 bundle。普通 pytest 默认 skip，因此不会调用真实 npm。
+
+### 审查后验证
+
+- 显式 npm 聚焦：`20 passed in 57.24s`。
+- 普通全量（显式移除 opt-in 环境变量）：`251 passed, 1 skipped in 92.87s`。
+- 首轮全量暴露既有 Office availability 双 queued signal 测试竞态：
+  `office.calls` 已写入但最终 tooltip 尚未更新；定向连续复现后，将测试等待条件收紧为
+  最终 tooltip，定向 `1 passed`，随后全量通过。未改窗口产品代码。
+- clean build：
+  `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1`
+  exit 0；输出明确记录
+  `Using Node.js from C:\Program Files\nodejs\node.exe`，PyInstaller `Build complete`。
+
 ## 观察
 
 `npm ci` 对锁定依赖报告 3 个 audit finding（1 moderate、1 high、1 critical）。
