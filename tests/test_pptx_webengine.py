@@ -165,6 +165,8 @@ def _verify_real_view_fidelity(qtbot, view, changed, failures):
               ?.getAttribute("data-slide-index"),
             image: Boolean(svg.querySelector("image")),
             title: svg.textContent,
+            slideContent: svg.querySelector('[data-layer="slide-content"]')
+              ?.childElementCount,
             paints: painted.flatMap((node) => [
               node.getAttribute("fill") || "",
               node.getAttribute("style") || "",
@@ -181,6 +183,7 @@ def _verify_real_view_fidelity(qtbot, view, changed, failures):
     assert first_slide["active"] == "0"
     assert first_slide["image"] is True
     assert "Inherited title" in first_slide["title"]
+    assert first_slide["slideContent"] > 0
     assert (
         "#14305a" in first_slide["paints"]
         or "rgb(20,48,90)" in first_slide["paints"]

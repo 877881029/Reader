@@ -209,13 +209,13 @@ git push origin main
 - The committed adversarial fixture is the permanent automated regression.
 - `canis_handover.pptx` is a local-only acceptance input and is never committed.
 
-- [ ] **Step 1: Strengthen real QWebEngine assertions**
+- [x] **Step 1: Strengthen real QWebEngine assertions**
 
-After ready, assert the first slide host contains `Inherited title`, the
-slide-content/layout layers are non-empty, and the initial blocked URL snapshot
-remains empty.
+After ready, assert the first slide host contains `Inherited title`, its
+slide-content layer is non-empty, the parser-level layout map is non-empty, and
+the initial blocked URL snapshot remains empty.
 
-- [ ] **Step 2: Run focused and full verification**
+- [x] **Step 2: Run focused and full verification**
 
 ```powershell
 npm --prefix web/pptx-viewer test
@@ -223,13 +223,13 @@ npm --prefix web/pptx-viewer test
 .venv\Scripts\python.exe -m pytest -q
 ```
 
-- [ ] **Step 3: Probe the local real deck**
+- [x] **Step 3: Probe the local real deck**
 
 Open `C:\Users\runqyang\Downloads\canis_handover.pptx` through
 `PptxVisualView`; assert seven slides and visible `CANIS handover` text on
 slide 1. Do not copy the deck into the repository.
 
-- [ ] **Step 4: Build and frozen smoke**
+- [x] **Step 4: Build and frozen smoke**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1
@@ -239,7 +239,7 @@ Get-FileHash dist/Reader/Reader.exe -Algorithm SHA256
 
 Refresh and verify desktop shortcut target, working directory, and icon.
 
-- [ ] **Step 5: Final review, STATUS, commit, and push**
+- [x] **Step 5: Final review, STATUS, commit, and push**
 
 Record tests, real-deck proof, bundle manifest hash, executable hash, and final
 review result in STATUS.

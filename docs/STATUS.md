@@ -9,9 +9,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
-**PPTX 关系类型兼容修复：解决真实 deck 占位符页面空白**
+**PPTX 关系类型兼容修复：真实 deck 占位符页面已恢复**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -101,13 +101,18 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX 关系兼容 Task 1 RED：未打补丁的 `pptx-viewer@0.2.2` 在该顺序下 `slideLayouts.size === 0`，聚焦 Web 回归为 `1 failed, 13 passed`，失败点与 `canis_handover.pptx` 一致
 - PPTX 关系兼容 Task 2：新增固定版本 fail-fast `postinstall` 补丁；`getByType()` 先以 `hn(i)` 取得终端类型，再做精确 `Map.get`，彻底区分 `slide`、`slideLayout` 与 `slideMaster`
 - PPTX 关系兼容 Task 2：补丁脚本覆盖替换、幂等、源码漂移和已安装 ESM 四项回归；`npm ci` 会自动应用，依赖版本不是 `0.2.2` 或期望片段不唯一时直接失败
-- PPTX 关系兼容 Task 2：上游 MIT notice 保留并记录 Reader 本地修改；source/bundle notice 字节一致，重建 bundle manifest SHA256 为 `857bf20210931b26208edf4b639480c2c46c49821ad8269880c30913086834db`
+- PPTX 关系兼容 Task 2：上游 MIT notice 保留并记录 Reader 本地修改；source/bundle notice 字节一致，clean build bundle manifest SHA256 为 `1f165ff62ea65b671d164b738fdd0f9ec599527149333400d69c0633d967e8fb`
 - PPTX 关系兼容 Task 2 GREEN：Web `28 passed`、typecheck/build 通过；fixture/web-assets/packaging 聚焦 `20 passed, 1 skipped`
+- PPTX 关系兼容 Task 3：公开 adversarial fixture 在真实 QWebEngine 中继续显示 `Inherited title`、图片、表格、图表与背景，聚焦 WebEngine `3 passed`
+- PPTX 关系兼容真实 deck 验收：本机 `canis_handover.pptx` 上报 `ready=7`、`error=None`；第一页 SVG 包含 `CANIS handover`、`Lina` 及 master 层 `AMD General`，不再空白
+- PPTX 关系兼容最终验证：Web `28 passed`、typecheck 通过；Python 全量 `263 passed, 1 skipped`；独立审查结论 `Approve`，无 Critical/Important
+- PPTX 关系兼容 clean build/smoke：`build_windows.ps1` exit 0；Phase A `visual-ready slides=4`，Phase B 两批各 2 文件 IPC 精确到达；source/frozen manifest SHA256 均为 `1f165ff62ea65b671d164b738fdd0f9ec599527149333400d69c0633d967e8fb`
+- 最终 `dist/Reader/Reader.exe`：`5885743 bytes`，SHA256 `c707de0bec0b5353ac0da629748804f5e08847091c5484eaa5f3add2a8932a3c`；桌面 `Reader.lnk` 已刷新并验证 target/workdir/icon
 
 ## 下一步
 
-1. 用真实 QWebEngine 与本机 `canis_handover.pptx` 验证可见文字
-2. 全量回归、重建冻结程序、更新快捷方式与哈希
+1. 用户在桌面 `Reader` 中验收 `canis_handover.pptx` 的各页视觉保真
+2. 若其他真实 PPTX 暴露独立兼容问题，继续以最小公开 fixture 复现后修复
 
 ## 接手检查清单
 
