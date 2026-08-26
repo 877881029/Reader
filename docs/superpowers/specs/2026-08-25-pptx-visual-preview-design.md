@@ -75,3 +75,33 @@ This increment does not add dual pane, translation, format conversion, or animat
 ## 9. Process requirement
 
 Implementation must follow `docs/STATUS.md` and `.cursor/rules/git-progress-handoff.mdc`: commit goals and progress to git at each design/plan/task boundary so a new AI session can resume without chat history.
+
+## 10. Compatibility amendment: exact OOXML relationship matching
+
+Date: 2026-08-26  
+Status: Approved by user (Approach A)
+
+Real-world deck `canis_handover.pptx` exposed a parser defect in pinned
+`pptx-viewer@0.2.2`: relationship lookup stores terminal type names such as
+`slide`, `slideMaster`, and `slideLayout`, but fallback lookup uses substring
+matching. When slide relationships precede the master relationship,
+`getByType("relationships/slideMaster")` incorrectly returns slides. The parser
+then treats slide XML as masters, leaves `slideLayouts` empty, and drops
+placeholder-only title/body shapes because their bounds live in the layout.
+The UI remains responsive but the rendered slide is blank.
+
+Approved fix:
+
+- Keep `pptx-viewer@0.2.2` pinned and apply a deterministic local MIT-compatible
+  patch after `npm ci`.
+- Relationship type lookup must compare the exact terminal type name; `slide`
+  must never match `slideMaster` or `slideLayout`.
+- The patch command must fail fast if the pinned package no longer contains the
+  expected source, so an upstream upgrade cannot silently omit the fix.
+- The committed fixture must order slide relationships before slide-master
+  relationships, reproducing the real deck without committing internal user
+  content.
+- Tests must assert one parsed master, non-empty layouts, inherited title/body
+  placeholders, and visible text in both Node/jsdom and real QWebEngine.
+- Rebuild the committed bundle and frozen Reader, rerun full regression and
+  frozen smoke, refresh the desktop shortcut, and record hashes in STATUS.

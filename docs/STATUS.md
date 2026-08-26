@@ -9,12 +9,13 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：实现、冻结验证与最终复审均已完成**
+**PPTX 关系类型兼容修复：解决真实 deck 占位符页面空白**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
+- 兼容修复计划：`docs/superpowers/plans/2026-08-26-pptx-relationship-compatibility.md`（用户批准方案 A）
 - 方案：`QWebEngineView` + 本地许可兼容 Web 渲染器；左缩略图、右单页、缩放翻页
 - 首版：静态高保真（背景/图片/文本/形状/表格/基础图表）；不做动画/视频/宏
 - 禁止复制 `astx-jp.vscode-pptx-viewer` 专有代码
@@ -99,8 +100,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户验收真实日常 PPTX：视觉保真、缩略图/翻页/缩放/适合窗口、文本回退与可选 Office 往返
-2. 若验收发现特定 PPTX 兼容问题，以最小真实 fixture 补充回归后修复
+1. 调整公开 fixture 的 relationship 顺序，复现 `slide` / `slideMaster` 子串冲突
+2. 为固定 `pptx-viewer@0.2.2` 添加 fail-fast postinstall 精确匹配补丁
+3. 用真实 QWebEngine 与本机 `canis_handover.pptx` 验证可见文字
+4. 全量回归、重建冻结程序、更新快捷方式与哈希
 
 ## 接手检查清单
 
