@@ -58,20 +58,20 @@ function focusRoot(root: HTMLElement): void {
 export function buildViewerDom(root: HTMLElement): ViewerElements {
   root.innerHTML = `
     <section class="viewer-shell">
-      <aside class="viewer-shell__rail" aria-label="Slide thumbnails"></aside>
+      <aside class="viewer-shell__rail" aria-label="幻灯片缩略图"></aside>
       <article class="viewer-shell__main">
         <header class="viewer-shell__toolbar">
-          <button type="button" data-action="previous" aria-label="Previous slide">Prev</button>
-          <button type="button" data-action="next" aria-label="Next slide">Next</button>
+          <button type="button" data-action="previous" aria-label="上一页">上一页</button>
+          <button type="button" data-action="next" aria-label="下一页">下一页</button>
           <output class="viewer-shell__page" aria-live="polite"></output>
           <span class="viewer-shell__spacer"></span>
-          <button type="button" data-action="zoom-out" aria-label="Zoom out">-</button>
+          <button type="button" data-action="zoom-out" aria-label="缩小">-</button>
           <output class="viewer-shell__zoom" aria-live="polite"></output>
-          <button type="button" data-action="zoom-in" aria-label="Zoom in">+</button>
-          <button type="button" data-action="fit" aria-label="Fit slide to stage">Fit</button>
+          <button type="button" data-action="zoom-in" aria-label="放大">+</button>
+          <button type="button" data-action="fit" aria-label="适合窗口">适合窗口</button>
         </header>
         <div class="viewer-shell__stage">
-          <div class="viewer-shell__host" role="img" aria-label="Slide surface"></div>
+          <div class="viewer-shell__host" role="img" aria-label="幻灯片画布"></div>
         </div>
       </article>
     </section>

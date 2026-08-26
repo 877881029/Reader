@@ -97,10 +97,11 @@ def webengine_process_probe(qapp):
         loop.quit()
 
     view.loadFinished.connect(loaded)
-    deadline.start(5_000)
+    deadline.start(15_000)
     view.load(QUrl("data:text/html,<title>reader-webengine-probe</title>ok"))
     loop.exec()
     deadline.stop()
+    final_url = view.url().toString()
     view.stop()
     view.close()
     view.deleteLater()
@@ -108,7 +109,10 @@ def webengine_process_probe(qapp):
     qapp.processEvents()
 
     if outcome != [True]:
-        pytest.skip("QtWebEngine process cannot start")
+        pytest.skip(
+            "QtWebEngine process cannot start "
+            f"(loadFinished={outcome!r}, url={final_url!r})"
+        )
     yield
 
 
@@ -296,6 +300,21 @@ def _verify_real_view_fidelity(qtbot, view, changed, failures):
         """Boolean(document.querySelector(".viewer-shell__host svg"))""",
     )
 
+    initial_stage_width = run_js(
+        qtbot,
+        view,
+        "document.querySelector('.viewer-shell__stage').clientWidth",
+    )
+    view.resize(900, 650)
+    qtbot.waitUntil(
+        lambda: run_js(
+            qtbot,
+            view,
+            "document.querySelector('.viewer-shell__stage').clientWidth",
+        )
+        != initial_stage_width,
+        timeout=10_000,
+    )
     before = run_json(
         qtbot,
         view,
@@ -312,7 +331,7 @@ def _verify_real_view_fidelity(qtbot, view, changed, failures):
         })()
         """,
     )
-    view.resize(1500, 900)
+    view.resize(1200, 800)
     qtbot.waitUntil(
         lambda: run_js(
             qtbot,

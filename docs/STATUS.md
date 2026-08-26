@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-08-25  
+最后更新：2026-08-26
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -11,7 +11,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（进行中）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：Tasks 1–9 已完成，待用户验收**
+**PPTX 视觉预览（不依赖 PowerPoint）：最终审查修复完成，待最终复审**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -86,11 +86,18 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview 最终依赖/产物：`pptx-viewer 0.2.2`、lock 解析 `fflate 0.8.3`、Node `22.22.0`、npm `11.15.0`、PySide6 `6.11.2`、PyInstaller `6.22.2`；bundle manifest SHA256 `f6f32aa6416717bb47aebcd4f365cc976dd01c24d86a8e768a12b70042fc2633`
 - 最终 `dist/Reader/Reader.exe`：`5884468 bytes`，SHA256 `1a40cb1760499c44d73283895a83752ae0dd4fc84aa96e2412f97dfd9eac0219`；桌面 `Reader.lnk` 已刷新并验证 target/workdir/icon 均指向该 exe
 - PPTX Visual Preview Task 9 按本次用户指令只提交、不 push、不修改 git config
+- PPTX 最终审查修复：默认打开 `.pptx` 不再探测/调用 Office COM，只有用户点击“Office 高保真”后才在独立 availability pool 检测；unknown 时 action 可点击、pending 时禁用、available 结果继续 Office 请求
+- PPTX 最终审查修复：文本模式或 Office 请求失败时恢复请求前的同一 widget、mode/status 与 visual signal 连接；关闭、取消、迟到 worker/availability/visual 事件均由 identity/generation/ownership guards 隔离
+- PPTX 最终审查修复：WebEngine `file:` 请求仅允许 source 精确 canonical 文件和 bundle canonical realpath 根；使用 Windows `normcase(realpath)`，阻断 sibling、parent、`..`、symlink escape 与任意其他 file
+- PPTX 最终审查 Web/UI：保留中文 toolbar 与居中 letterbox；真实 bundle 加载完成后 blocked 初始快照为空，网络探针仍精确阻断 HTTP/HTTPS/WS/WSS
+- 最终审查验证：`tests/test_pptx_view.py` 17 passed；`tests/test_window.py` 92 passed；真实 `tests/test_pptx_webengine.py` 连续两轮均 3 passed；Web 24 passed；npm typecheck/build 通过；Python 全量 `263 passed, 1 skipped`
+- 最终审查 clean build/smoke：`scripts/build_windows.ps1` exit 0；Phase A `visual-ready slides=4`，Phase B 两批各 2 文件 IPC 精确到达；source/frozen manifest SHA256 均为 `6e66ec6221fa109fc36cc3f0dadf027828defdfaeeb9ed335c0f914a5ca8949b`
+- 最终审查 `dist/Reader/Reader.exe`：`5885743 bytes`，SHA256 `80f9e97f5bcdbe873f1673df06c9e62b13491ff191e158521423d4e4f2722e35`；桌面 `Reader.lnk` 已覆盖刷新并验证 target/workdir/icon 均指向新 exe
 
 ## 下一步
 
-1. 用户验收真实日常 PPTX：视觉保真、缩略图/翻页/缩放/适合窗口、缺失字体与单页失败
-2. 用户验收“文本模式”回退与可选“Office 高保真”往返切换
+1. 对本次最终审查提交做最终复审
+2. 用户验收真实日常 PPTX：视觉保真、缩略图/翻页/缩放/适合窗口、文本回退与可选 Office 往返
 3. 若验收发现特定 PPTX 兼容问题，以最小真实 fixture 补充回归后修复
 
 ## 接手检查清单

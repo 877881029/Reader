@@ -502,13 +502,202 @@ def test_office_failure_preserves_current_visual_fallback(qtbot, tmp_path: Path)
 
     window.switch_current_tab_to_office()
 
-    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0, timeout=10_000)
     document = next(iter(window._documents.values()))
     assert current_content(window) is visual
     assert visual.shutdown_calls == 0
     assert window.status_text() == "内置预览（Office 导出失败）"
     assert document.mode == "visual"
     assert document.builtin_mode == "visual"
+
+
+def test_pptx_office_probe_starts_only_after_click_and_true_continues_export(
+    qtbot, tmp_path: Path
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "lazy-office.pptx"
+    path.write_bytes(b"x")
+    office = FakeOfficeAvailability(True)
+    visual = FakeVisual()
+    modes: list[str] = []
+
+    def preview_fn(_path, office=None, mode="visual"):
+        modes.append(mode)
+        if mode == "office":
+            return PreviewResult(html="OFFICE READY", status_label="Office 预览")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            visual if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+
+    assert office.calls == []
+    assert modes == ["visual"]
+    assert window.actionOfficePreview.isEnabled() is True
+    assert (
+        window.actionOfficePreview.toolTip()
+        == "点击后检测 Microsoft Office"
+    )
+
+    window.actionOfficePreview.trigger()
+
+    qtbot.waitUntil(lambda: office.calls == [".pptx"])
+    qtbot.waitUntil(lambda: "OFFICE READY" in page_text(window, 0))
+    assert modes == ["visual", "office"]
+
+
+def test_failed_lazy_office_probe_keeps_visual_content(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "missing-office.pptx"
+    path.write_bytes(b"x")
+    office = FakeOfficeAvailability(False)
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+
+    window.actionOfficePreview.trigger()
+
+    qtbot.waitUntil(
+        lambda: window.actionOfficePreview.toolTip()
+        == "未检测到 Microsoft Office"
+    )
+    document = next(iter(window._documents.values()))
+    assert office.calls == [".pptx"]
+    assert current_content(window) is visual
+    assert document.mode == "visual"
+    assert document.last_result == visual_result()
+    assert window.status_text() == "未检测到 Microsoft Office"
+
+
+@pytest.mark.parametrize("suffix", [".docx", ".xlsx"])
+def test_other_office_formats_also_probe_only_after_click(
+    qtbot, tmp_path: Path, suffix: str
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / f"lazy{suffix}"
+    path.write_bytes(b"x")
+    office = FakeOfficeAvailability(False)
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: builtin_result("READY"),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "READY" in page_text(window, 0))
+
+    assert office.calls == []
+    assert window.actionOfficePreview.isEnabled() is True
+    window.actionOfficePreview.trigger()
+    qtbot.waitUntil(lambda: office.calls == [suffix])
+
+
+def test_text_and_office_failures_restore_same_visual_widget(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "failure-chain.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    office = FakeOfficeAvailability(True)
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "text":
+            raise RuntimeError("text parser failed")
+        if mode == "office":
+            raise RuntimeError("Office export failed")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    original_result = next(iter(window._documents.values())).last_result
+
+    window.actionTextPreview.trigger()
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+
+    document = next(iter(window._documents.values()))
+    assert current_content(window) is visual
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+    assert document.last_result is original_result
+    assert window.actionVisualPreview.isEnabled() is False
+    assert window.actionOfficePreview.isEnabled() is True
+
+    window.actionOfficePreview.trigger()
+    qtbot.waitUntil(lambda: window.status_text() == "正在检测 Microsoft Office…")
+    qtbot.waitUntil(lambda: window.status_text() == "内置预览（Office 导出失败）")
+
+    assert current_content(window) is visual
+    assert document.mode == "visual"
+    assert document.last_result is original_result
+    assert window.actionVisualPreview.isEnabled() is False
+
+
+def test_text_failure_from_office_restores_office_mode_and_widget(
+    qtbot, tmp_path: Path
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "office-text-failure.pptx"
+    path.write_bytes(b"x")
+    office = FakeOfficeAvailability(True)
+    visual = FakeVisual()
+
+    def preview_fn(_path, office=None, mode="visual"):
+        if mode == "text":
+            raise RuntimeError("text parser failed")
+        if mode == "office":
+            return PreviewResult(html="OFFICE CURRENT", status_label="Office 预览")
+        return visual_result()
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda result, _path: (
+            visual if result.kind == "pptx" else label_viewer(result)
+        ),
+        office=office,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    window.actionOfficePreview.trigger()
+    qtbot.waitUntil(lambda: "OFFICE CURRENT" in page_text(window, 0))
+    office_widget = current_content(window)
+
+    window.actionTextPreview.trigger()
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+
+    document = next(iter(window._documents.values()))
+    assert current_content(window) is office_widget
+    assert document.mode == "office"
+    assert document.builtin_mode == "visual"
+    assert window.status_text() == "Office 预览"
 
 
 def test_repeated_office_failure_replaces_visual_signal_connections(
@@ -628,7 +817,7 @@ def test_stale_visual_events_after_replacement_are_ignored(qtbot, tmp_path: Path
     qtbot.waitUntil(lambda: visual.start_calls == 1)
     qtbot.waitUntil(window.actionOfficePreview.isEnabled)
     window.switch_current_tab_to_office()
-    assert office_started.wait(1)
+    qtbot.waitUntil(office_started.is_set)
     document = next(iter(window._documents.values()))
     assert document.visual_slide_count is None
     assert document.visual_slide_index is None
@@ -903,6 +1092,46 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     assert "内置预览" in window.status_text()
 
 
+def test_office_probe_uses_pool_independent_from_blocked_preview(
+    qapp, qtbot, tmp_path: Path
+):
+    from reader.shell.window import PreviewExecutor
+
+    path = tmp_path / "blocked.docx"
+    path.write_bytes(b"x")
+    preview_started = threading.Event()
+    release_preview = threading.Event()
+    office = BlockingOfficeAvailability(True)
+    executor = PreviewExecutor(parent=qapp)
+    executor.completed.connect(executor.take_completion)
+
+    def blocked_preview(_path, office=None, mode="builtin"):
+        preview_started.set()
+        assert release_preview.wait(3)
+        return builtin_result()
+
+    executor.submit(
+        "preview",
+        path,
+        blocked_preview,
+        office,
+        FakeCache,
+    )
+    assert preview_started.wait(1)
+    executor.probe_office("availability", ".docx", office)
+
+    try:
+        qtbot.waitUntil(office.started.is_set)
+        assert release_preview.is_set() is False
+        assert executor.thread_pool is not executor.availability_thread_pool
+    finally:
+        office.release.set()
+        release_preview.set()
+
+    qtbot.waitUntil(lambda: executor.active_count() == 0)
+    executor.deleteLater()
+
+
 def test_cache_hit_skips_preview_and_cache_miss_puts(qtbot, tmp_path: Path):
     hit_path = tmp_path / "hit.md"
     miss_path = tmp_path / "miss.md"
@@ -1007,6 +1236,13 @@ def test_office_action_disabled_when_office_missing(qtbot, tmp_path: Path):
     window.open_paths([str(path)])
 
     qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    assert office.calls == []
+    assert window.actionOfficePreview.isEnabled() is True
+    assert (
+        window.actionOfficePreview.toolTip()
+        == "点击后检测 Microsoft Office"
+    )
+    window.actionOfficePreview.trigger()
     qtbot.waitUntil(
         lambda: window.actionOfficePreview.toolTip()
         == "未检测到 Microsoft Office"
@@ -1057,6 +1293,9 @@ def test_office_action_shows_neutral_tooltip_while_detecting(qtbot, tmp_path: Pa
     )
     qtbot.addWidget(window)
     window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    assert office.calls == []
+    window.actionOfficePreview.trigger()
 
     try:
         qtbot.waitUntil(office.started.is_set)
@@ -1069,7 +1308,9 @@ def test_office_action_shows_neutral_tooltip_while_detecting(qtbot, tmp_path: Pa
     finally:
         office.release.set()
 
-    qtbot.waitUntil(window.actionOfficePreview.isEnabled)
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0, timeout=10_000)
+    assert next(iter(window._documents.values())).mode == "office"
+    assert window.actionOfficePreview.isEnabled() is False
     assert (
         window.actionOfficePreview.toolTip()
         != "未检测到 Microsoft Office"
@@ -1369,7 +1610,7 @@ def test_late_office_result_cannot_overwrite_switched_builtin(qtbot, tmp_path: P
     qtbot.waitUntil(lambda: "BUILTIN" in page_text(window, 0))
     qtbot.waitUntil(window.actionOfficePreview.isEnabled)
     window.switch_current_tab_to_office()
-    assert office_started.wait(1)
+    qtbot.waitUntil(office_started.is_set)
 
     window.switch_current_tab_to_builtin()
     release_office.set()
@@ -1427,7 +1668,7 @@ def test_close_tab_while_office_worker_runs_discards_and_cleans_result(
     window.open_paths([str(path)])
     qtbot.waitUntil(window.actionOfficePreview.isEnabled)
     window.switch_current_tab_to_office()
-    assert office_started.wait(1)
+    qtbot.waitUntil(office_started.is_set)
     assert (
         window.actionOfficePreview.toolTip()
         != "未检测到 Microsoft Office"
@@ -1494,7 +1735,7 @@ def test_close_window_while_office_worker_runs_discards_and_cleans_result(
     window.open_paths([str(path)])
     qtbot.waitUntil(window.actionOfficePreview.isEnabled)
     window.switch_current_tab_to_office()
-    assert office_started.wait(1)
+    qtbot.waitUntil(office_started.is_set)
 
     window.close()
     release_office.set()
@@ -1561,6 +1802,8 @@ def test_restart_cancels_inflight_availability_request(qtbot, tmp_path: Path):
     )
     qtbot.addWidget(window)
     window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: "builtin" in page_text(window, 0))
+    window.actionOfficePreview.trigger()
     qtbot.waitUntil(office.started.is_set)
     document_id, document = next(iter(window._documents.items()))
     availability_request_id = document.availability_request_id
@@ -2023,6 +2266,10 @@ def test_shared_executor_routes_office_availability_to_owner_windows(
     first.open_paths([str(first_path)])
     second.open_paths([str(second_path)])
 
+    qtbot.waitUntil(lambda: "FIRST" in page_text(first, 0))
+    qtbot.waitUntil(lambda: "SECOND" in page_text(second, 0))
+    first.actionOfficePreview.trigger()
+    second.actionOfficePreview.trigger()
     qtbot.waitUntil(first_office.started.is_set)
     qtbot.waitUntil(
         lambda: all(
@@ -2045,7 +2292,7 @@ def test_shared_executor_routes_office_availability_to_owner_windows(
     qtbot.waitUntil(second_office.started.is_set)
     second_office.release.set()
 
-    qtbot.waitUntil(first.actionOfficePreview.isEnabled)
+    qtbot.waitUntil(lambda: app._executor.active_count() == 0, timeout=10_000)
     qtbot.waitUntil(
         lambda: next(iter(second._documents.values())).office_available is False
     )
@@ -2053,7 +2300,8 @@ def test_shared_executor_routes_office_availability_to_owner_windows(
         second.actionOfficePreview.toolTip()
         == "未检测到 Microsoft Office"
     )
-    assert first.actionOfficePreview.isEnabled() is True
+    assert next(iter(first._documents.values())).mode == "office"
+    assert first.actionOfficePreview.isEnabled() is False
     assert second.actionOfficePreview.isEnabled() is False
     assert first_office.calls == [".docx"]
     assert second_office.calls == [".xlsx"]

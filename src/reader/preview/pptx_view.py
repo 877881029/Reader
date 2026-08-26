@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
 
-_ALLOWED_SCHEMES = frozenset({"file", "qrc", "data", "blob"})
+_ALLOWED_NON_FILE_SCHEMES = frozenset({"qrc", "data", "blob"})
 _SAFE_FALLBACK_HTML = (
     "<!doctype html><meta charset='utf-8'>"
     "<p>演示文稿无法进行视觉渲染。</p>"
@@ -124,14 +125,40 @@ class _WebEngineResources(QObject):
 class OfflineRequestInterceptor(QWebEngineUrlRequestInterceptor):
     """Block non-local requests without emitting signals from Chromium threads."""
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        source: Path,
+        bundle_root: Path,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self._lock = threading.Lock()
         self._blocked: list[str] = []
+        self._source = self._canonical_path(source)
+        self._bundle_root = self._canonical_path(bundle_root)
+
+    @staticmethod
+    def _canonical_path(path: str | Path) -> str:
+        return os.path.normcase(os.path.realpath(os.fspath(path)))
+
+    def _allows_file(self, url: QUrl) -> bool:
+        local_file = url.toLocalFile()
+        if not local_file:
+            return False
+        candidate = self._canonical_path(local_file)
+        if candidate == self._source:
+            return True
+        try:
+            return os.path.commonpath((candidate, self._bundle_root)) == self._bundle_root
+        except ValueError:
+            return False
 
     def interceptRequest(self, info) -> None:  # noqa: N802 - Qt virtual method
         url = info.requestUrl()
-        if url.scheme().lower() in _ALLOWED_SCHEMES:
+        scheme = url.scheme().lower()
+        if scheme in _ALLOWED_NON_FILE_SCHEMES:
+            return
+        if scheme == "file" and self._allows_file(url):
             return
         with self._lock:
             self._blocked.append(url.toString())
@@ -210,6 +237,7 @@ class PptxVisualView(QWebEngineView):
         self.viewer_url = QUrl.fromLocalFile(
             str(resource_path("assets", "pptx-viewer", "index.html").resolve())
         )
+        bundle_root = Path(self.viewer_url.toLocalFile()).parent
         self.startup_timer = QTimer(self)
         self.startup_timer.setSingleShot(True)
         self.startup_timer.setInterval(15_000)
@@ -224,7 +252,9 @@ class PptxVisualView(QWebEngineView):
 
         self.profile: QWebEngineProfile | None = QWebEngineProfile(app)
         self.interceptor: OfflineRequestInterceptor | None = OfflineRequestInterceptor(
-            self.profile
+            self._source,
+            bundle_root,
+            self.profile,
         )
         _install_interceptor(self.profile, self.interceptor)
 

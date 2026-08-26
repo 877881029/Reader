@@ -64,6 +64,19 @@ describe("viewer controls", () => {
     document.body.innerHTML = "";
   });
 
+  it("uses Chinese navigation labels", () => {
+    const root = mountRoot();
+    createViewer(root, {
+      slideCount: 1,
+      slideWidth: 1600,
+      slideHeight: 900,
+    });
+
+    expect(root.querySelector('[data-action="previous"]')?.textContent).toBe("上一页");
+    expect(root.querySelector('[data-action="next"]')?.textContent).toBe("下一页");
+    expect(root.querySelector('[data-action="fit"]')?.textContent).toBe("适合窗口");
+  });
+
   it("handles prev/next buttons, keyboard keys, and thumbnail click", () => {
     const root = mountRoot();
     const rendered: number[] = [];

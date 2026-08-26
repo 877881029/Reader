@@ -329,10 +329,31 @@ class _FakeRequest:
         self.blocked.append(blocked)
 
 
-def test_interceptor_allows_offline_schemes_and_snapshots_blocked_urls():
-    interceptor = OfflineRequestInterceptor()
+def test_interceptor_allows_only_source_bundle_and_non_file_offline_schemes(
+    tmp_path,
+):
+    source = tmp_path / "源 文件 #100%.pptx"
+    source.write_bytes(b"x")
+    bundle = tmp_path / "assets" / "pptx-viewer"
+    bundle_assets = bundle / "assets"
+    bundle_assets.mkdir(parents=True)
+    index = bundle / "index.html"
+    script = bundle_assets / "视图 100%.js"
+    style = bundle_assets / "viewer.css"
+    index.write_text("index", encoding="utf-8")
+    script.write_text("script", encoding="utf-8")
+    style.write_text("style", encoding="utf-8")
+    sibling = tmp_path / "secret.txt"
+    sibling.write_text("secret", encoding="utf-8")
+    parent_file = tmp_path.parent / "parent-secret.txt"
+    parent_file.write_text("secret", encoding="utf-8")
+
+    interceptor = OfflineRequestInterceptor(source, bundle)
+    for path in (source, index, script, style):
+        request = _FakeRequest(QUrl.fromLocalFile(str(path)).toString())
+        interceptor.interceptRequest(request)
+        assert request.blocked == []
     for url in (
-        "file:///C:/deck.pptx",
         "qrc:/qtwebchannel/qwebchannel.js",
         "data:text/plain,ok",
         "blob:file:///opaque",
@@ -342,6 +363,10 @@ def test_interceptor_allows_offline_schemes_and_snapshots_blocked_urls():
         assert request.blocked == []
 
     blocked_urls = (
+        QUrl.fromLocalFile(str(sibling)).toString(),
+        QUrl.fromLocalFile(str(parent_file)).toString(),
+        QUrl.fromLocalFile(str(bundle / ".." / ".." / "secret.txt")).toString(),
+        "file:///C:/Windows/System32/drivers/etc/hosts",
         "http://example.invalid/a",
         "https://example.invalid/tracker.png",
         "ws://example.invalid/socket",
@@ -356,6 +381,27 @@ def test_interceptor_allows_offline_schemes_and_snapshots_blocked_urls():
     snapshot = interceptor.blocked_urls()
     assert snapshot == blocked_urls
     assert isinstance(snapshot, tuple)
+    interceptor.deleteLater()
+
+
+def test_interceptor_resolves_symlinks_before_bundle_containment(tmp_path):
+    source = _source(tmp_path)
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+    link = bundle / "escaped.txt"
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        return
+    interceptor = OfflineRequestInterceptor(source, bundle)
+    request = _FakeRequest(QUrl.fromLocalFile(str(link)).toString())
+
+    interceptor.interceptRequest(request)
+
+    assert request.blocked == [True]
+    assert interceptor.blocked_urls() == (request.requestUrl().toString(),)
     interceptor.deleteLater()
 
 

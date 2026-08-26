@@ -192,11 +192,14 @@ class PreviewExecutor(QObject):
         self,
         *,
         thread_pool: QThreadPool | None = None,
+        availability_thread_pool: QThreadPool | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self.thread_pool = thread_pool or QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
+        self.availability_thread_pool = availability_thread_pool or QThreadPool(self)
+        self.availability_thread_pool.setMaxThreadCount(1)
         self._workers: dict[str, _PreviewWorker] = {}
         self._availability_workers: dict[str, _AvailabilityWorker] = {}
         self._pending: dict[
@@ -245,7 +248,7 @@ class PreviewExecutor(QObject):
             Qt.ConnectionType.QueuedConnection,
         )
         self._availability_workers[request_id] = worker
-        self.thread_pool.start(worker)
+        self.availability_thread_pool.start(worker)
 
     def cancel(self, document_id: str) -> None:
         if document_id in self._workers:
@@ -355,6 +358,7 @@ class _Document:
     )
     request_id: str | None = None
     availability_request_id: str | None = None
+    office_requested: bool = False
 
 
 def _directory_url(path: Path) -> QUrl:
@@ -450,10 +454,11 @@ class MainWindow(QMainWindow):
         )
         self._executor.availability_completed.connect(
             self._office_availability_completed,
-            Qt.ConnectionType.QueuedConnection,
         )
         self._documents: dict[str, _Document] = {}
-        self._requests: dict[str, tuple[str, int, PreviewMode]] = {}
+        self._requests: dict[
+            str, tuple[str, int, PreviewMode, PreviewMode, str]
+        ] = {}
         self._availability_requests: dict[str, tuple[str, int]] = {}
         self._owned_request_ids: set[str] = set()
         self._closing = False
@@ -588,13 +593,20 @@ class MainWindow(QMainWindow):
         office_enabled = (
             office_suffix
             and document is not None
-            and document.office_available is True
+            and document.office_available is not False
             and document.mode != "office"
             and document.last_result is not None
+            and document.availability_request_id is None
         )
         self.actionOfficePreview.setEnabled(office_enabled)
-        if office_suffix and document is not None and document.office_available is None:
+        if (
+            office_suffix
+            and document is not None
+            and document.availability_request_id is not None
+        ):
             office_tooltip = "正在检测 Microsoft Office…"
+        elif office_suffix and document is not None and document.office_available is None:
+            office_tooltip = "点击后检测 Microsoft Office"
         elif office_suffix and document is not None and document.office_available is False:
             office_tooltip = "未检测到 Microsoft Office"
         else:
@@ -729,7 +741,13 @@ class MainWindow(QMainWindow):
             builtin_mode=initial_mode,
         )
         self._documents[document_id] = document
-        self._requests[document_id] = (document_id, 0, initial_mode)
+        self._requests[document_id] = (
+            document_id,
+            0,
+            initial_mode,
+            initial_mode,
+            "正在加载…",
+        )
         self._owned_request_ids.add(document_id)
         if replace_tab_index is None:
             self._tabs.addTab(page, path.name)
@@ -759,9 +777,14 @@ class MainWindow(QMainWindow):
             return
         if (
             document.path.suffix.lower() not in OFFICE_SUFFIXES
-            or document.office_available is not True
             or document.last_result is None
         ):
+            self._refresh_preview_actions()
+            return
+        if document.office_available is None:
+            self._request_office_probe(document_id, document)
+            return
+        if document.office_available is False:
             self._refresh_preview_actions()
             return
         self._restart_preview(document_id, "office")
@@ -828,9 +851,39 @@ class MainWindow(QMainWindow):
         self._availability_requests.pop(request_id, None)
         self._executor.cancel(request_id)
         document.availability_request_id = None
+        document.office_requested = False
+
+    def _request_office_probe(
+        self,
+        document_id: str,
+        document: _Document,
+    ) -> None:
+        if (
+            self._closing
+            or document.availability_request_id is not None
+            or document.office_available is not None
+            or self._documents.get(document_id) is not document
+        ):
+            return
+        request_id = f"availability:{document_id}:{document.generation}"
+        document.office_requested = True
+        document.availability_request_id = request_id
+        document.status_label = "正在检测 Microsoft Office…"
+        self._availability_requests[request_id] = (
+            document_id,
+            document.generation,
+        )
+        self._refresh_preview_actions()
+        self._executor.probe_office(
+            request_id,
+            document.path.suffix.lower(),
+            self._office,
+        )
 
     def _restart_preview(self, document_id: str, mode: PreviewMode) -> None:
         document = self._documents[document_id]
+        previous_mode = document.mode
+        previous_status = document.status_label
         self._cancel_availability_probe(document)
         self._disconnect_visual_events(document)
         document.generation += 1
@@ -844,7 +897,13 @@ class MainWindow(QMainWindow):
         document.status_label = "正在加载…"
         document.visual_slide_count = None
         document.visual_slide_index = None
-        self._requests[request_id] = (document_id, document.generation, mode)
+        self._requests[request_id] = (
+            document_id,
+            document.generation,
+            mode,
+            previous_mode,
+            previous_status,
+        )
         self._owned_request_ids.add(request_id)
         self._refresh_preview_actions()
         self._executor.submit(
@@ -1026,6 +1085,42 @@ class MainWindow(QMainWindow):
         document.status_label = "内置预览（视觉渲染失败）"
         self._refresh_preview_actions()
 
+    def _restore_failed_request(
+        self,
+        document_id: str,
+        document: _Document,
+        *,
+        requested_mode: PreviewMode,
+        previous_mode: PreviewMode,
+        previous_status: str,
+        output: _WorkerOutput | None,
+    ) -> bool:
+        if document.last_result is None:
+            return False
+        if output is not None:
+            _cleanup_dir(output.artifact_dir)
+        document.mode = previous_mode
+        document.status_label = (
+            "内置预览（Office 导出失败）"
+            if requested_mode == "office"
+            else previous_status
+        )
+        if previous_mode == "visual":
+            layout = document.page.layout()
+            current_widget = (
+                layout.itemAt(0).widget()
+                if layout is not None and layout.count()
+                else None
+            )
+            if current_widget is not None:
+                self._bind_visual_events(
+                    document_id,
+                    document.generation,
+                    current_widget,
+                )
+        self._refresh_preview_actions()
+        return True
+
     @Slot(str)
     def _preview_completed(self, request_id: str) -> None:
         request = self._requests.pop(request_id, None)
@@ -1042,7 +1137,13 @@ class MainWindow(QMainWindow):
         completion = self._executor.take_completion(request_id)
         if not self._executor.is_running(request_id):
             self._owned_request_ids.discard(request_id)
-        document_id, generation, requested_mode = request
+        (
+            document_id,
+            generation,
+            requested_mode,
+            previous_mode,
+            previous_status,
+        ) = request
         document = self._documents.get(document_id)
         if (
             document is None
@@ -1073,38 +1174,54 @@ class MainWindow(QMainWindow):
             or output is None
             or output.result.kind == "error"
         )
-        if office_failed and document.last_result is not None:
-            if output is not None:
-                _cleanup_dir(output.artifact_dir)
-            document.mode = document.builtin_mode
-            document.status_label = "内置预览（Office 导出失败）"
-            if document.mode == "visual":
-                layout = document.page.layout()
-                current_widget = (
-                    layout.itemAt(0).widget()
-                    if layout is not None and layout.count()
-                    else None
-                )
-                if current_widget is not None:
-                    self._bind_visual_events(
-                        document_id,
-                        document.generation,
-                        current_widget,
-                    )
-            self._refresh_preview_actions()
+        if office_failed and self._restore_failed_request(
+            document_id,
+            document,
+            requested_mode=requested_mode,
+            previous_mode=previous_mode,
+            previous_status=previous_status,
+            output=output,
+        ):
             return
 
         if error is not None:
+            if self._restore_failed_request(
+                document_id,
+                document,
+                requested_mode=requested_mode,
+                previous_mode=previous_mode,
+                previous_status=previous_status,
+                output=output,
+            ):
+                return
             content: QWidget = QLabel(str(error))
             content.setObjectName("previewContent")
             status = f"预览失败：{document.path.name}"
         elif output is None:
+            if self._restore_failed_request(
+                document_id,
+                document,
+                requested_mode=requested_mode,
+                previous_mode=previous_mode,
+                previous_status=previous_status,
+                output=output,
+            ):
+                return
             content = QLabel("未返回预览结果")
             content.setObjectName("previewContent")
             status = f"预览失败：{document.path.name}"
         else:
             result = output.result
             if result.kind == "error":
+                if self._restore_failed_request(
+                    document_id,
+                    document,
+                    requested_mode=requested_mode,
+                    previous_mode=previous_mode,
+                    previous_status=previous_status,
+                    output=output,
+                ):
+                    return
                 content = QLabel(result.error or "error")
                 content.setObjectName("previewContent")
                 status = result.status_label
@@ -1113,32 +1230,21 @@ class MainWindow(QMainWindow):
                     content = self._viewer_factory(result, document.path)
                     status = result.status_label
                 except Exception as exc:
-                    _cleanup_dir(output.artifact_dir)
-                    if requested_mode == "office" and document.last_result is not None:
-                        document.mode = document.builtin_mode
-                        document.status_label = "内置预览（Office 导出失败）"
-                        if document.mode == "visual":
-                            layout = document.page.layout()
-                            current_widget = (
-                                layout.itemAt(0).widget()
-                                if layout is not None and layout.count()
-                                else None
-                            )
-                            if current_widget is not None:
-                                self._bind_visual_events(
-                                    document_id,
-                                    document.generation,
-                                    current_widget,
-                                )
-                        self._refresh_preview_actions()
+                    if self._restore_failed_request(
+                        document_id,
+                        document,
+                        requested_mode=requested_mode,
+                        previous_mode=previous_mode,
+                        previous_status=previous_status,
+                        output=output,
+                    ):
                         return
+                    _cleanup_dir(output.artifact_dir)
                     content = QLabel(str(exc))
                     content.setObjectName("previewContent")
                     status = f"预览失败：{document.path.name}"
                     output = None
 
-        previous_mode = document.mode
-        previous_status = document.status_label
         previous_last_result = document.last_result
         previous_builtin_mode = document.builtin_mode
         document.mode = requested_mode
@@ -1170,26 +1276,6 @@ class MainWindow(QMainWindow):
             if requested_mode != "office":
                 document.builtin_artifact_dir = output.artifact_dir
         self._refresh_preview_actions()
-        if (
-            requested_mode != "office"
-            and document.path.suffix.lower() in OFFICE_SUFFIXES
-            and document.office_available is None
-            and document.last_result is not None
-            and document.last_result.kind != "error"
-        ):
-            availability_request_id = (
-                f"availability:{document_id}:{document.generation}"
-            )
-            document.availability_request_id = availability_request_id
-            self._availability_requests[availability_request_id] = (
-                document_id,
-                document.generation,
-            )
-            self._executor.probe_office(
-                availability_request_id,
-                document.path.suffix.lower(),
-                self._office,
-            )
 
     @Slot(str, object)
     def _office_availability_completed(
@@ -1210,7 +1296,13 @@ class MainWindow(QMainWindow):
             return
         document.availability_request_id = None
         document.office_available = bool(available)
+        office_requested = document.office_requested
+        document.office_requested = False
+        if not available:
+            document.status_label = "未检测到 Microsoft Office"
         self._refresh_preview_actions()
+        if available and office_requested:
+            self._restart_preview(document_id, "office")
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self._closing:
