@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 import re
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZIP_STORED, ZipFile, ZipInfo
 
 from PIL import Image
 from pptx import Presentation
@@ -75,7 +75,7 @@ def _build_presentation() -> Presentation:
 def _normalize_zip(source_bytes: bytes) -> bytes:
     target = BytesIO()
     with ZipFile(BytesIO(source_bytes), "r") as archive, ZipFile(
-        target, "w", compression=ZIP_DEFLATED, compresslevel=9
+        target, "w", compression=ZIP_STORED
     ) as output:
         for name in sorted(archive.namelist()):
             payload = archive.read(name)
@@ -86,10 +86,10 @@ def _normalize_zip(source_bytes: bytes) -> bytes:
             elif name.lower().endswith((".xlsx", ".xlsm")):
                 payload = _normalize_zip(payload)
             info = ZipInfo(name, date_time=_ZIP_TIMESTAMP)
-            info.compress_type = ZIP_DEFLATED
+            info.compress_type = ZIP_STORED
             info.create_system = 0
             info.external_attr = 0
-            output.writestr(info, payload, compresslevel=9)
+            output.writestr(info, payload)
     return target.getvalue()
 
 

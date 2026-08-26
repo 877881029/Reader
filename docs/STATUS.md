@@ -7,11 +7,11 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
-内置 PPTX 目前仍是 `python-pptx` 抽文本重画 HTML，丢失版式与图片。用户要求默认预览接近 Cursor 插件 PPTX Viewer：真实幻灯片画布，而不是大纲。
+内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
-**PPTX 视觉预览（不依赖 PowerPoint）：最终审查修复完成，待最终复审**
+**PPTX 视觉预览（不依赖 PowerPoint）：实现、冻结验证与最终复审均已完成**
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -55,7 +55,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 6（Important）：`_install_document_content` 在同步 `start()` 后重新校验 closing、document identity、generation 与 layout ownership；同步关闭 tab/window 会返回失败、清理 output artifact，且不会写 artifact 状态或启动幽灵 Office availability probe
 - PPTX Visual Preview Task 6（Important）验证：RED 聚焦 `3 failed, 1 passed, 1 error`（连接存储缺失、同步关闭后仍探测 Office，window 测试 teardown 随后修正）；GREEN 聚焦 `4 passed`、窗口 `83 passed`、Python 全量 `240 passed`；IDE lint 与 `git diff --check` 通过
 - PPTX Visual Preview Task 6 按本次用户指令只提交、不推送；本地提交将领先 `origin/main`
-- PPTX Visual Preview Task 7：真实四页 fixture 现由 `scripts/generate_pptx_visual_fixture.py` 字节级确定性生成；固定外层 PPTX 与嵌入图表 XLSX 的 ZIP 元数据和 core 时间，fixture SHA256 为 `b93eab8f2a4b77aa8d2a3eca02941f27be59c118c2092a5528d6743dc5d43321`
+- PPTX Visual Preview Task 7：真实四页 fixture 现由 `scripts/generate_pptx_visual_fixture.py` 字节级确定性生成；固定外层 PPTX 与嵌入图表 XLSX 的 ZIP 元数据和 core 时间，fixture SHA256 为 `5bb2b23180f760ed57d6f709b19f080d226f0a7b31b0e8e7d31f7d8ea9271197`
 - PPTX Visual Preview Task 7：新增真实 QWebEngine 集成覆盖主题背景、PNG `<image>`、`foreignObject table`、基础 chart 结构、缺失字体、四缩略图/首选中、六键导航、缩略图点击、zoom/fit 和 stage resize
 - PPTX Visual Preview Task 7：真实 Chromium 请求验证 HTTP/HTTPS/WS/WSS 全由 `OfflineRequestInterceptor` 记录并阻断；测试仅临时绕过第一层 local-content remote policy 以直接验证第二层，产品默认仍保持 remote access 关闭
 - PPTX Visual Preview Task 7：constructor-only `test_fail_slide` 经 WebChannel 注入且不进入 query；单页故障显示占位后可继续渲染其他页，无整 deck fallback
@@ -92,13 +92,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX 最终审查 Web/UI：保留中文 toolbar 与居中 letterbox；真实 bundle 加载完成后 blocked 初始快照为空，网络探针仍精确阻断 HTTP/HTTPS/WS/WSS
 - 最终审查验证：`tests/test_pptx_view.py` 17 passed；`tests/test_window.py` 92 passed；真实 `tests/test_pptx_webengine.py` 连续两轮均 3 passed；Web 24 passed；npm typecheck/build 通过；Python 全量 `263 passed, 1 skipped`
 - 最终审查 clean build/smoke：`scripts/build_windows.ps1` exit 0；Phase A `visual-ready slides=4`，Phase B 两批各 2 文件 IPC 精确到达；source/frozen manifest SHA256 均为 `6e66ec6221fa109fc36cc3f0dadf027828defdfaeeb9ed335c0f914a5ca8949b`
-- 最终审查 `dist/Reader/Reader.exe`：`5885743 bytes`，SHA256 `80f9e97f5bcdbe873f1673df06c9e62b13491ff191e158521423d4e4f2722e35`；桌面 `Reader.lnk` 已覆盖刷新并验证 target/workdir/icon 均指向新 exe
+- 最终审查 `dist/Reader/Reader.exe`：`5885743 bytes`，SHA256 `cc016b2f99bc3543f8a175060ec71e9cbfd039d6829002fc3342ab343bcf963e`；桌面 `Reader.lnk` 已覆盖刷新并验证 target/workdir/icon 均指向新 exe
+- PPTX 最终整分支复审：三项 Important（默认打开零 COM、失败恢复原 widget/mode、`file:` 路径级 allowlist）均已关闭；复审结论 `Approved`，无 Critical/Important
+- 最终独立验证修复：fixture ZIP 规范化由 DEFLATE 改为 STORE，消除 Python 3.12 标准 zlib 与 Python 3.14 zlib-ng 间的压缩字节差异；两种受支持解释器生成结果现共享上述 SHA256
+- 最终独立验证：Web `24 passed`、项目 Python `263 passed, 1 skipped`、clean build exit 0、frozen Phase A `slides=4`、Phase B 两批 IPC 均通过；manifest SHA256 `6e66ec6221fa109fc36cc3f0dadf027828defdfaeeb9ed335c0f914a5ca8949b`
 
 ## 下一步
 
-1. 对本次最终审查提交做最终复审
-2. 用户验收真实日常 PPTX：视觉保真、缩略图/翻页/缩放/适合窗口、文本回退与可选 Office 往返
-3. 若验收发现特定 PPTX 兼容问题，以最小真实 fixture 补充回归后修复
+1. 用户验收真实日常 PPTX：视觉保真、缩略图/翻页/缩放/适合窗口、文本回退与可选 Office 往返
+2. 若验收发现特定 PPTX 兼容问题，以最小真实 fixture 补充回归后修复
 
 ## 接手检查清单
 

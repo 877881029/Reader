@@ -13,7 +13,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "pptx" / "visual-elements.pptx"
 GENERATOR = ROOT / "scripts" / "generate_pptx_visual_fixture.py"
-FIXTURE_SHA256 = "b93eab8f2a4b77aa8d2a3eca02941f27be59c118c2092a5528d6743dc5d43321"
+FIXTURE_SHA256 = "5bb2b23180f760ed57d6f709b19f080d226f0a7b31b0e8e7d31f7d8ea9271197"
 
 
 def test_fixture_generator_is_byte_deterministic_and_contains_real_elements(
