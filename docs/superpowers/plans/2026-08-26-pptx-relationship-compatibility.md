@@ -116,7 +116,7 @@ git push origin main
   `node_modules/pptx-viewer/dist/pptx-viewer.js`.
 - Root `postinstall` invokes that command after every `npm ci`.
 
-- [ ] **Step 1: Write patch-script tests**
+- [x] **Step 1: Write patch-script tests**
 
 Tests must assert:
 
@@ -130,7 +130,7 @@ expect(() => patchRelationshipLookup("unexpected source")).toThrow(
 expect(patchRelationshipLookup(patched)).toBe(patched);
 ```
 
-- [ ] **Step 2: Verify patch-script RED**
+- [x] **Step 2: Verify patch-script RED**
 
 Run:
 
@@ -140,7 +140,7 @@ npm --prefix web/pptx-viewer test -- scripts/patch-pptx-viewer.test.ts
 
 Expected: FAIL because the patch module does not exist.
 
-- [ ] **Step 3: Implement deterministic patching**
+- [x] **Step 3: Implement deterministic patching**
 
 The script must replace exactly this behavior in the pinned ESM bundle:
 
@@ -155,7 +155,7 @@ It must count the unpatched pattern, reject counts other than one, recognize an
 already-patched marker, write UTF-8 without changing unrelated bytes, and print
 the patched dependency path.
 
-- [ ] **Step 4: Wire npm lifecycle**
+- [x] **Step 4: Wire npm lifecycle**
 
 Add:
 
@@ -167,13 +167,13 @@ Add:
 Run `npm install --package-lock-only` so the root lock metadata matches
 `package.json`.
 
-- [ ] **Step 5: Record the local MIT patch**
+- [x] **Step 5: Record the local MIT patch**
 
 Append a notice stating that Reader changes relationship lookup in
 `pptx-viewer@0.2.2` from substring matching to exact terminal type matching;
 retain both upstream MIT license texts.
 
-- [ ] **Step 6: Verify GREEN and rebuild bundle**
+- [x] **Step 6: Verify GREEN and rebuild bundle**
 
 Run:
 
@@ -187,7 +187,7 @@ npm --prefix web/pptx-viewer run build
 Copy the notice into `assets/pptx-viewer/` and regenerate
 `manifest.sha256` using `scripts/build_windows.ps1` during Task 3.
 
-- [ ] **Step 7: Update STATUS and checkpoint**
+- [x] **Step 7: Update STATUS and checkpoint**
 
 ```powershell
 git add web/pptx-viewer assets/pptx-viewer docs/STATUS.md

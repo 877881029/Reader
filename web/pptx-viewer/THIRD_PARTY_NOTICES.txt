@@ -1,6 +1,10 @@
 pptx-viewer 0.2.2
 MIT License
 
+Reader local modification: relationship lookup uses exact terminal type names
+instead of substring matching so slide, slideLayout, and slideMaster remain
+distinct. The upstream copyright and license remain unchanged below.
+
 Copyright (c) 2025
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

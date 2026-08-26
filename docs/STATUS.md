@@ -99,12 +99,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - 最终独立验证：Web `24 passed`、项目 Python `263 passed, 1 skipped`、clean build exit 0、frozen Phase A `slides=4`、Phase B 两批 IPC 均通过；manifest SHA256 `6e66ec6221fa109fc36cc3f0dadf027828defdfaeeb9ed335c0f914a5ca8949b`
 - PPTX 关系兼容 Task 1：公开四页 fixture 将 presentation 直接 `slide` 关系稳定置于 `slideMaster` 之前，复现真实 deck 的合法 OOXML 顺序；Python fixture 回归 `1 passed`
 - PPTX 关系兼容 Task 1 RED：未打补丁的 `pptx-viewer@0.2.2` 在该顺序下 `slideLayouts.size === 0`，聚焦 Web 回归为 `1 failed, 13 passed`，失败点与 `canis_handover.pptx` 一致
+- PPTX 关系兼容 Task 2：新增固定版本 fail-fast `postinstall` 补丁；`getByType()` 先以 `hn(i)` 取得终端类型，再做精确 `Map.get`，彻底区分 `slide`、`slideLayout` 与 `slideMaster`
+- PPTX 关系兼容 Task 2：补丁脚本覆盖替换、幂等、源码漂移和已安装 ESM 四项回归；`npm ci` 会自动应用，依赖版本不是 `0.2.2` 或期望片段不唯一时直接失败
+- PPTX 关系兼容 Task 2：上游 MIT notice 保留并记录 Reader 本地修改；source/bundle notice 字节一致，重建 bundle manifest SHA256 为 `857bf20210931b26208edf4b639480c2c46c49821ad8269880c30913086834db`
+- PPTX 关系兼容 Task 2 GREEN：Web `28 passed`、typecheck/build 通过；fixture/web-assets/packaging 聚焦 `20 passed, 1 skipped`
 
 ## 下一步
 
-1. 为固定 `pptx-viewer@0.2.2` 添加 fail-fast postinstall 精确匹配补丁
-2. 用真实 QWebEngine 与本机 `canis_handover.pptx` 验证可见文字
-3. 全量回归、重建冻结程序、更新快捷方式与哈希
+1. 用真实 QWebEngine 与本机 `canis_handover.pptx` 验证可见文字
+2. 全量回归、重建冻结程序、更新快捷方式与哈希
 
 ## 接手检查清单
 
