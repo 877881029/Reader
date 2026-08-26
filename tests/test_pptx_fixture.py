@@ -4,6 +4,7 @@ import hashlib
 import subprocess
 import sys
 from pathlib import Path
+from zipfile import ZipFile
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -13,7 +14,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "pptx" / "visual-elements.pptx"
 GENERATOR = ROOT / "scripts" / "generate_pptx_visual_fixture.py"
-FIXTURE_SHA256 = "5bb2b23180f760ed57d6f709b19f080d226f0a7b31b0e8e7d31f7d8ea9271197"
+FIXTURE_SHA256 = "3ba6deda14de119b0de8751d5258461ea91f900634d7558c741ace3def96e8d4"
 
 
 def test_fixture_generator_is_byte_deterministic_and_contains_real_elements(
@@ -30,6 +31,12 @@ def test_fixture_generator_is_byte_deterministic_and_contains_real_elements(
 
     assert first.read_bytes() == second.read_bytes() == FIXTURE.read_bytes()
     assert hashlib.sha256(first.read_bytes()).hexdigest() == FIXTURE_SHA256
+
+    with ZipFile(first) as archive:
+        relationships = archive.read("ppt/_rels/presentation.xml.rels")
+    assert relationships.index(b'/relationships/slide"') < relationships.index(
+        b'/relationships/slideMaster"'
+    )
 
     presentation = Presentation(first)
     assert len(presentation.slides) == 4

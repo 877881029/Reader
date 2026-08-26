@@ -56,7 +56,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX Visual Preview Task 6（Important）：`_install_document_content` 在同步 `start()` 后重新校验 closing、document identity、generation 与 layout ownership；同步关闭 tab/window 会返回失败、清理 output artifact，且不会写 artifact 状态或启动幽灵 Office availability probe
 - PPTX Visual Preview Task 6（Important）验证：RED 聚焦 `3 failed, 1 passed, 1 error`（连接存储缺失、同步关闭后仍探测 Office，window 测试 teardown 随后修正）；GREEN 聚焦 `4 passed`、窗口 `83 passed`、Python 全量 `240 passed`；IDE lint 与 `git diff --check` 通过
 - PPTX Visual Preview Task 6 按本次用户指令只提交、不推送；本地提交将领先 `origin/main`
-- PPTX Visual Preview Task 7：真实四页 fixture 现由 `scripts/generate_pptx_visual_fixture.py` 字节级确定性生成；固定外层 PPTX 与嵌入图表 XLSX 的 ZIP 元数据和 core 时间，fixture SHA256 为 `5bb2b23180f760ed57d6f709b19f080d226f0a7b31b0e8e7d31f7d8ea9271197`
+- PPTX Visual Preview Task 7：真实四页 fixture 现由 `scripts/generate_pptx_visual_fixture.py` 字节级确定性生成；固定外层 PPTX 与嵌入图表 XLSX 的 ZIP 元数据和 core 时间，兼容回归 fixture SHA256 为 `3ba6deda14de119b0de8751d5258461ea91f900634d7558c741ace3def96e8d4`
 - PPTX Visual Preview Task 7：新增真实 QWebEngine 集成覆盖主题背景、PNG `<image>`、`foreignObject table`、基础 chart 结构、缺失字体、四缩略图/首选中、六键导航、缩略图点击、zoom/fit 和 stage resize
 - PPTX Visual Preview Task 7：真实 Chromium 请求验证 HTTP/HTTPS/WS/WSS 全由 `OfflineRequestInterceptor` 记录并阻断；测试仅临时绕过第一层 local-content remote policy 以直接验证第二层，产品默认仍保持 remote access 关闭
 - PPTX Visual Preview Task 7：constructor-only `test_fail_slide` 经 WebChannel 注入且不进入 query；单页故障显示占位后可继续渲染其他页，无整 deck fallback
@@ -97,13 +97,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX 最终整分支复审：三项 Important（默认打开零 COM、失败恢复原 widget/mode、`file:` 路径级 allowlist）均已关闭；复审结论 `Approved`，无 Critical/Important
 - 最终独立验证修复：fixture ZIP 规范化由 DEFLATE 改为 STORE，消除 Python 3.12 标准 zlib 与 Python 3.14 zlib-ng 间的压缩字节差异；两种受支持解释器生成结果现共享上述 SHA256
 - 最终独立验证：Web `24 passed`、项目 Python `263 passed, 1 skipped`、clean build exit 0、frozen Phase A `slides=4`、Phase B 两批 IPC 均通过；manifest SHA256 `6e66ec6221fa109fc36cc3f0dadf027828defdfaeeb9ed335c0f914a5ca8949b`
+- PPTX 关系兼容 Task 1：公开四页 fixture 将 presentation 直接 `slide` 关系稳定置于 `slideMaster` 之前，复现真实 deck 的合法 OOXML 顺序；Python fixture 回归 `1 passed`
+- PPTX 关系兼容 Task 1 RED：未打补丁的 `pptx-viewer@0.2.2` 在该顺序下 `slideLayouts.size === 0`，聚焦 Web 回归为 `1 failed, 13 passed`，失败点与 `canis_handover.pptx` 一致
 
 ## 下一步
 
-1. 调整公开 fixture 的 relationship 顺序，复现 `slide` / `slideMaster` 子串冲突
-2. 为固定 `pptx-viewer@0.2.2` 添加 fail-fast postinstall 精确匹配补丁
-3. 用真实 QWebEngine 与本机 `canis_handover.pptx` 验证可见文字
-4. 全量回归、重建冻结程序、更新快捷方式与哈希
+1. 为固定 `pptx-viewer@0.2.2` 添加 fail-fast postinstall 精确匹配补丁
+2. 用真实 QWebEngine 与本机 `canis_handover.pptx` 验证可见文字
+3. 全量回归、重建冻结程序、更新快捷方式与哈希
 
 ## 接手检查清单
 

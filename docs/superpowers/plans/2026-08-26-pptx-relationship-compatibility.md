@@ -33,7 +33,7 @@
   places `relationships/slide` entries before `relationships/slideMaster`.
 - The existing fixture path remains unchanged.
 
-- [ ] **Step 1: Add a Python assertion for adversarial relationship order**
+- [x] **Step 1: Add a Python assertion for adversarial relationship order**
 
 ```python
 from zipfile import ZipFile
@@ -45,14 +45,14 @@ assert rels.index(b"/relationships/slide\"") < rels.index(
 )
 ```
 
-- [ ] **Step 2: Normalize the generated relationship XML**
+- [x] **Step 2: Normalize the generated relationship XML**
 
 Add a helper that extracts direct `<Relationship .../>` tags from
 `ppt/_rels/presentation.xml.rels`, stably partitions exact `/slide` tags before
 the remaining tags, and replaces only that tag region. Call it from
 `_normalize_zip`.
 
-- [ ] **Step 3: Regenerate the committed fixture and update its SHA256**
+- [x] **Step 3: Regenerate the committed fixture and update its SHA256**
 
 Run:
 
@@ -61,7 +61,7 @@ Run:
 Get-FileHash tests\fixtures\pptx\visual-elements.pptx -Algorithm SHA256
 ```
 
-- [ ] **Step 4: Add the failing renderer regression**
+- [x] **Step 4: Add the failing renderer regression**
 
 Extend the official renderer test:
 
@@ -77,7 +77,7 @@ expect(
 ).toBe(true);
 ```
 
-- [ ] **Step 5: Verify RED**
+- [x] **Step 5: Verify RED**
 
 Run:
 
@@ -88,7 +88,7 @@ npm --prefix web/pptx-viewer test -- src/viewer.test.ts
 Expected: FAIL because `slideMasters` contains parsed slides,
 `slideLayouts.size` is zero, or inherited text is missing.
 
-- [ ] **Step 6: Update STATUS and checkpoint**
+- [x] **Step 6: Update STATUS and checkpoint**
 
 ```powershell
 git add scripts/generate_pptx_visual_fixture.py tests/fixtures/pptx/visual-elements.pptx tests/test_pptx_fixture.py web/pptx-viewer/src/viewer.test.ts docs/STATUS.md

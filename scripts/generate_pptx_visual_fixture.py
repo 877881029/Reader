@@ -25,6 +25,26 @@ _CORE_TIME = re.compile(
     rb"(<dcterms:(?:created|modified)[^>]*>).*?"
     rb"(</dcterms:(?:created|modified)>)"
 )
+_RELATIONSHIP_TAG = re.compile(rb"<Relationship\b[^>]*/>")
+_SLIDE_RELATIONSHIP_TYPE = re.compile(
+    rb'\bType="[^"]*/relationships/slide"'
+)
+
+
+def _order_slide_relationships_first(payload: bytes) -> bytes:
+    matches = list(_RELATIONSHIP_TAG.finditer(payload))
+    if not matches:
+        raise ValueError("presentation relationships contain no Relationship tags")
+    tags = [match.group(0) for match in matches]
+    ordered = [
+        *(tag for tag in tags if _SLIDE_RELATIONSHIP_TYPE.search(tag)),
+        *(tag for tag in tags if not _SLIDE_RELATIONSHIP_TYPE.search(tag)),
+    ]
+    return (
+        payload[: matches[0].start()]
+        + b"".join(ordered)
+        + payload[matches[-1].end() :]
+    )
 
 
 def _build_presentation() -> Presentation:
@@ -83,6 +103,8 @@ def _normalize_zip(source_bytes: bytes) -> bytes:
                 payload = _CORE_TIME.sub(
                     rb"\g<1>2000-01-01T00:00:00Z\g<2>", payload
                 )
+            elif name == "ppt/_rels/presentation.xml.rels":
+                payload = _order_slide_relationships_first(payload)
             elif name.lower().endswith((".xlsx", ".xlsm")):
                 payload = _normalize_zip(payload)
             info = ZipInfo(name, date_time=_ZIP_TIMESTAMP)

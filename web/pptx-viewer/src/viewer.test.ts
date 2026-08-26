@@ -315,7 +315,7 @@ describe("official renderer integration", () => {
 
     expect(presentation.slides).toHaveLength(4);
     expect(presentation.slideLayouts.size).toBeGreaterThan(0);
-    expect(presentation.slideMasters.size).toBeGreaterThan(0);
+    expect(presentation.slideMasters.size).toBe(1);
     expect(presentation.slides[0]?.elements.some((element) => element.type === "image")).toBe(true);
     expect(presentation.slides[1]?.elements.some((element) => element.type === "table")).toBe(true);
     expect(presentation.slides[2]?.elements.some((element) => element.type === "chart")).toBe(true);
@@ -323,6 +323,7 @@ describe("official renderer integration", () => {
     const host = document.createElement("div");
     document.body.append(host);
     pptxViewer.renderSlideToElement(presentation, 0, host, { width: 960, height: 540 });
+    expect(host.textContent).toContain("Inherited title");
     expect(host.querySelector("svg image")).not.toBeNull();
     pptxViewer.renderSlideToElement(presentation, 1, host, { width: 960, height: 540 });
     expect(host.querySelector("foreignObject table")).not.toBeNull();
