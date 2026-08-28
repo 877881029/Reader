@@ -33,6 +33,7 @@ def test_reader_spec_collects_complete_pptx_runtime_and_webchannel() -> None:
     assert (
         "(str(ROOT / 'assets/pptx-viewer'), 'assets/pptx-viewer')" in normalized
     )
+    assert "(str(ROOT / 'assets/md-viewer'), 'assets/md-viewer')" in normalized
 
 
 def test_build_windows_script_is_clean_and_runs_the_spec() -> None:
@@ -67,7 +68,13 @@ def test_build_script_runs_native_npm_checks_before_pyinstaller() -> None:
         '"/d", "/s", "/c"',
         "$process.ExitCode",
         'Invoke-Npm "ci --prefix web\\pptx-viewer"',
+        'Invoke-Npm "test --prefix web\\pptx-viewer"',
+        'Invoke-Npm "run typecheck --prefix web\\pptx-viewer"',
         'Invoke-Npm "run build --prefix web\\pptx-viewer"',
+        'Invoke-Npm "ci --prefix web\\md-viewer"',
+        'Invoke-Npm "test --prefix web\\md-viewer"',
+        'Invoke-Npm "run typecheck --prefix web\\md-viewer"',
+        'Invoke-Npm "run build --prefix web\\md-viewer"',
     ]
     for fragment in required:
         assert fragment in script
@@ -76,12 +83,31 @@ def test_build_script_runs_native_npm_checks_before_pyinstaller() -> None:
     npm_lookup = script.index("Get-Command npm.cmd")
     npm_relative = script.index("$npmRelativeNode")
     fallback = script.index("Get-Command node.exe")
-    npm_ci = script.index('Invoke-Npm "ci --prefix web\\pptx-viewer"')
-    npm_build = script.index('Invoke-Npm "run build --prefix web\\pptx-viewer"')
-    manifest = script.index("manifest.sha256")
+    pptx_npm_ci = script.index('Invoke-Npm "ci --prefix web\\pptx-viewer"')
+    pptx_npm_test = script.index('Invoke-Npm "test --prefix web\\pptx-viewer"')
+    pptx_npm_typecheck = script.index(
+        'Invoke-Npm "run typecheck --prefix web\\pptx-viewer"'
+    )
+    pptx_npm_build = script.index('Invoke-Npm "run build --prefix web\\pptx-viewer"')
+    md_npm_ci = script.index('Invoke-Npm "ci --prefix web\\md-viewer"')
+    md_npm_test = script.index('Invoke-Npm "test --prefix web\\md-viewer"')
+    md_npm_typecheck = script.index('Invoke-Npm "run typecheck --prefix web\\md-viewer"')
+    md_npm_build = script.index('Invoke-Npm "run build --prefix web\\md-viewer"')
+    manifest = script.index("Test-WebBundleManifest -ManifestPath $MdManifestPath")
     pyinstaller = script.index("-m PyInstaller")
-    assert npm_lookup < npm_relative < fallback < npm_ci
-    assert npm_ci < npm_build < manifest < pyinstaller
+    assert npm_lookup < npm_relative < fallback < pptx_npm_ci
+    assert (
+        pptx_npm_ci
+        < pptx_npm_test
+        < pptx_npm_typecheck
+        < pptx_npm_build
+        < md_npm_ci
+        < md_npm_test
+        < md_npm_typecheck
+        < md_npm_build
+        < manifest
+        < pyinstaller
+    )
 
 
 def test_manifest_paths_support_windows_powershell() -> None:
@@ -91,21 +117,54 @@ def test_manifest_paths_support_windows_powershell() -> None:
     assert ".Substring($bundleRoot.Length + 1)" in script
 
 
-def test_build_verifies_frozen_pptx_runtime_and_webchannel() -> None:
+def test_build_verifies_frozen_web_runtimes_and_webchannel() -> None:
     script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
 
     assert "_internal\\assets\\pptx-viewer\\index.html" in script
     assert "_internal\\assets\\pptx-viewer\\manifest.sha256" in script
     assert "_internal\\assets\\pptx-viewer\\THIRD_PARTY_NOTICES.txt" in script
+    assert "_internal\\assets\\md-viewer\\index.html" in script
+    assert "_internal\\assets\\md-viewer\\manifest.sha256" in script
+    assert "_internal\\assets\\md-viewer\\THIRD_PARTY_NOTICES.txt" in script
     assert "_internal\\PySide6\\QtWebChannel.pyd" in script
     assert "Frozen runtime resource is missing" in script
-    assert "function Test-PptxManifest" in script
-    assert script.count("Test-PptxManifest -ManifestPath") == 2
+    assert "function Test-WebBundleManifest" in script
+    assert script.count("Test-WebBundleManifest -ManifestPath") == 4
     assert "[string]::IsNullOrWhiteSpace($line)" in script
     assert '$line -notmatch "^[0-9a-f]{64}  .+$"' in script
+    assert "Web bundle manifest has no entries" in script
 
 
-def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
+@pytest.mark.parametrize(
+    "fail_on,expected_tail",
+    [
+        ("ci --prefix web\\pptx-viewer", ["ci --prefix web\\pptx-viewer"]),
+        (
+            "ci --prefix web\\md-viewer",
+            [
+                "ci --prefix web\\pptx-viewer",
+                "test --prefix web\\pptx-viewer",
+                "run typecheck --prefix web\\pptx-viewer",
+                "run build --prefix web\\pptx-viewer",
+                "ci --prefix web\\md-viewer",
+            ],
+        ),
+        (
+            "test --prefix web\\md-viewer",
+            [
+                "ci --prefix web\\pptx-viewer",
+                "test --prefix web\\pptx-viewer",
+                "run typecheck --prefix web\\pptx-viewer",
+                "run build --prefix web\\pptx-viewer",
+                "ci --prefix web\\md-viewer",
+                "test --prefix web\\md-viewer",
+            ],
+        ),
+    ],
+)
+def test_npm_failure_stops_before_cleanup_and_pyinstaller(
+    tmp_path, fail_on: str, expected_tail: list[str]
+) -> None:
     powershell = shutil.which("powershell.exe")
     node = shutil.which("node.exe")
     if powershell is None or node is None:
@@ -125,7 +184,10 @@ def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
     shutil.copy2(node, npm_relative_node)
     npm_log = tmp_path / "npm.log"
     (fake_bin / "npm.cmd").write_text(
-        '@echo off\r\necho %*>>"%READER_FAKE_NPM_LOG%"\r\nexit /b 23\r\n',
+        "@echo off\r\n"
+        "echo %*>>\"%READER_FAKE_NPM_LOG%\"\r\n"
+        "if \"%*\"==\"%READER_FAKE_NPM_FAIL_ON%\" exit /b 23\r\n"
+        "exit /b 0\r\n",
         encoding="ascii",
     )
     path_first = tmp_path / "path-first-node"
@@ -134,6 +196,7 @@ def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
     env = os.environ.copy()
     env["PATH"] = os.pathsep.join((str(path_first), str(fake_bin), env["PATH"]))
     env["READER_FAKE_NPM_LOG"] = str(npm_log)
+    env["READER_FAKE_NPM_FAIL_ON"] = fail_on
 
     result = subprocess.run(
         [
@@ -156,8 +219,8 @@ def test_npm_failure_stops_before_cleanup_and_pyinstaller(tmp_path) -> None:
     output = result.stdout + result.stderr
     assert f"Using Node.js from {npm_relative_node}" in output
     assert f"Using Node.js from {path_first / 'node.exe'}" not in output
-    assert npm_log.read_text(encoding="utf-8").strip() == "ci --prefix web\\pptx-viewer"
-    assert "npm ci --prefix web\\pptx-viewer failed (exit 23)" in output
+    assert npm_log.read_text(encoding="utf-8").splitlines() == expected_tail
+    assert f"npm {fail_on} failed (exit 23)" in output
     assert sentinel.read_text(encoding="utf-8") == "not touched"
 
 
@@ -216,20 +279,34 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "READER_SMOKE_VISUAL_LOG" in script
     assert "QTWEBENGINE_CHROMIUM_FLAGS" in script
     assert "visual-elements.pptx" in script
+    assert "visual-document.md" in script
     assert "$visualProcess" in script
+    assert "$markdownProcess" in script
     assert "$ipcPrimary" in script
     assert "$visualDeadline" in script
+    assert "$markdownDeadline" in script
     assert "AddSeconds(60)" in script
     assert "$visualProcess = $null" in script
+    assert "$markdownProcess = $null" in script
     assert "$ipcPrimary = $null" in script
     assert "$primary" not in script
-    visual_phase, ipc_phase = script.split("# Phase B", 1)
+    visual_phase, markdown_phase = script.split("# Phase B", 1)
+    markdown_phase, ipc_phase = markdown_phase.split("# Phase C", 1)
     assert "# Phase A" in visual_phase
     assert "slides -eq 4" in visual_phase
     assert "renderer-failure" in visual_phase
     assert "Stop-VisualProcesses" in visual_phase
     assert "Remove-VisualIsolation" in visual_phase
     assert "-LocalAppDataRoot $hostLocalAppData" in visual_phase
+    assert ": frozen markdown rendering in its own process and namespace." in markdown_phase
+    assert '$record.kind -eq "markdown"' in script
+    assert '$record.status -eq "ready"' in script
+    assert "Frozen markdown Reader did not report format-explicit ready within 60 seconds" in (
+        markdown_phase
+    )
+    assert "Stop-MarkdownProcesses" in markdown_phase
+    assert "Remove-MarkdownIsolation" in markdown_phase
+    assert "-LocalAppDataRoot $hostLocalAppData" in markdown_phase
     assert "$ipcPrimary = Start-Process" in ipc_phase
     assert (
         '-LocalAppDataRoot (Join-Path $ipcProfileRoot "AppData\\Local")'

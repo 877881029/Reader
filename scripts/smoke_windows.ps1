@@ -13,6 +13,9 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $fixturePath = (Resolve-Path (
     Join-Path $repoRoot "tests\fixtures\pptx\visual-elements.pptx"
 )).Path
+$markdownFixturePath = (Resolve-Path (
+    Join-Path $repoRoot "tests\fixtures\md\visual-document.md"
+)).Path
 $runId = [Guid]::NewGuid().ToString("N")
 $visualRoot = Join-Path $env:TEMP "reader-visual-smoke-$runId"
 $visualProfileRoot = Join-Path $visualRoot "profile"
@@ -21,6 +24,14 @@ $visualLog = Join-Path $visualRoot "visual.jsonl"
 $visualNamespace = "visual-smoke-$runId"
 $visualLockPath = Join-Path $visualTempRoot (
     "reader-single-instance-locks\Reader.SingleInstance.v1.$visualNamespace.lock"
+)
+$markdownRoot = Join-Path $env:TEMP "reader-markdown-smoke-$runId"
+$markdownProfileRoot = Join-Path $markdownRoot "profile"
+$markdownTempRoot = Join-Path $markdownRoot "temp"
+$markdownLog = Join-Path $markdownRoot "visual.jsonl"
+$markdownNamespace = "markdown-smoke-$runId"
+$markdownLockPath = Join-Path $markdownTempRoot (
+    "reader-single-instance-locks\Reader.SingleInstance.v1.$markdownNamespace.lock"
 )
 $ipcRoot = Join-Path $env:TEMP "reader-gui-smoke-$runId"
 $ipcProfileRoot = Join-Path $ipcRoot "profile"
@@ -32,12 +43,14 @@ $ipcLockPath = Join-Path $ipcTempRoot (
     "reader-single-instance-locks\Reader.SingleInstance.v1.$ipcNamespace.lock"
 )
 $visualProcess = $null
+$markdownProcess = $null
 $ipcPrimary = $null
 $secondaries = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
 $smokeSucceeded = $false
 $smokeError = $null
 $cleanupFailures = [System.Collections.Generic.List[string]]::new()
 $verifiedVisual = $null
+$verifiedMarkdown = $null
 $verifiedBatches = @()
 
 function Wait-Until {
@@ -161,6 +174,12 @@ function Stop-IpcProcesses {
         -FailureMessage "IPC smoke process tree did not exit"
 }
 
+function Stop-MarkdownProcesses {
+    Stop-ProcessTrees `
+        -RootProcesses @($markdownProcess) `
+        -FailureMessage "Markdown smoke process tree did not exit"
+}
+
 function Remove-IsolationRoot {
     param([string]$Path)
 
@@ -189,6 +208,13 @@ function Remove-VisualIsolation {
         Remove-Item -LiteralPath $visualLockPath -Force -ErrorAction Stop
     }
     Remove-IsolationRoot -Path $visualRoot
+}
+
+function Remove-MarkdownIsolation {
+    if (Test-Path -LiteralPath $markdownLockPath) {
+        Remove-Item -LiteralPath $markdownLockPath -Force -ErrorAction Stop
+    }
+    Remove-IsolationRoot -Path $markdownRoot
 }
 
 function Set-SmokeEnvironment {
@@ -243,6 +269,34 @@ function Get-VisualRecord {
             [string]::Equals(
                 [string]$record.path,
                 $fixturePath,
+                [StringComparison]::OrdinalIgnoreCase
+            )
+        ) {
+            return $record
+        }
+    }
+    return $null
+}
+
+function Get-MarkdownRecord {
+    if (-not (Test-Path -LiteralPath $markdownLog)) {
+        return $null
+    }
+    foreach ($line in @(Get-Content -LiteralPath $markdownLog -Encoding UTF8)) {
+        try {
+            $record = $line | ConvertFrom-Json
+        } catch {
+            continue
+        }
+        if ($record.status -eq "renderer-failure") {
+            throw "Frozen markdown renderer reported renderer-failure"
+        }
+        if (
+            $record.status -eq "ready" -and
+            $record.kind -eq "markdown" -and
+            [string]::Equals(
+                [string]$record.path,
+                $markdownFixturePath,
                 [StringComparison]::OrdinalIgnoreCase
             )
         ) {
@@ -348,7 +402,43 @@ try {
     Remove-VisualIsolation
     $visualProcess = $null
 
-    # Phase B: existing two-batch IPC smoke with a new primary.
+    # Phase B: frozen markdown rendering in its own process and namespace.
+    Set-SmokeEnvironment `
+        -Namespace $markdownNamespace `
+        -ProfileRoot $markdownProfileRoot `
+        -LocalAppDataRoot $hostLocalAppData `
+        -TempRoot $markdownTempRoot `
+        -BatchLogPath "" `
+        -VisualLogPath $markdownLog
+    New-Item -ItemType File -Force $markdownLog | Out-Null
+
+    $markdownProcess = Start-Process `
+        -FilePath $resolvedExe `
+        -ArgumentList @($markdownFixturePath) `
+        -PassThru
+    $markdownDeadline = [DateTime]::UtcNow.AddSeconds(60)
+    do {
+        $runningMarkdown = Get-Process `
+            -Id $markdownProcess.Id `
+            -ErrorAction SilentlyContinue
+        if ($null -eq $runningMarkdown -or $runningMarkdown.HasExited) {
+            throw "Frozen markdown Reader exited before format-explicit ready"
+        }
+        $verifiedMarkdown = Get-MarkdownRecord
+        if ($null -ne $verifiedMarkdown) {
+            break
+        }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $markdownDeadline)
+    if ($null -eq $verifiedMarkdown) {
+        throw "Frozen markdown Reader did not report format-explicit ready within 60 seconds"
+    }
+
+    Stop-MarkdownProcesses
+    Remove-MarkdownIsolation
+    $markdownProcess = $null
+
+    # Phase C: existing two-batch IPC smoke with a new primary.
     Set-SmokeEnvironment `
         -Namespace $ipcNamespace `
         -ProfileRoot $ipcProfileRoot `
@@ -427,6 +517,17 @@ try {
     $smokeError = $_
 } finally {
     try {
+        if (-not $smokeSucceeded -and (Test-Path -LiteralPath $markdownLog)) {
+            $markdownDiagnostic = Get-Content `
+                -LiteralPath $markdownLog `
+                -Raw `
+                -Encoding UTF8
+            Write-Warning "Markdown smoke telemetry before cleanup: $markdownDiagnostic"
+        }
+    } catch {
+        $cleanupFailures.Add("markdown telemetry diagnostics: $_")
+    }
+    try {
         if (-not $smokeSucceeded -and (Test-Path -LiteralPath $visualLog)) {
             $visualDiagnostic = Get-Content `
                 -LiteralPath $visualLog `
@@ -454,6 +555,11 @@ try {
     } catch {
         $cleanupFailures.Add("IPC process cleanup: $_")
     }
+    try {
+        Stop-MarkdownProcesses
+    } catch {
+        $cleanupFailures.Add("markdown process cleanup: $_")
+    }
     foreach ($name in $environmentNames) {
         try {
             [Environment]::SetEnvironmentVariable(
@@ -465,7 +571,7 @@ try {
             $cleanupFailures.Add("restore environment $name`: $_")
         }
     }
-    foreach ($lockPath in @($visualLockPath, $ipcLockPath)) {
+    foreach ($lockPath in @($visualLockPath, $markdownLockPath, $ipcLockPath)) {
         try {
             if (Test-Path -LiteralPath $lockPath) {
                 Remove-Item -LiteralPath $lockPath -Force -ErrorAction Stop
@@ -474,7 +580,7 @@ try {
             $cleanupFailures.Add("namespace lock cleanup $lockPath`: $_")
         }
     }
-    foreach ($rootPath in @($visualRoot, $ipcRoot)) {
+    foreach ($rootPath in @($visualRoot, $markdownRoot, $ipcRoot)) {
         try {
             Remove-IsolationRoot -Path $rootPath
         } catch {
@@ -492,10 +598,11 @@ if ($null -ne $resolvedFailure) {
 
 if ($smokeSucceeded) {
     Write-Host "Reader visual smoke: $($verifiedVisual | ConvertTo-Json -Compress)"
+    Write-Host "Reader markdown smoke: $($verifiedMarkdown | ConvertTo-Json -Compress)"
     Write-Host "Reader GUI smoke batch 1: $($verifiedBatches[0])"
     Write-Host "Reader GUI smoke batch 2: $($verifiedBatches[1])"
     Write-Host (
         "Reader GUI smoke passed: IPC primary PID $($ipcPrimary.Id), " +
-        "visual-ready slides=4, exact two 2-file batches"
+        "visual-ready slides=4, markdown-ready kind=markdown, exact two 2-file batches"
     )
 }

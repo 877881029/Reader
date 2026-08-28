@@ -795,7 +795,7 @@ full Python suite. Update STATUS, commit
 - Frozen smoke opens the real Markdown fixture and waits for a Markdown-ready
   record or another durable, format-explicit signal.
 
-- [ ] **Step 1: Write packaging RED tests**
+- [x] **Step 1: Write packaging RED tests**
 
 Assert:
 
@@ -811,7 +811,7 @@ assert "_internal\\assets\\md-viewer\\THIRD_PARTY_NOTICES.txt" in build
 Extend npm fail-fast test so either web package failure happens before
 dist/build cleanup and PyInstaller.
 
-- [ ] **Step 2: Implement generic bundle manifest function**
+- [x] **Step 2: Implement generic bundle manifest function**
 
 Rename the PowerShell helper from PPTX-specific to format-neutral:
 
@@ -825,7 +825,7 @@ function Test-WebBundleManifest {
 Build PPTX then Markdown, copy each notice, generate ordinal manifests, verify
 source manifests, run PyInstaller, then verify both frozen manifests.
 
-- [ ] **Step 3: Add frozen Markdown smoke**
+- [x] **Step 3: Add frozen Markdown smoke**
 
 Use a separate clean phase/process to open
 `tests/fixtures/md/visual-document.md`. Record explicit
@@ -833,7 +833,7 @@ Use a separate clean phase/process to open
 Require no renderer failure, stop Reader/QtWebEngine children, and remove
 isolated profile before IPC Phase B.
 
-- [ ] **Step 4: Run focused and full verification**
+- [x] **Step 4: Run focused and full verification**
 
 ```powershell
 npm --prefix web\md-viewer ci
@@ -845,7 +845,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\smoke_windows.ps1 -ReaderExe dist\Reader\Reader.exe
 ```
 
-- [ ] **Step 5: Final independent review**
+- [x] **Step 5: Final independent review**
 
 Review for Critical/Important findings, specifically:
 
@@ -860,13 +860,13 @@ Review for Critical/Important findings, specifically:
 Fix any finding with RED/GREEN evidence and a new commit (do not amend a failed
 hook commit).
 
-- [ ] **Step 6: Refresh desktop and record hashes**
+- [x] **Step 6: Refresh desktop and record hashes**
 
 Refresh `Reader.lnk`; verify target/workdir/icon. Record source/frozen
 Markdown manifest SHA256, executable byte size/SHA256, test counts, frozen
 smoke result, and review verdict in STATUS.
 
-- [ ] **Step 7: Final commit and push**
+- [x] **Step 7: Final commit and push**
 
 Mark the Markdown goal complete, set next acceptance step, commit
 `test: certify Markdown visual preview in frozen Reader`, push `origin/main`,

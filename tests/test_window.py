@@ -252,6 +252,7 @@ def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
     visual = FakeMarkdownVisual()
     modes: list[str] = []
     ready_calls: list[tuple[str, int]] = []
+    markdown_calls: list[str] = []
 
     def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
         modes.append(mode)
@@ -260,6 +261,10 @@ def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
     monkeypatch.setattr(
         "reader.shell.window.append_visual_ready",
         lambda source, count: ready_calls.append((source, count)),
+    )
+    monkeypatch.setattr(
+        "reader.shell.window.append_markdown_ready",
+        lambda source: markdown_calls.append(source),
     )
     window = MainWindow(
         preview_fn=preview_fn,
@@ -279,6 +284,7 @@ def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
     visual.ready.emit(1)
     qtbot.wait(20)
     assert ready_calls == []
+    assert markdown_calls == [str(path)]
 
 
 def test_markdown_wikilink_open_path_opens_tab_and_dedupes_focus(qtbot, tmp_path: Path):

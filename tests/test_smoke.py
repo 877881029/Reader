@@ -36,6 +36,25 @@ def test_visual_ready_flushes_and_fsyncs(
     assert len(fsync_calls) == 1
 
 
+def test_markdown_ready_flushes_and_fsyncs(
+    monkeypatch, tmp_path: Path
+) -> None:
+    log_path = tmp_path / "visual.jsonl"
+    monkeypatch.setenv("READER_SMOKE_VISUAL_LOG", str(log_path))
+    fsync_calls: list[int] = []
+    monkeypatch.setattr("reader.smoke.os.fsync", fsync_calls.append)
+    from reader.smoke import append_markdown_ready
+
+    assert append_markdown_ready("C:/文档/visual-document.md") is True
+
+    assert json.loads(log_path.read_text(encoding="utf-8")) == {
+        "path": "C:/文档/visual-document.md",
+        "kind": "markdown",
+        "status": "ready",
+    }
+    assert len(fsync_calls) == 1
+
+
 def test_smoke_batch_log_is_disabled_without_environment(
     monkeypatch, tmp_path: Path
 ) -> None:

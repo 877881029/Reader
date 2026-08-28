@@ -9,12 +9,12 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **Markdown 视觉预览：主题、离线 Mermaid、同目录双链开新标签**
 
 - 规格：`docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`（用户已批准）
-- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务，Task 1-7 已完成）
+- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务均已完成）
 - 方案：专用 `MarkdownVisualView` + 本地 Vite bundle（`markdown-it` + 官方 `mermaid`）；Python HTML 仅作启动失败回退
 - 首期：浅色技术文档主题、完整官方 Mermaid 离线渲染、`[[wikilink]]` 在 Reader 中打开同目录 `.md`
 - 禁止文档出站网络；`file:` 仅允许源目录与 viewer bundle
@@ -166,12 +166,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 7（严格 TDD）：RED `python -m pytest tests/test_md_webengine.py -v` 为 `1 failed, 1 passed`（missing wiki click 未触发 `missing_link`）；先补 web 单测回归 RED `npm test -- src/viewer.test.ts` 为 `2 failed, 5 passed`，最小修复 `startViewer` 始终透传 wiki click 到 `openWiki`，GREEN 后 `src/viewer.test.ts` `7 passed`、Task7 真实 WebEngine `2 passed`
 - Markdown Visual Preview Task 7（网络阻断与生命周期）：测试在注入前断言 `blocked_urls()==()`，临时开启 `LocalContentCanAccessRemoteUrls` 后注入 HTTP/HTTPS/WS/WSS，断言拦截器精确记录并阻断 4 项；所有真实 QWebEngine 用例统一严格 timeout + `finally shutdown()` 并等待 profile invalid，避免残留进程
 - Markdown Visual Preview Task 7 验证：`npm test` `21 passed`；`tests/test_md_view.py` `23 passed`；`tests/test_pptx_webengine.py` `3 passed`；Python 全量 `306 passed, 1 skipped`
+- Markdown Visual Preview Task 8：`reader.spec` 收集 `assets/md-viewer`；`build_windows.ps1` 对 pptx/md 两套 bundle 执行 `npm ci/test/typecheck/build`、通用 `Test-WebBundleManifest`、冻结资源与哈希校验
+- Markdown Visual Preview Task 8：frozen smoke 拆成 Phase A PPTX、Phase B Markdown（`kind=markdown` ready）、Phase C IPC；窗口 ready 对 Markdown 写 `append_markdown_ready`，不改 PPTX `slides=4`
+- Markdown Visual Preview Task 8 验证：Web md-viewer `21 passed`、pptx-viewer `28 passed`；Python 全量 `309 passed, 1 skipped`；`build_windows.ps1` exit 0；smoke PPTX `slides=4` + Markdown `kind=markdown` + 两批 IPC
+- Markdown Visual Preview source/frozen md-viewer manifest SHA256 均为 `3685badafff19d10a7cc5b57675a0e4fa946df4d0202f22b4e55178059d2f667`；pptx manifest SHA256 均为 `1f165ff62ea65b671d164b738fdd0f9ec599527149333400d69c0633d967e8fb`
+- 最终 `dist/Reader/Reader.exe`：`5896314 bytes`，SHA256 `4a4426d5547a1d99a4a4c91e3c4bd46a448e84fb0d12a9c27244c76115894b4d`；桌面 `Reader.lnk` 已刷新并验证 target/workdir/icon
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 8（打包链路与 frozen 端 md-viewer 资产校验）
-2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
-3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
+1. 用户用桌面 `Reader` 打开含表格与 Mermaid 的日常 `.md`，确认主题、流程图和 `[[双链]]`
+2. 若其他真实笔记暴露独立兼容问题，以最小公开 fixture 复现后修复
 
 ## 阻塞项
 

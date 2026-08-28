@@ -31,7 +31,7 @@ from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
-from reader.smoke import append_visual_ready
+from reader.smoke import append_markdown_ready, append_visual_ready
 
 PreviewFunction = Callable[..., PreviewResult]
 CacheFactory = Callable[[], PreviewCache]
@@ -1078,6 +1078,8 @@ class MainWindow(QMainWindow):
             document.visual_slide_count = count
             if document.last_result is not None and document.last_result.kind == "pptx":
                 append_visual_ready(str(document.path), count)
+            if document.last_result is not None and document.last_result.kind == "markdown":
+                append_markdown_ready(str(document.path))
 
     def _visual_slide_changed(
         self,
