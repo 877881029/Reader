@@ -150,10 +150,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 4：`preview()` 支持 `.md` 的 `visual` 模式，且 `.md` 在 `builtin/visual` 均走 `fmt_md.to_visual`；保持 Markdown 零 Office 探测/导出，PPTX 行为保持不变
 - Markdown Visual Preview Task 4：`_PreviewWorker.run` 将 `.md` 与 `.pptx` 统一纳入 visual strategy，visual 策略继续跳过 cache `get/put`；`PreviewCache.put(... kind="markdown")` 维持 `ValueError` 拒绝持久化
 - Markdown Visual Preview Task 4 验证：RED 聚焦 `5 failed, 121 passed`；GREEN 聚焦 `126 passed`；Python 全量 `275 passed, 1 skipped`
+- Markdown Visual Preview Task 5：新增 `src/reader/preview/md_view.py`，实现 `resolve_wikilink()` 同目录 canonical resolver（仅允许 sibling `.md`/裸名、拒绝绝对路径/分隔符/`..`/非 md 后缀，并阻断 symlink escape）
+- Markdown Visual Preview Task 5：新增 `MarkdownBridge`/`MarkdownVisualView` 与 `OfflineRequestInterceptor`，对齐 QWebChannel `sourceUrl/wikiExists/openWiki/viewerReady/viewerError` 契约；`ready` 仅上报 `1`，`open_path` 仅发 canonical path，`missing_link` 限制为 256 字符，shutdown 后 late bridge 调用无副作用
+- Markdown Visual Preview Task 5：Markdown WebEngine lifecycle 与安全边界落地（构造不加载、`start()` 加载 `assets/md-viewer/index.html`、off-the-record profile 隔离、仅放行 source 目录与 bundle 目录 descendants + `qrc/data/blob`、阻断 remote 与目录逃逸、fallback 原子 detach channel/scripts/interceptor + JS 禁用 + `QUrl()`，fallback HTML 1.9MB 上限）
+- Markdown Visual Preview Task 5 验证：RED `python -m pytest tests/test_md_view.py -v`（`ModuleNotFoundError: reader.preview.md_view`）；GREEN `16 passed`；PPTX 回归 `17 passed`；Python 全量 `291 passed, 1 skipped`
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 5（`MarkdownVisualView` 生命周期、同目录解析与离线拦截）
+1. 继续 Markdown Visual Preview Task 6（MainWindow 生命周期接线、`kind="markdown"` viewer factory 与 wikilink 开新标签集成）
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 

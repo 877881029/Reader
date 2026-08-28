@@ -585,14 +585,14 @@ class MarkdownVisualView(QWebEngineView):
     def shutdown(self) -> None: ...
 ```
 
-- [ ] **Step 1: Write resolver RED tests**
+- [x] **Step 1: Write resolver RED tests**
 
 Cover `[[other]]`, `[[other.md]]`, case-insensitive Windows suffix,
 missing target, empty target, absolute path, `..`, `/`, `\`, non-md suffix, and
 a symlink/junction escape when available. Expected output is resolved canonical
 sibling path or `None`.
 
-- [ ] **Step 2: Write view/interceptor RED tests**
+- [x] **Step 2: Write view/interceptor RED tests**
 
 Mirror the PPTX lifecycle tests but assert:
 
@@ -605,11 +605,11 @@ Mirror the PPTX lifecycle tests but assert:
 - missing bundle/load timeout/bridge error shows fixed safe fallback;
 - repeated shutdown and close-during-start are safe.
 
-- [ ] **Step 3: Run RED**
+- [x] **Step 3: Run RED**
 
 Run `pytest tests/test_md_view.py -v`; expect missing module.
 
-- [ ] **Step 4: Implement resolver and bridge**
+- [x] **Step 4: Implement resolver and bridge**
 
 Resolver algorithm:
 
@@ -637,7 +637,7 @@ Bridge returns only bool to JS. `openWiki` emits canonical path only after the
 same resolver succeeds; otherwise emits the original display target via
 `missing` (bounded to 256 characters).
 
-- [ ] **Step 5: Implement isolated WebEngine lifecycle**
+- [x] **Step 5: Implement isolated WebEngine lifecycle**
 
 Follow the proven ownership order from `PptxVisualView`, but keep
 Markdown-specific bridge and interceptor in `md_view.py`. The interceptor
@@ -652,10 +652,16 @@ On fallback: stop loading, clear scripts/channel, disable JavaScript, then
 `setHtml(fallback_html, QUrl())`; cap fallback at 1,900,000 UTF-8 bytes and use
 a fixed safe fallback beyond the cap.
 
-- [ ] **Step 6: Verify GREEN and checkpoint**
+- [x] **Step 6: Verify GREEN and checkpoint**
 
 Run `tests/test_md_view.py`, `tests/test_pptx_view.py`, then full suite. Update
 STATUS, commit `feat: host Markdown in isolated WebEngine view`, and push.
+
+Verification log (2026-08-28):
+- RED: `python -m pytest tests/test_md_view.py -v` -> `ModuleNotFoundError: reader.preview.md_view`.
+- GREEN: `python -m pytest tests/test_md_view.py -v` -> `16 passed`.
+- Regression: `python -m pytest tests/test_pptx_view.py -v` -> `17 passed`.
+- Full Python: `python -m pytest -v` -> `291 passed, 1 skipped`.
 
 ---
 
