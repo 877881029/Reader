@@ -120,6 +120,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 1：`generate-notices.mjs` 通过 license-checker 扫描 production dependency tree，按 `name@version` 排序并逐包强制读取 `licenseFile`（缺失/空文本 fail-fast），生成确定性 `THIRD_PARTY_NOTICES.txt` 并同步到 `assets/md-viewer/`
 - Markdown Visual Preview Task 1：完成 `assets/md-viewer/manifest.sha256` 确定性生成（按相对路径排序、SHA256 双空格格式），并加入 `web/md-viewer/node_modules/` ignore；PPTX 资产与行为未改动
 
+## 阻塞项
+
+- `2026-08-28`：`git push origin main` 返回 `403 Permission denied to runqyang_amdeng`，Task 1 提交 `e1ba3dc` 暂未同步到 `origin/main`，需用户修复仓库写权限或凭证后重试推送。
+
 ## 下一步
 
 1. 继续 Markdown Visual Preview Task 2（MarkdownIt 渲染器与安全 URL 重写）
