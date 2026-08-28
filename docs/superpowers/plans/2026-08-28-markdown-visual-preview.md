@@ -377,7 +377,7 @@ export async function startViewer(
 ): Promise<MarkdownController>;
 ```
 
-- [ ] **Step 1: Write Mermaid and bridge RED tests**
+- [x] **Step 1: Write Mermaid and bridge RED tests**
 
 Mock `mermaid.render` so one source resolves to `<svg>` and another rejects.
 Assert two fenced blocks become one `.mermaid-rendered svg` and one
@@ -395,12 +395,12 @@ missing.click();
 expect(bridge.openWiki).not.toHaveBeenCalledWith("missing");
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run `npm test -- src/mermaid.test.ts src/viewer.test.ts`; expect missing
 implementations.
 
-- [ ] **Step 3: Implement isolated Mermaid rendering**
+- [x] **Step 3: Implement isolated Mermaid rendering**
 
 Initialize once:
 
@@ -426,7 +426,7 @@ success. On error replace only it with:
 
 Assign `textContent` for the source; never interpolate source into HTML.
 
-- [ ] **Step 4: Implement viewer lifecycle**
+- [x] **Step 4: Implement viewer lifecycle**
 
 `startViewer` clears prior controller for the same root (WeakMap), renders
 Markdown, waits for Mermaid blocks and wiki existence checks, then calls
@@ -436,7 +436,7 @@ late callbacks or `viewerReady`.
 Ordinary `a[href]` clicks with HTTP/HTTPS/WS/WSS call `preventDefault`; do not
 navigate.
 
-- [ ] **Step 5: Implement Qt bootstrap**
+- [x] **Step 5: Implement Qt bootstrap**
 
 `main.ts` obtains `qt.webChannelTransport`, creates `QWebChannel`, reads
 `bridge.sourceUrl`, fetches that local URL, then calls `startViewer`. It owns an
@@ -444,7 +444,7 @@ AbortController and exposes `window.readerMdDispose`, also invoked from
 `pagehide` and `beforeunload`. Bootstrap/fetch errors call `viewerError` with a
 fixed message, not the source path or raw exception.
 
-- [ ] **Step 6: Verify GREEN and checkpoint**
+- [x] **Step 6: Verify GREEN and checkpoint**
 
 Run all web tests/typecheck/build, refresh notices + manifest, run Python asset
 tests, update STATUS, commit `feat: render Mermaid diagrams offline`, and push.

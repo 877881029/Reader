@@ -132,10 +132,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 2 验证：RED `npm test -- src/markdown.test.ts`（缺少 `./markdown` 导入失败）→ GREEN 同命令 `2 passed`；随后 `npm test`（`3 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）全部通过
 - Markdown Visual Preview Task 2（审查修复）：wikilink inline rule 增加链接上下文防护（`state.linkLevel > 0` 直接放弃转换），并修正 silent 解析路径，避免 `[see [[note]]](target.md)` 触发 nested anchor / `state.pos` 异常
 - Markdown Visual Preview Task 2（审查修复验证）：新增回归覆盖（普通链接内 wikilink 不转换且外层 `<a>` 结构合法、空 target/alias 保持源码、HTTP/data/hash/protocol-relative 图片不改写）；RED `npm test -- src/markdown.test.ts` 复现 `inline rule didn't increment state.pos`，GREEN 后同命令 `5 passed`；全量 `npm test`（`6 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）、`git diff --check` 全部通过
+- Markdown Visual Preview Task 3：新增 `web/md-viewer/src/mermaid.ts` 与 `renderMermaidBlocks(root)`，Mermaid 初始化固定 `securityLevel: "strict"` + `suppressErrorRendering: true`；按块渲染 `pre > code.language-mermaid`，单块失败仅替换为 `.mermaid-error`，源码通过 `textContent` 写入，坏图不影响全文
+- Markdown Visual Preview Task 3：新增 `web/md-viewer/src/viewer.ts` 与 `startViewer(...)` 生命周期；同 root 复用前先销毁旧 controller（WeakMap），等待 Mermaid + 异步 `wikiExists` 全部完成后单次 `viewerReady`，为 resolved/missing wiki 分级并桥接 click；普通 `http/https/ws/wss` 锚点统一 `preventDefault`
+- Markdown Visual Preview Task 3：`abort/destroy` 幂等清理 click listeners 与 DOM，阻断迟到 wiki 回调和 `viewerReady`；`main.ts` 完成 Qt WebChannel bootstrap，读取 `bridge.sourceUrl` 拉取 markdown，持有 `AbortController` 并暴露 `window.readerMdDispose`，在 `pagehide/beforeunload` 触发
+- Markdown Visual Preview Task 3：新增 bootstrap 固定错误文案路径泄露防护测试（`viewerError` 不含 source path/raw exception），并补齐 Mermaid 单块成功/失败、viewer 时序与 late callback 回归
+- Markdown Visual Preview Task 3（本轮修复）：修正 `main.test.ts` 动态导入兼容性（改为稳定模块重载）与 `main.ts` root 非空类型收窄；补充本地 `type-fest` 声明桥接 `mermaid@11.17.2` 类型依赖而不引入新供应链依赖
+- Markdown Visual Preview Task 3 验证：聚焦 `npm test -- src/mermaid.test.ts src/viewer.test.ts`（`4 passed`）；全量 Web `npm test`（`12 passed`）、`npm run typecheck`、`npm run build`、Python `tests/test_md_web_assets.py`（`7 passed`）通过
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 3（viewer 启动桥接与 Markdown 文档注入）
+1. 继续 Markdown Visual Preview Task 4（Python `MdVisualView` 生命周期与离线拦截）
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 
