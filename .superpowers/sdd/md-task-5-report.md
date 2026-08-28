@@ -50,4 +50,4 @@
 - Task5：`python -m pytest tests/test_md_view.py -v` -> `23 passed`
 - PPTX 回归：`python -m pytest tests/test_pptx_view.py -v` -> `17 passed`
 - Python 全量：`python -m pytest -v` -> `298 passed, 1 skipped`
-- Push：owner helper `git_push(confirm=true)` -> `Pushing is blocked on protected branch 'main'`
+- Push：controller 已成功推送 `ac8d6a2`（包含 reviewer 修复提交 `408440b`），`main` 与 `origin/main` 已同步。
