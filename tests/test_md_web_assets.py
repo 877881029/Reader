@@ -12,6 +12,7 @@ EXPECTED_DEV_DEPENDENCIES = {
     "@types/markdown-it": "14.2.0",
     "@types/node": "22.13.14",
     "jsdom": "24.1.3",
+    "type-fest": "4.41.0",
     "typescript": "5.9.2",
     "vite": "5.4.19",
     "vitest": "2.1.9",

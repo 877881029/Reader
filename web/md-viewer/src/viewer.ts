@@ -15,6 +15,7 @@ export interface MarkdownController {
 
 const remoteLinkPattern = /^(https?|wss?):/i;
 const controllers = new WeakMap<HTMLElement, MarkdownController>();
+const WIKI_EXISTS_TIMEOUT_MS = 2000;
 
 export async function startViewer(
   root: HTMLElement,
@@ -82,15 +83,37 @@ export async function startViewer(
       new Promise<void>((resolve) => {
         let allowedToOpen = false;
         let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        const clearWikiTimeout = () => {
+          if (timeoutId === null) {
+            return;
+          }
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        };
 
         const resolveOnce = () => {
           if (settled) {
             return;
           }
           settled = true;
+          clearWikiTimeout();
           resolve();
         };
         pendingWikiResolvers.push(resolveOnce);
+
+        const settleWikiExists = (exists: boolean) => {
+          if (!active) {
+            resolveOnce();
+            return;
+          }
+          allowedToOpen = exists;
+          element.classList.remove("is-pending");
+          element.classList.toggle("is-resolved", exists);
+          element.classList.toggle("is-missing", !exists);
+          resolveOnce();
+        };
 
         const onClick = (event: MouseEvent) => {
           event.preventDefault();
@@ -101,17 +124,17 @@ export async function startViewer(
         element.addEventListener("click", onClick);
         cleanup.push(() => element.removeEventListener("click", onClick));
 
-        bridge.wikiExists(target, (exists: boolean) => {
-          if (!active) {
-            resolveOnce();
-            return;
-          }
-          allowedToOpen = exists;
-          element.classList.remove("is-pending");
-          element.classList.toggle("is-resolved", exists);
-          element.classList.toggle("is-missing", !exists);
-          resolveOnce();
-        });
+        timeoutId = setTimeout(() => {
+          settleWikiExists(false);
+        }, WIKI_EXISTS_TIMEOUT_MS);
+
+        try {
+          bridge.wikiExists(target, (exists: boolean) => {
+            settleWikiExists(Boolean(exists));
+          });
+        } catch {
+          settleWikiExists(false);
+        }
       }),
   );
 

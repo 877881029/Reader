@@ -27,12 +27,21 @@ root.classList.add("markdown-document");
 let disposed = false;
 let viewerController: MarkdownController | null = null;
 let abortController: AbortController | null = null;
+const onPageHide = () => disposeViewer();
+const onBeforeUnload = () => disposeViewer();
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
 
 function disposeViewer(): void {
   if (disposed) {
     return;
   }
   disposed = true;
+  window.removeEventListener("pagehide", onPageHide);
+  window.removeEventListener("beforeunload", onBeforeUnload);
+  window.readerMdDispose = undefined;
   abortController?.abort();
   abortController = null;
   viewerController?.destroy();
@@ -40,8 +49,8 @@ function disposeViewer(): void {
 }
 
 window.readerMdDispose = disposeViewer;
-window.addEventListener("pagehide", disposeViewer);
-window.addEventListener("beforeunload", disposeViewer);
+window.addEventListener("pagehide", onPageHide);
+window.addEventListener("beforeunload", onBeforeUnload);
 
 async function bootstrap(): Promise<void> {
   const bridge = await new Promise<MarkdownBridge>((resolve, reject) => {
@@ -58,7 +67,7 @@ async function bootstrap(): Promise<void> {
 
   try {
     abortController = new AbortController();
-    const response = await fetch(bridge.sourceUrl);
+    const response = await fetch(bridge.sourceUrl, { signal: abortController.signal });
     if (!response.ok) {
       throw new Error(`fetch failed: ${response.status}`);
     }
@@ -71,7 +80,10 @@ async function bootstrap(): Promise<void> {
       viewerController.destroy();
       viewerController = null;
     }
-  } catch {
+  } catch (error) {
+    if (disposed || isAbortError(error)) {
+      return;
+    }
     bridge.viewerError(BOOTSTRAP_ERROR_MESSAGE);
   }
 }

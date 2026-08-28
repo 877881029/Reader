@@ -46,6 +46,7 @@ function createBridge(overrides?: Partial<MarkdownBridge>): MarkdownBridge {
 describe("startViewer", () => {
   beforeEach(() => {
     mermaidGate.reset();
+    vi.useRealTimers();
   });
 
   it("waits wiki checks and then emits ready", async () => {
@@ -141,5 +142,84 @@ describe("startViewer", () => {
     expect(bridge.openWiki).not.toHaveBeenCalled();
 
     controller.destroy();
+  });
+
+  it("fails closed when wikiExists throws synchronously", async () => {
+    const root = document.createElement("div");
+    const bridge = createBridge({
+      wikiExists: vi.fn(() => {
+        throw new Error("bridge unavailable");
+      }),
+    });
+
+    const controllerPromise = startViewer(root, "[[missing]]", bridge.sourceUrl, bridge);
+    mermaidGate.release();
+    const controller = await controllerPromise;
+
+    const missing = root.querySelector<HTMLAnchorElement>('a[data-wiki-target="missing"]');
+    expect(missing?.classList.contains("is-missing")).toBe(true);
+    expect(bridge.viewerReady).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  it("marks missing after wiki timeout when callback never resolves", async () => {
+    vi.useFakeTimers();
+    const root = document.createElement("div");
+    const bridge = createBridge({
+      wikiExists: vi.fn(() => {
+        // simulate never-callback bridge
+      }),
+    });
+
+    const controllerPromise = startViewer(root, "[[missing]]", bridge.sourceUrl, bridge);
+    mermaidGate.release();
+    await vi.advanceTimersByTimeAsync(2000);
+    const controller = await controllerPromise;
+
+    const missing = root.querySelector<HTMLAnchorElement>('a[data-wiki-target="missing"]');
+    expect(missing?.classList.contains("is-missing")).toBe(true);
+    expect(bridge.viewerReady).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+
+    controller.destroy();
+  });
+
+  it("clears wiki timeout on destroy and ignores late callbacks", async () => {
+    vi.useFakeTimers();
+    const root = document.createElement("div");
+    let callback: ((exists: boolean) => void) | null = null;
+    const bridge = createBridge({
+      wikiExists: vi.fn((_target: string, cb: (exists: boolean) => void) => {
+        callback = cb;
+      }),
+    });
+
+    const abortController = new AbortController();
+    const controllerPromise = startViewer(
+      root,
+      "[[linked-note]]",
+      bridge.sourceUrl,
+      bridge,
+      abortController.signal,
+    );
+    await flush();
+    abortController.abort();
+    mermaidGate.release();
+    const controller = await controllerPromise;
+    controller.destroy();
+
+    expect(vi.getTimerCount()).toBe(0);
+    const lateCallback = callback;
+    expect(lateCallback).not.toBeNull();
+    if (!lateCallback) {
+      throw new Error("missing wiki callback");
+    }
+    (lateCallback as (exists: boolean) => void)(true);
+    await vi.advanceTimersByTimeAsync(2100);
+
+    expect(root.childElementCount).toBe(0);
+    expect(bridge.viewerReady).not.toHaveBeenCalled();
+    expect(bridge.openWiki).not.toHaveBeenCalled();
   });
 });

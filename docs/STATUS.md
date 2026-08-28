@@ -136,8 +136,12 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 3：新增 `web/md-viewer/src/viewer.ts` 与 `startViewer(...)` 生命周期；同 root 复用前先销毁旧 controller（WeakMap），等待 Mermaid + 异步 `wikiExists` 全部完成后单次 `viewerReady`，为 resolved/missing wiki 分级并桥接 click；普通 `http/https/ws/wss` 锚点统一 `preventDefault`
 - Markdown Visual Preview Task 3：`abort/destroy` 幂等清理 click listeners 与 DOM，阻断迟到 wiki 回调和 `viewerReady`；`main.ts` 完成 Qt WebChannel bootstrap，读取 `bridge.sourceUrl` 拉取 markdown，持有 `AbortController` 并暴露 `window.readerMdDispose`，在 `pagehide/beforeunload` 触发
 - Markdown Visual Preview Task 3：新增 bootstrap 固定错误文案路径泄露防护测试（`viewerError` 不含 source path/raw exception），并补齐 Mermaid 单块成功/失败、viewer 时序与 late callback 回归
-- Markdown Visual Preview Task 3（本轮修复）：修正 `main.test.ts` 动态导入兼容性（改为稳定模块重载）与 `main.ts` root 非空类型收窄；补充本地 `type-fest` 声明桥接 `mermaid@11.17.2` 类型依赖而不引入新供应链依赖
-- Markdown Visual Preview Task 3 验证：聚焦 `npm test -- src/mermaid.test.ts src/viewer.test.ts`（`4 passed`）；全量 Web `npm test`（`12 passed`）、`npm run typecheck`、`npm run build`、Python `tests/test_md_web_assets.py`（`7 passed`）通过
+- Markdown Visual Preview Task 3（审查修复 Important）：`main.ts` fetch 显式绑定 `AbortController.signal`；bootstrap catch 在 `disposed` 或 `AbortError` 时直接静默，修复 dispose 后 pending/rejected fetch 触发 late `viewerError`
+- Markdown Visual Preview Task 3（审查修复 Important）：`viewer.ts` wiki existence 改为 fail-closed；捕获 `bridge.wikiExists` 同步异常，并引入 `WIKI_EXISTS_TIMEOUT_MS=2000` 保证 never-callback 自动按 missing 收敛，回调/销毁均 clear timer，late callback no-op
+- Markdown Visual Preview Task 3（审查修复 Important）：`main.ts` dispose 显式 `removeEventListener(pagehide/beforeunload)` 并清理 `readerMdDispose`；`main.test.ts` afterEach 主动 dispose，回归覆盖重复 module import 不累积 stale closure
+- Markdown Visual Preview Task 3（审查修复 Minor）：移除不完整 `src/type-fest.d.ts` ambient shim，按 `npm view` 结果安装 Node18 兼容且 exact 的 `type-fest@4.41.0` devDependency，并通过 `npm ci`
+- Markdown Visual Preview Task 3（审查修复 Minor）：清理 `.superpowers/sdd/md-task-3-report.md` 重复正文，保留单份原始 RED/GREEN 并追加本轮修复记录
+- Markdown Visual Preview Task 3 审查验证：RED `npm test -- src/main.test.ts src/viewer.test.ts` 复现 `7 failed`（late error/wiki hang/listener 泄漏）；GREEN 后同命令 `13 passed`；全量 Web `npm test`（`19 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）、`git diff --check` 通过
 
 ## 下一步
 
