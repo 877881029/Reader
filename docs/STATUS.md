@@ -126,10 +126,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 1（同步收尾）：controller 已使用 repository owner 凭证将 `e403337` 成功推送到 `origin/main`，Task 1 当前所有提交已完成远端同步
 - Markdown Visual Preview Task 1（Important 修复）：`generate-notices.mjs` 改为仅写稳定 `node_modules/...` POSIX 相对路径，不再写本机绝对路径；source/bundle notice 与 manifest 消除 checkout 路径泄露和不确定性
 - Markdown Visual Preview Task 1（Important 修复验证）：`npm test`、`npm run typecheck`、`npm run build`、`tests/test_md_web_assets.py`（扩展至 `7 passed`）与 `git diff --check` 均通过；新增断言禁止 ROOT/Windows drive/backslash 路径泄露，并验证 label 在不同模拟根路径下稳定
+- Markdown Visual Preview Task 2：新增 `renderMarkdown(source, sourceUrl)` 与 `WikiLink` 契约，`markdown-it` 关闭 raw HTML、启用 table/strikethrough，并注册 `[[target]]`/`[[target|alias]]` inline wikilink 规则，输出 `<a class="wiki-link is-pending" data-wiki-target="...">...`
+- Markdown Visual Preview Task 2：渲染后仅重写相对 `img[src]` 到 `new URL(..., sourceUrl).href`，保留 `data:`/绝对 URL；表格统一包裹 `.table-scroll`，代码块与行内代码中的 `[[...]]` 保持原样不转换
+- Markdown Visual Preview Task 2：新增 `web/md-viewer/src/style.css` 技术文档主题（paper/ink/accent/code 变量、表格/引用/内联代码/图片/selection/print 规则），并在 `main.ts` 挂载 `.markdown-document`
+- Markdown Visual Preview Task 2 验证：RED `npm test -- src/markdown.test.ts`（缺少 `./markdown` 导入失败）→ GREEN 同命令 `2 passed`；随后 `npm test`（`3 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）全部通过
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 2（MarkdownIt 渲染器与安全 URL 重写）
+1. 继续 Markdown Visual Preview Task 3（viewer 启动桥接与 Markdown 文档注入）
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 

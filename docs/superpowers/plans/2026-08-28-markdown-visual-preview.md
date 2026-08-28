@@ -246,7 +246,7 @@ export function renderMarkdown(source: string, sourceUrl: string): {
 
 - `data-wiki-target` stores target stem; no filesystem path enters generated HTML.
 
-- [ ] **Step 1: Write parser/theme RED tests**
+- [x] **Step 1: Write parser/theme RED tests**
 
 ```typescript
 it("renders GFM structures, wikilinks, and rewrites relative images", () => {
@@ -274,11 +274,11 @@ it("does not transform wikilink text inside code", () => {
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run `npm test -- src/markdown.test.ts`; expect missing module/function failure.
 
-- [ ] **Step 3: Implement a markdown-it inline wiki rule**
+- [x] **Step 3: Implement a markdown-it inline wiki rule**
 
 Register a rule before `link` that recognizes `[[target]]` and
 `[[target|alias]]`, emits:
@@ -303,7 +303,7 @@ After rendering through a `<template>`, rewrite only relative `img[src]` with
 `new URL(rawSource, sourceUrl).href`; retain `data:` and absolute URLs for the
 interceptor to allow/block.
 
-- [ ] **Step 4: Implement the technical-document theme**
+- [x] **Step 4: Implement the technical-document theme**
 
 Use CSS variables and these measurable contracts:
 
@@ -335,7 +335,7 @@ pre { overflow: auto; padding: 1rem; background: var(--code); border-radius: 6px
 Wrap each table in `.table-scroll` after render. Add restrained heading,
 blockquote, inline-code, link, image, selection, and print rules.
 
-- [ ] **Step 5: Verify GREEN and checkpoint**
+- [x] **Step 5: Verify GREEN and checkpoint**
 
 Run `npm test`, `npm run typecheck`, `npm run build`, refresh manifest, run
 `tests/test_md_web_assets.py`, update STATUS, commit
