@@ -124,6 +124,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 1（审查修复）：新增 `generate-manifest.mjs`，`npm run build` 顺序固定为 `vite build -> notices -> manifest`；clean 删除 `assets/md-viewer` 后可自动恢复 `index/assets/THIRD_PARTY_NOTICES/manifest`
 - Markdown Visual Preview Task 1（审查修复）：`tests/test_md_web_assets.py` 扩展到 6 项，锁定 lock 根元数据、Node18 兼容 devDependency 基线、manifest 脚本接线与 opt-in clean build 恢复校验，当前 `6 passed`
 - Markdown Visual Preview Task 1（同步收尾）：controller 已使用 repository owner 凭证将 `e403337` 成功推送到 `origin/main`，Task 1 当前所有提交已完成远端同步
+- Markdown Visual Preview Task 1（Important 修复）：`generate-notices.mjs` 改为仅写稳定 `node_modules/...` POSIX 相对路径，不再写本机绝对路径；source/bundle notice 与 manifest 消除 checkout 路径泄露和不确定性
+- Markdown Visual Preview Task 1（Important 修复验证）：`npm test`、`npm run typecheck`、`npm run build`、`tests/test_md_web_assets.py`（扩展至 `7 passed`）与 `git diff --check` 均通过；新增断言禁止 ROOT/Windows drive/backslash 路径泄露，并验证 label 在不同模拟根路径下稳定
 
 ## 下一步
 

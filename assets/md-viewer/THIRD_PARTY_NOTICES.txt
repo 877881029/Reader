@@ -1,6 +1,6 @@
 ## @antfu/install-pkg 1.1.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@antfu\install-pkg\LICENSE
+License file: node_modules/@antfu/install-pkg/LICENSE
 
 MIT License
 
@@ -26,7 +26,7 @@ SOFTWARE.
 
 ## @braintree/sanitize-url 7.1.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@braintree\sanitize-url\LICENSE
+License file: node_modules/@braintree/sanitize-url/LICENSE
 
 MIT License
 
@@ -52,7 +52,7 @@ SOFTWARE.
 
 ## @chevrotain/types 11.1.2
 SPDX: Apache-2.0
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@chevrotain\types\LICENSE.txt
+License file: node_modules/@chevrotain/types/LICENSE.txt
 
 Apache License
                            Version 2.0, January 2004
@@ -258,7 +258,7 @@ Apache License
 
 ## @iconify/types 2.0.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@iconify\types\license.txt
+License file: node_modules/@iconify/types/license.txt
 
 MIT License
 
@@ -284,7 +284,7 @@ SOFTWARE.
 
 ## @iconify/utils 3.1.4
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@iconify\utils\license.txt
+License file: node_modules/@iconify/utils/license.txt
 
 MIT License
 
@@ -310,7 +310,7 @@ SOFTWARE.
 
 ## @mermaid-js/parser 1.2.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@mermaid-js\parser\LICENSE
+License file: node_modules/@mermaid-js/parser/LICENSE
 
 The MIT License (MIT)
 
@@ -336,7 +336,7 @@ SOFTWARE.
 
 ## @types/d3-array 3.2.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-array\LICENSE
+License file: node_modules/@types/d3-array/LICENSE
 
 MIT License
 
@@ -362,7 +362,7 @@ MIT License
 
 ## @types/d3-axis 3.0.6
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-axis\LICENSE
+License file: node_modules/@types/d3-axis/LICENSE
 
 MIT License
 
@@ -388,7 +388,7 @@ MIT License
 
 ## @types/d3-brush 3.0.6
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-brush\LICENSE
+License file: node_modules/@types/d3-brush/LICENSE
 
 MIT License
 
@@ -414,7 +414,7 @@ MIT License
 
 ## @types/d3-chord 3.0.6
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-chord\LICENSE
+License file: node_modules/@types/d3-chord/LICENSE
 
 MIT License
 
@@ -440,7 +440,7 @@ MIT License
 
 ## @types/d3-color 3.1.3
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-color\LICENSE
+License file: node_modules/@types/d3-color/LICENSE
 
 MIT License
 
@@ -466,7 +466,7 @@ MIT License
 
 ## @types/d3-contour 3.0.6
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-contour\LICENSE
+License file: node_modules/@types/d3-contour/LICENSE
 
 MIT License
 
@@ -492,7 +492,7 @@ MIT License
 
 ## @types/d3-delaunay 6.0.4
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-delaunay\LICENSE
+License file: node_modules/@types/d3-delaunay/LICENSE
 
 MIT License
 
@@ -518,7 +518,7 @@ MIT License
 
 ## @types/d3-dispatch 3.0.7
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-dispatch\LICENSE
+License file: node_modules/@types/d3-dispatch/LICENSE
 
 MIT License
 
@@ -544,7 +544,7 @@ MIT License
 
 ## @types/d3-drag 3.0.7
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-drag\LICENSE
+License file: node_modules/@types/d3-drag/LICENSE
 
 MIT License
 
@@ -570,7 +570,7 @@ MIT License
 
 ## @types/d3-dsv 3.0.7
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-dsv\LICENSE
+License file: node_modules/@types/d3-dsv/LICENSE
 
 MIT License
 
@@ -596,7 +596,7 @@ MIT License
 
 ## @types/d3-ease 3.0.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-ease\LICENSE
+License file: node_modules/@types/d3-ease/LICENSE
 
 MIT License
 
@@ -622,7 +622,7 @@ MIT License
 
 ## @types/d3-fetch 3.0.7
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-fetch\LICENSE
+License file: node_modules/@types/d3-fetch/LICENSE
 
 MIT License
 
@@ -648,7 +648,7 @@ MIT License
 
 ## @types/d3-force 3.0.10
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-force\LICENSE
+License file: node_modules/@types/d3-force/LICENSE
 
 MIT License
 
@@ -674,7 +674,7 @@ MIT License
 
 ## @types/d3-format 3.0.4
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-format\LICENSE
+License file: node_modules/@types/d3-format/LICENSE
 
 MIT License
 
@@ -700,7 +700,7 @@ MIT License
 
 ## @types/d3-geo 3.1.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-geo\LICENSE
+License file: node_modules/@types/d3-geo/LICENSE
 
 MIT License
 
@@ -726,7 +726,7 @@ MIT License
 
 ## @types/d3-hierarchy 3.1.7
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-hierarchy\LICENSE
+License file: node_modules/@types/d3-hierarchy/LICENSE
 
 MIT License
 
@@ -752,7 +752,7 @@ MIT License
 
 ## @types/d3-interpolate 3.0.4
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-interpolate\LICENSE
+License file: node_modules/@types/d3-interpolate/LICENSE
 
 MIT License
 
@@ -778,7 +778,7 @@ MIT License
 
 ## @types/d3-path 3.1.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-path\LICENSE
+License file: node_modules/@types/d3-path/LICENSE
 
 MIT License
 
@@ -804,7 +804,7 @@ MIT License
 
 ## @types/d3-polygon 3.0.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-polygon\LICENSE
+License file: node_modules/@types/d3-polygon/LICENSE
 
 MIT License
 
@@ -830,7 +830,7 @@ MIT License
 
 ## @types/d3-quadtree 3.0.6
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-quadtree\LICENSE
+License file: node_modules/@types/d3-quadtree/LICENSE
 
 MIT License
 
@@ -856,7 +856,7 @@ MIT License
 
 ## @types/d3-random 3.0.4
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-random\LICENSE
+License file: node_modules/@types/d3-random/LICENSE
 
 MIT License
 
@@ -882,7 +882,7 @@ MIT License
 
 ## @types/d3-scale-chromatic 3.1.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-scale-chromatic\LICENSE
+License file: node_modules/@types/d3-scale-chromatic/LICENSE
 
 MIT License
 
@@ -908,7 +908,7 @@ MIT License
 
 ## @types/d3-scale 4.0.9
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-scale\LICENSE
+License file: node_modules/@types/d3-scale/LICENSE
 
 MIT License
 
@@ -934,7 +934,7 @@ MIT License
 
 ## @types/d3-selection 3.0.11
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-selection\LICENSE
+License file: node_modules/@types/d3-selection/LICENSE
 
 MIT License
 
@@ -960,7 +960,7 @@ MIT License
 
 ## @types/d3-shape 3.2.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-shape\LICENSE
+License file: node_modules/@types/d3-shape/LICENSE
 
 MIT License
 
@@ -986,7 +986,7 @@ MIT License
 
 ## @types/d3-time-format 4.0.3
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-time-format\LICENSE
+License file: node_modules/@types/d3-time-format/LICENSE
 
 MIT License
 
@@ -1012,7 +1012,7 @@ MIT License
 
 ## @types/d3-time 3.0.4
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-time\LICENSE
+License file: node_modules/@types/d3-time/LICENSE
 
 MIT License
 
@@ -1038,7 +1038,7 @@ MIT License
 
 ## @types/d3-timer 3.0.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-timer\LICENSE
+License file: node_modules/@types/d3-timer/LICENSE
 
 MIT License
 
@@ -1064,7 +1064,7 @@ MIT License
 
 ## @types/d3-transition 3.0.9
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-transition\LICENSE
+License file: node_modules/@types/d3-transition/LICENSE
 
 MIT License
 
@@ -1090,7 +1090,7 @@ MIT License
 
 ## @types/d3-zoom 3.0.8
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3-zoom\LICENSE
+License file: node_modules/@types/d3-zoom/LICENSE
 
 MIT License
 
@@ -1116,7 +1116,7 @@ MIT License
 
 ## @types/d3 7.4.3
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\d3\LICENSE
+License file: node_modules/@types/d3/LICENSE
 
 MIT License
 
@@ -1142,7 +1142,7 @@ MIT License
 
 ## @types/geojson 7946.0.16
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\geojson\LICENSE
+License file: node_modules/@types/geojson/LICENSE
 
 MIT License
 
@@ -1168,7 +1168,7 @@ MIT License
 
 ## @types/trusted-types 2.0.7
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@types\trusted-types\LICENSE
+License file: node_modules/@types/trusted-types/LICENSE
 
 MIT License
 
@@ -1194,7 +1194,7 @@ MIT License
 
 ## @upsetjs/venn.js 2.0.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\@upsetjs\venn.js\LICENSE
+License file: node_modules/@upsetjs/venn.js/LICENSE
 
 MIT License
 
@@ -1221,7 +1221,7 @@ SOFTWARE.
 
 ## argparse 3.0.1
 SPDX: PSF-2.0
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\argparse\LICENSE
+License file: node_modules/argparse/LICENSE
 
 PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
 
@@ -1273,7 +1273,7 @@ Agreement.
 
 ## commander 7.2.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\commander\LICENSE
+License file: node_modules/commander/LICENSE
 
 (The MIT License)
 
@@ -1300,7 +1300,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## commander 8.3.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\katex\node_modules\commander\LICENSE
+License file: node_modules/katex/node_modules/commander/LICENSE
 
 (The MIT License)
 
@@ -1327,7 +1327,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## cose-base 1.0.3
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\cose-base\LICENSE
+License file: node_modules/cose-base/LICENSE
 
 MIT License
 
@@ -1353,7 +1353,7 @@ SOFTWARE.
 
 ## cose-base 2.2.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\cytoscape-fcose\node_modules\cose-base\LICENSE
+License file: node_modules/cytoscape-fcose/node_modules/cose-base/LICENSE
 
 MIT License
 
@@ -1379,7 +1379,7 @@ SOFTWARE.
 
 ## cytoscape-cose-bilkent 4.1.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\cytoscape-cose-bilkent\LICENSE
+License file: node_modules/cytoscape-cose-bilkent/LICENSE
 
 Copyright (c) 2016-2018, The Cytoscape Consortium.
 
@@ -1403,7 +1403,7 @@ SOFTWARE.
 
 ## cytoscape-fcose 2.2.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\cytoscape-fcose\LICENSE
+License file: node_modules/cytoscape-fcose/LICENSE
 
 Copyright (c) 2018 - present, iVis-at-Bilkent.
 
@@ -1427,7 +1427,7 @@ SOFTWARE.
 
 ## cytoscape 3.34.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\cytoscape\LICENSE
+License file: node_modules/cytoscape/LICENSE
 
 Copyright (c) 2016-2026, The Cytoscape Consortium.
 
@@ -1451,7 +1451,7 @@ SOFTWARE.
 
 ## d3-array 2.12.1
 SPDX: BSD-3-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-sankey\node_modules\d3-array\LICENSE
+License file: node_modules/d3-sankey/node_modules/d3-array/LICENSE
 
 Copyright 2010-2020 Mike Bostock
 All rights reserved.
@@ -1483,7 +1483,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## d3-array 3.2.4
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-array\LICENSE
+License file: node_modules/d3-array/LICENSE
 
 Copyright 2010-2023 Mike Bostock
 
@@ -1501,7 +1501,7 @@ THIS SOFTWARE.
 
 ## d3-axis 3.0.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-axis\LICENSE
+License file: node_modules/d3-axis/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1519,7 +1519,7 @@ THIS SOFTWARE.
 
 ## d3-brush 3.0.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-brush\LICENSE
+License file: node_modules/d3-brush/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1537,7 +1537,7 @@ THIS SOFTWARE.
 
 ## d3-chord 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-chord\LICENSE
+License file: node_modules/d3-chord/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1555,7 +1555,7 @@ THIS SOFTWARE.
 
 ## d3-color 3.1.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-color\LICENSE
+License file: node_modules/d3-color/LICENSE
 
 Copyright 2010-2022 Mike Bostock
 
@@ -1573,7 +1573,7 @@ THIS SOFTWARE.
 
 ## d3-contour 4.0.2
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-contour\LICENSE
+License file: node_modules/d3-contour/LICENSE
 
 Copyright 2012-2023 Mike Bostock
 
@@ -1591,7 +1591,7 @@ THIS SOFTWARE.
 
 ## d3-delaunay 6.0.4
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-delaunay\LICENSE
+License file: node_modules/d3-delaunay/LICENSE
 
 Copyright 2018-2021 Observable, Inc.
 Copyright 2021 Mapbox
@@ -1610,7 +1610,7 @@ THIS SOFTWARE.
 
 ## d3-dispatch 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-dispatch\LICENSE
+License file: node_modules/d3-dispatch/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1628,7 +1628,7 @@ THIS SOFTWARE.
 
 ## d3-drag 3.0.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-drag\LICENSE
+License file: node_modules/d3-drag/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1646,7 +1646,7 @@ THIS SOFTWARE.
 
 ## d3-dsv 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-dsv\LICENSE
+License file: node_modules/d3-dsv/LICENSE
 
 Copyright 2013-2021 Mike Bostock
 
@@ -1664,7 +1664,7 @@ THIS SOFTWARE.
 
 ## d3-ease 3.0.1
 SPDX: BSD-3-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-ease\LICENSE
+License file: node_modules/d3-ease/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 Copyright 2001 Robert Penner
@@ -1697,7 +1697,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## d3-fetch 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-fetch\LICENSE
+License file: node_modules/d3-fetch/LICENSE
 
 Copyright 2016-2021 Mike Bostock
 
@@ -1715,7 +1715,7 @@ THIS SOFTWARE.
 
 ## d3-force 3.0.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-force\LICENSE
+License file: node_modules/d3-force/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1733,7 +1733,7 @@ THIS SOFTWARE.
 
 ## d3-format 3.1.2
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-format\LICENSE
+License file: node_modules/d3-format/LICENSE
 
 Copyright 2010-2026 Mike Bostock
 
@@ -1751,7 +1751,7 @@ THIS SOFTWARE.
 
 ## d3-geo 3.1.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-geo\LICENSE
+License file: node_modules/d3-geo/LICENSE
 
 Copyright 2010-2024 Mike Bostock
 
@@ -1790,7 +1790,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## d3-hierarchy 3.1.2
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-hierarchy\LICENSE
+License file: node_modules/d3-hierarchy/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1808,7 +1808,7 @@ THIS SOFTWARE.
 
 ## d3-interpolate 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-interpolate\LICENSE
+License file: node_modules/d3-interpolate/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1826,7 +1826,7 @@ THIS SOFTWARE.
 
 ## d3-path 1.0.9
 SPDX: BSD-3-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-sankey\node_modules\d3-path\LICENSE
+License file: node_modules/d3-sankey/node_modules/d3-path/LICENSE
 
 Copyright 2015-2016 Mike Bostock
 All rights reserved.
@@ -1858,7 +1858,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## d3-path 3.1.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-path\LICENSE
+License file: node_modules/d3-path/LICENSE
 
 Copyright 2015-2022 Mike Bostock
 
@@ -1876,7 +1876,7 @@ THIS SOFTWARE.
 
 ## d3-polygon 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-polygon\LICENSE
+License file: node_modules/d3-polygon/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1894,7 +1894,7 @@ THIS SOFTWARE.
 
 ## d3-quadtree 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-quadtree\LICENSE
+License file: node_modules/d3-quadtree/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1912,7 +1912,7 @@ THIS SOFTWARE.
 
 ## d3-random 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-random\LICENSE
+License file: node_modules/d3-random/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -1930,7 +1930,7 @@ THIS SOFTWARE.
 
 ## d3-sankey 0.12.3
 SPDX: BSD-3-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-sankey\LICENSE
+License file: node_modules/d3-sankey/LICENSE
 
 Copyright 2015, Mike Bostock
 All rights reserved.
@@ -1962,7 +1962,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## d3-scale-chromatic 3.1.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-scale-chromatic\LICENSE
+License file: node_modules/d3-scale-chromatic/LICENSE
 
 Copyright 2010-2024 Mike Bostock
 
@@ -1995,7 +1995,7 @@ specific language governing permissions and limitations under the License.
 
 ## d3-scale 4.0.2
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-scale\LICENSE
+License file: node_modules/d3-scale/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -2013,7 +2013,7 @@ THIS SOFTWARE.
 
 ## d3-selection 3.0.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-selection\LICENSE
+License file: node_modules/d3-selection/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -2031,7 +2031,7 @@ THIS SOFTWARE.
 
 ## d3-shape 1.3.7
 SPDX: BSD-3-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-sankey\node_modules\d3-shape\LICENSE
+License file: node_modules/d3-sankey/node_modules/d3-shape/LICENSE
 
 Copyright 2010-2015 Mike Bostock
 All rights reserved.
@@ -2063,7 +2063,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## d3-shape 3.2.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-shape\LICENSE
+License file: node_modules/d3-shape/LICENSE
 
 Copyright 2010-2022 Mike Bostock
 
@@ -2081,7 +2081,7 @@ THIS SOFTWARE.
 
 ## d3-time-format 4.1.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-time-format\LICENSE
+License file: node_modules/d3-time-format/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -2099,7 +2099,7 @@ THIS SOFTWARE.
 
 ## d3-time 3.1.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-time\LICENSE
+License file: node_modules/d3-time/LICENSE
 
 Copyright 2010-2022 Mike Bostock
 
@@ -2117,7 +2117,7 @@ THIS SOFTWARE.
 
 ## d3-timer 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-timer\LICENSE
+License file: node_modules/d3-timer/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -2135,7 +2135,7 @@ THIS SOFTWARE.
 
 ## d3-transition 3.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-transition\LICENSE
+License file: node_modules/d3-transition/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -2153,7 +2153,7 @@ THIS SOFTWARE.
 
 ## d3-zoom 3.0.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-zoom\LICENSE
+License file: node_modules/d3-zoom/LICENSE
 
 Copyright 2010-2021 Mike Bostock
 
@@ -2171,7 +2171,7 @@ THIS SOFTWARE.
 
 ## d3 7.9.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3\LICENSE
+License file: node_modules/d3/LICENSE
 
 Copyright 2010-2023 Mike Bostock
 
@@ -2189,7 +2189,7 @@ THIS SOFTWARE.
 
 ## dagre-d3-es 7.0.14
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\dagre-d3-es\LICENSE.md
+License file: node_modules/dagre-d3-es/LICENSE.md
 
 Original dagre-d3 copyright: Copyright (c) 2013 Chris Pettitt
 Original dagre copyright: Copyright (c) 2012-2014 Chris Pettitt
@@ -2217,7 +2217,7 @@ THE SOFTWARE.
 
 ## dayjs 1.11.23
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\dayjs\LICENSE
+License file: node_modules/dayjs/LICENSE
 
 MIT License
 
@@ -2243,7 +2243,7 @@ SOFTWARE.
 
 ## delaunator 5.1.0
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\delaunator\LICENSE
+License file: node_modules/delaunator/LICENSE
 
 ISC License
 
@@ -2263,7 +2263,7 @@ THIS SOFTWARE.
 
 ## dompurify 3.4.14
 SPDX: (MPL-2.0 OR Apache-2.0)
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\dompurify\LICENSE
+License file: node_modules/dompurify/LICENSE
 
 Apache License
                            Version 2.0, January 2004
@@ -2469,7 +2469,7 @@ Apache License
 
 ## entities 8.0.0
 SPDX: BSD-2-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\entities\LICENSE
+License file: node_modules/entities/LICENSE
 
 Copyright (c) Felix Böhm
 All rights reserved.
@@ -2485,7 +2485,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## es-toolkit 1.51.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\es-toolkit\LICENSE
+License file: node_modules/es-toolkit/LICENSE
 
 MIT License
 
@@ -2511,7 +2511,7 @@ SOFTWARE.
 
 ## fastdom 1.0.12
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\fastdom\README.md (README fallback)
+License file: node_modules/fastdom/README.md (README fallback)
 
 # fastdom [![Twitter Follow](https://img.shields.io/twitter/follow/wilsonpage?style=social)](https://twitter.com/wilsonpage)
 
@@ -2737,7 +2737,7 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## hachure-fill 0.5.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\hachure-fill\LICENSE
+License file: node_modules/hachure-fill/LICENSE
 
 MIT License
 
@@ -2763,7 +2763,7 @@ SOFTWARE.
 
 ## iconv-lite 0.6.3
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\iconv-lite\LICENSE
+License file: node_modules/iconv-lite/LICENSE
 
 Copyright (c) 2011 Alexander Shtuchkin
 
@@ -2788,7 +2788,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## import-meta-resolve 4.2.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\import-meta-resolve\license
+License file: node_modules/import-meta-resolve/license
 
 (The MIT License)
 
@@ -2867,7 +2867,7 @@ IN THE SOFTWARE.
 
 ## internmap 1.0.1
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\d3-sankey\node_modules\internmap\LICENSE
+License file: node_modules/d3-sankey/node_modules/internmap/LICENSE
 
 Copyright 2021 Mike Bostock
 
@@ -2885,7 +2885,7 @@ THIS SOFTWARE.
 
 ## internmap 2.0.3
 SPDX: ISC
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\internmap\LICENSE
+License file: node_modules/internmap/LICENSE
 
 Copyright 2021 Mike Bostock
 
@@ -2903,7 +2903,7 @@ THIS SOFTWARE.
 
 ## katex 0.16.47
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\katex\LICENSE
+License file: node_modules/katex/LICENSE
 
 The MIT License (MIT)
 
@@ -2929,7 +2929,7 @@ SOFTWARE.
 
 ## khroma 2.1.0
 SPDX: UNKNOWN
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\khroma\license
+License file: node_modules/khroma/license
 
 The MIT License (MIT)
 
@@ -2955,7 +2955,7 @@ DEALINGS IN THE SOFTWARE.
 
 ## layout-base 1.0.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\layout-base\LICENSE
+License file: node_modules/layout-base/LICENSE
 
 MIT License
 
@@ -2981,7 +2981,7 @@ SOFTWARE.
 
 ## layout-base 2.0.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\cytoscape-fcose\node_modules\layout-base\LICENSE
+License file: node_modules/cytoscape-fcose/node_modules/layout-base/LICENSE
 
 MIT License
 
@@ -3007,7 +3007,7 @@ SOFTWARE.
 
 ## linkify-it 6.1.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\linkify-it\LICENSE
+License file: node_modules/linkify-it/LICENSE
 
 Copyright (c) 2015 Vitaly Puzrin.
 
@@ -3034,7 +3034,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ## lodash-es 4.18.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\lodash-es\LICENSE
+License file: node_modules/lodash-es/LICENSE
 
 Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
 
@@ -3086,7 +3086,7 @@ terms above.
 
 ## markdown-it 15.0.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\markdown-it\LICENSE
+License file: node_modules/markdown-it/LICENSE
 
 Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin.
 
@@ -3113,7 +3113,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ## marked 16.4.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\marked\LICENSE.md
+License file: node_modules/marked/LICENSE.md
 
 # License information
 
@@ -3162,7 +3162,7 @@ This software is provided by the copyright holders and contributors “as is” 
 
 ## mdurl 2.1.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\mdurl\LICENSE
+License file: node_modules/mdurl/LICENSE
 
 Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin.
 
@@ -3212,7 +3212,7 @@ IN THE SOFTWARE.
 
 ## mermaid 11.17.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\mermaid\LICENSE
+License file: node_modules/mermaid/LICENSE
 
 The MIT License (MIT)
 
@@ -3238,7 +3238,7 @@ SOFTWARE.
 
 ## package-manager-detector 1.8.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\package-manager-detector\LICENSE
+License file: node_modules/package-manager-detector/LICENSE
 
 MIT License
 
@@ -3264,7 +3264,7 @@ SOFTWARE.
 
 ## path-data-parser 0.1.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\path-data-parser\LICENSE
+License file: node_modules/path-data-parser/LICENSE
 
 MIT License
 
@@ -3290,7 +3290,7 @@ SOFTWARE.
 
 ## points-on-curve 0.2.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\points-on-curve\LICENSE
+License file: node_modules/points-on-curve/LICENSE
 
 MIT License
 
@@ -3316,7 +3316,7 @@ SOFTWARE.
 
 ## points-on-path 0.2.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\points-on-path\LICENSE
+License file: node_modules/points-on-path/LICENSE
 
 MIT License
 
@@ -3342,7 +3342,7 @@ SOFTWARE.
 
 ## punycode.js 2.3.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\punycode.js\README.md (README fallback)
+License file: node_modules/punycode.js/README.md (README fallback)
 
 # Punycode.js [![punycode on npm](https://img.shields.io/npm/v/punycode)](https://www.npmjs.com/package/punycode) [![](https://data.jsdelivr.com/v1/package/npm/punycode/badge)](https://www.jsdelivr.com/package/npm/punycode)
 
@@ -3495,7 +3495,7 @@ Punycode.js is available under the [MIT](https://mths.be/mit) license.
 
 ## robust-predicates 3.0.3
 SPDX: Unlicense
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\robust-predicates\LICENSE
+License file: node_modules/robust-predicates/LICENSE
 
 This is free and unencumbered software released into the public domain.
 
@@ -3524,7 +3524,7 @@ For more information, please refer to <http://unlicense.org>
 
 ## roughjs 4.6.6
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\roughjs\LICENSE
+License file: node_modules/roughjs/LICENSE
 
 MIT License
 
@@ -3550,7 +3550,7 @@ SOFTWARE.
 
 ## rw 1.3.3
 SPDX: BSD-3-Clause
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\rw\LICENSE
+License file: node_modules/rw/LICENSE
 
 Copyright (c) 2014-2016, Michael Bostock
 All rights reserved.
@@ -3581,7 +3581,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## safer-buffer 2.1.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\safer-buffer\LICENSE
+License file: node_modules/safer-buffer/LICENSE
 
 MIT License
 
@@ -3607,7 +3607,7 @@ SOFTWARE.
 
 ## strictdom 1.0.1
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\strictdom\README.md (README fallback)
+License file: node_modules/strictdom/README.md (README fallback)
 
 # strictdom [![Build Status](https://travis-ci.org/wilsonpage/strictdom.svg?branch=master)](https://travis-ci.org/wilsonpage/strictdom)
 
@@ -3721,7 +3721,7 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## stylis 4.4.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\stylis\LICENSE
+License file: node_modules/stylis/LICENSE
 
 MIT License
 
@@ -3747,7 +3747,7 @@ SOFTWARE.
 
 ## tinyexec 1.3.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\tinyexec\LICENSE
+License file: node_modules/tinyexec/LICENSE
 
 MIT License
 
@@ -3773,7 +3773,7 @@ SOFTWARE.
 
 ## ts-dedent 2.3.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\ts-dedent\LICENSE
+License file: node_modules/ts-dedent/LICENSE
 
 MIT License
 
@@ -3799,7 +3799,7 @@ SOFTWARE.
 
 ## uc.micro 3.0.0
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\uc.micro\LICENSE.txt
+License file: node_modules/uc.micro/LICENSE.txt
 
 Copyright Mathias Bynens <https://mathiasbynens.be/>
 
@@ -3824,7 +3824,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## uuid 14.0.2
 SPDX: MIT
-License file: C:\Research\AgentDevelopor\READER\web\md-viewer\node_modules\uuid\LICENSE.md
+License file: node_modules/uuid/LICENSE.md
 
 The MIT License (MIT)
 

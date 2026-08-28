@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -92,6 +93,20 @@ def test_notices_cover_every_production_dependency_tree_entry():
     for item in sorted(expected):
         assert item in notice
 
+    source_notice = (WEB / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
+    bundled_notice = (ROOT / "assets" / "md-viewer" / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
+    assert source_notice == bundled_notice
+    for content in (source_notice, bundled_notice):
+        assert str(ROOT) not in content
+        assert ROOT.as_posix() not in content
+        for line in content.splitlines():
+            if not line.startswith("License file: "):
+                continue
+            path_value = line.removeprefix("License file: ")
+            assert "\\" not in path_value
+            assert not re.search(r"^[A-Za-z]:/", path_value)
+            assert path_value.startswith("node_modules/")
+
 
 def test_committed_md_bundle_manifest_matches_bytes():
     bundle = ROOT / "assets" / "md-viewer"
@@ -115,6 +130,30 @@ def test_notices_script_uses_internal_tree_walker():
     assert "license-checker-rseidelsohn" not in script
     assert "npm ls --omit=dev --all --json" in script
     assert "Missing license text" in script
+
+
+def test_notice_path_label_is_stable_across_roots():
+    result = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            (
+                "import { toPackageRelativeLabel } from './scripts/generate-notices.mjs'; "
+                "const a = toPackageRelativeLabel('C:/repo/web/md-viewer', 'C:/repo/web/md-viewer/node_modules/pkg', 'LICENSE'); "
+                "const b = toPackageRelativeLabel('D:/other/web/md-viewer', 'D:/other/web/md-viewer/node_modules/pkg', 'LICENSE'); "
+                "console.log(JSON.stringify({ a, b }));"
+            ),
+        ],
+        cwd=WEB,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    labels = json.loads(result.stdout)
+    assert labels == {"a": "node_modules/pkg/LICENSE", "b": "node_modules/pkg/LICENSE"}
 
 
 def test_manifest_script_is_wired_into_build():

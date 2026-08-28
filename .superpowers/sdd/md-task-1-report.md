@@ -121,3 +121,32 @@ git diff --check
 
 ### Controller 关闭说明
 - `2026-08-28`：controller 已使用 repository owner 凭证将 HEAD `e403337` 推送到 `origin/main`，上述 push 权限 concern 已关闭。
+
+---
+
+## Reviewer Important 修复追加（notice 路径确定性）
+
+### 修复内容
+- 修复 `web/md-viewer/scripts/generate-notices.mjs`：`License file:` 从本机绝对路径改为稳定 `node_modules/...` POSIX 相对路径（package-relative），不再写入 checkout 绝对根路径。
+- 新增可测函数 `toPackageRelativeLabel()`，并将脚本入口改为 `main()` + `if (...)` 触发，支持无副作用导入测试。
+
+### 新增/更新测试
+- 扩展 `tests/test_md_web_assets.py`：
+  - 断言 source/bundle notices 不包含 `ROOT` 绝对路径（Windows/posix 形式）。
+  - 断言 `License file:` 行不包含 Windows drive pattern 与反斜杠，并以 `node_modules/` 开头。
+  - 新增 `test_notice_path_label_is_stable_across_roots`，验证不同模拟根路径下 label 一致为 `node_modules/pkg/LICENSE`。
+- 当前该测试文件结果：`7 passed`。
+
+### 本轮验证命令与结果
+```powershell
+npm test
+npm run typecheck
+npm run build
+.venv\Scripts\python.exe -m pytest tests\test_md_web_assets.py -v
+git diff --check
+```
+- `npm test`：通过（Vitest `1 passed`）
+- `npm run typecheck`：通过
+- `npm run build`：通过（`typecheck -> vite build -> notices -> manifest`）
+- `pytest tests/test_md_web_assets.py -v`：`7 passed`
+- `git diff --check`：通过（仅 CRLF 警告）
