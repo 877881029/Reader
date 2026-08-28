@@ -157,6 +157,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 
+## 阻塞项
+
+- 2026-08-28 Markdown Task 4 同步受阻：`git push origin main` 返回 `403 Permission denied to runqyang_amdeng`；`user-Git_Operation.git_push` 同时返回 `Pushing is blocked on protected branch 'main'`。当前本地 `main` 比 `origin/main` 超前 1 个提交，待 repository owner 凭证/策略放行后重试推送。
+
 ## 接手检查清单
 
 1. 读本文件与当前规格/计划  
