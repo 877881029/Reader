@@ -13,7 +13,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 **Markdown 视觉预览：主题、离线 Mermaid、同目录双链开新标签**
 
-- 规格：`docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`（用户批准方案 A，待用户审阅成文规格后写计划）
+- 规格：`docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`（用户已批准）
+- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务，已完成并自审）
 - 方案：专用 `MarkdownVisualView` + 本地 Vite bundle（`markdown-it` + 官方 `mermaid`）；Python HTML 仅作启动失败回退
 - 首期：浅色技术文档主题、完整官方 Mermaid 离线渲染、`[[wikilink]]` 在 Reader 中打开同目录 `.md`
 - 禁止文档出站网络；`file:` 仅允许源目录与 viewer bundle
@@ -117,9 +118,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户审阅 `docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`
-2. 规格确认后编写 TDD 实施计划并推送
-3. 按任务实现、回归、重建冻结 Reader
+1. 选择 Subagent-Driven 或 Inline Execution 执行方式
+2. 按 8 个 TDD 任务实现，每个任务更新 STATUS、提交并推送
+3. 全量回归、重建冻结 Reader 并刷新桌面快捷方式
 
 ## 接手检查清单
 

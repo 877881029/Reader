@@ -99,15 +99,16 @@ Syntax:
 
 Resolution, in order, all under the source file’s parent directory only:
 
-1. Exact `stem` if it already has `.md` / `.markdown`.
-2. `stem.md`, then `stem.markdown`.
+1. Reject empty targets, absolute paths, `..`, and targets containing `/` or
+   `\`; wiki links are intentionally same-directory only.
+2. Exact `stem` if it already has `.md`; otherwise `stem.md`.
 3. Otherwise unresolved.
 
 Click:
 
 - Resolved path: `MainWindow.open_paths`; existing tab with that path is focused (`decide_open`).
 - Unresolved: no navigation; optional status `找不到：{stem}`.
-- Non-Markdown resolved names are not created by this resolver (only `.md` / `.markdown`).
+- Non-Markdown resolved names are not created by this resolver (only `.md`).
 
 ### 6.4 Images and other Markdown
 
