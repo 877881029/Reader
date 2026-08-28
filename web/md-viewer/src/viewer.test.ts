@@ -85,7 +85,7 @@ describe("startViewer", () => {
     resolved?.click();
     expect(bridge.openWiki).toHaveBeenCalledWith("linked-note");
     missing?.click();
-    expect(bridge.openWiki).not.toHaveBeenCalledWith("missing");
+    expect(bridge.openWiki).toHaveBeenCalledWith("missing");
     expect(bridge.viewerReady).toHaveBeenCalledTimes(1);
 
     controller.destroy();
@@ -203,7 +203,7 @@ describe("startViewer", () => {
     const missing = root.querySelector<HTMLAnchorElement>('a[data-wiki-target="missing"]');
     expect(missing?.classList.contains("is-missing")).toBe(true);
     missing?.click();
-    expect(bridge.openWiki).not.toHaveBeenCalled();
+    expect(bridge.openWiki).toHaveBeenCalledWith("missing");
 
     const lateCallback = callback;
     expect(lateCallback).not.toBeNull();
@@ -216,7 +216,7 @@ describe("startViewer", () => {
     expect(missing?.classList.contains("is-missing")).toBe(true);
     expect(missing?.classList.contains("is-resolved")).toBe(false);
     missing?.click();
-    expect(bridge.openWiki).not.toHaveBeenCalled();
+    expect(bridge.openWiki).toHaveBeenCalledWith("missing");
 
     controller.destroy();
   });

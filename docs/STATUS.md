@@ -14,7 +14,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 **Markdown 视觉预览：主题、离线 Mermaid、同目录双链开新标签**
 
 - 规格：`docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`（用户已批准）
-- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务，Task 1 已完成）
+- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务，Task 1-7 已完成）
 - 方案：专用 `MarkdownVisualView` + 本地 Vite bundle（`markdown-it` + 官方 `mermaid`）；Python HTML 仅作启动失败回退
 - 首期：浅色技术文档主题、完整官方 Mermaid 离线渲染、`[[wikilink]]` 在 Reader 中打开同目录 `.md`
 - 禁止文档出站网络；`file:` 仅允许源目录与 viewer bundle
@@ -162,10 +162,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 6：visual 可选信号接线扩展到 `open_path` / `missing_link`，统一记录在 `visual_connections` 并复用 generation/document/widget/layout guard；resolved wikilink 通过 `open_paths([path])` 打开/复用标签页，missing 仅更新状态 `找不到：{target}`
 - Markdown Visual Preview Task 6：`_visual_ready` 仅在 `kind="pptx"` 时写入 `append_visual_ready`；Markdown ready 不写 PPTX telemetry
 - Markdown Visual Preview Task 6 验证：Task6 聚焦 RED `5 failed, 1 passed` -> GREEN `6 passed`；窗口全量 `99 passed`；`tests/test_md_view.py` `23 passed`；Python 全量 `304 passed, 1 skipped`
+- Markdown Visual Preview Task 7：新增真实夹具 `tests/fixtures/md/visual-document.md`（heading/table/python/valid+invalid Mermaid/relative image/resolved+missing wikilink/remote probes）、`linked-note.md` 与真实 PNG `diagram.png`，并新增 `tests/test_md_webengine.py` 基于真实 `assets/md-viewer` + `MarkdownVisualView` 验证 Chromium fidelity
+- Markdown Visual Preview Task 7（严格 TDD）：RED `python -m pytest tests/test_md_webengine.py -v` 为 `1 failed, 1 passed`（missing wiki click 未触发 `missing_link`）；先补 web 单测回归 RED `npm test -- src/viewer.test.ts` 为 `2 failed, 5 passed`，最小修复 `startViewer` 始终透传 wiki click 到 `openWiki`，GREEN 后 `src/viewer.test.ts` `7 passed`、Task7 真实 WebEngine `2 passed`
+- Markdown Visual Preview Task 7（网络阻断与生命周期）：测试在注入前断言 `blocked_urls()==()`，临时开启 `LocalContentCanAccessRemoteUrls` 后注入 HTTP/HTTPS/WS/WSS，断言拦截器精确记录并阻断 4 项；所有真实 QWebEngine 用例统一严格 timeout + `finally shutdown()` 并等待 profile invalid，避免残留进程
+- Markdown Visual Preview Task 7 验证：`npm test` `21 passed`；`tests/test_md_view.py` `23 passed`；`tests/test_pptx_webengine.py` `3 passed`；Python 全量 `306 passed, 1 skipped`
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 7（真实 QWebEngine 集成与冻结链路回归）
+1. 继续 Markdown Visual Preview Task 8（打包链路与 frozen 端 md-viewer 资产校验）
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 

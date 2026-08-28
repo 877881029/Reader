@@ -81,7 +81,6 @@ export async function startViewer(
   const wikiChecks = wikiLinks.map(
     ({ element, target }) =>
       new Promise<void>((resolve) => {
-        let allowedToOpen = false;
         let settled = false;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -108,7 +107,6 @@ export async function startViewer(
             resolveOnce();
             return;
           }
-          allowedToOpen = exists;
           element.classList.remove("is-pending");
           element.classList.toggle("is-resolved", exists);
           element.classList.toggle("is-missing", !exists);
@@ -117,9 +115,10 @@ export async function startViewer(
 
         const onClick = (event: MouseEvent) => {
           event.preventDefault();
-          if (active && allowedToOpen) {
-            bridge.openWiki(target);
+          if (!active) {
+            return;
           }
+          bridge.openWiki(target);
         };
         element.addEventListener("click", onClick);
         cleanup.push(() => element.removeEventListener("click", onClick));
