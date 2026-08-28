@@ -104,7 +104,7 @@ export async function startViewer(
         pendingWikiResolvers.push(resolveOnce);
 
         const settleWikiExists = (exists: boolean) => {
-          if (!active) {
+          if (settled || !active) {
             resolveOnce();
             return;
           }

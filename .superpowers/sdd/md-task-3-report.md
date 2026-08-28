@@ -61,3 +61,31 @@
 
 ## Concerns
 - `vite build` still emits non-blocking warning for `qrc:///qtwebchannel/qwebchannel.js` bundling semantics; expected in Qt runtime injection path and does not affect pass/fail.
+
+## Reviewer Recheck Round (2 Important)
+
+### Regression RED
+- `npm test -- src/main.test.ts src/viewer.test.ts` -> `2 failed`
+- Reproduced:
+  - timeout-resolved missing wiki link could be flipped back by late `callback(true)`
+  - async `QWebChannel` callback arriving after dispose still triggered fetch
+
+### Fixes (GREEN)
+- `viewer.ts`
+  - `settleWikiExists` now short-circuits on `settled || !active` before mutating classes/permission.
+  - This keeps timeout-finalized missing state immutable against late callbacks.
+- `main.ts`
+  - Added immediate `if (disposed) return` right after bridge acquisition and before creating abort/fetch.
+  - Prevents post-dispose fetch/start/error paths when WebChannel callback is delayed.
+- `viewer.test.ts`
+  - Added fake-timer regression `timeout -> missing -> late true callback`, asserting class and click permission remain missing/blocked.
+- `main.test.ts`
+  - Added async WebChannel regression: dispose first, then callback; assert no fetch/start/error.
+
+### Recheck verification
+- Focused: `npm test -- src/main.test.ts src/viewer.test.ts` -> `15 passed`
+- Full web: `npm test` -> `21 passed`
+- Typecheck: `npm run typecheck` -> pass
+- Build: `npm run build` -> pass
+- Python assets: `python -m pytest tests/test_md_web_assets.py -v` -> `7 passed`
+- Diff hygiene: `git diff --check` -> pass (CRLF warnings only)

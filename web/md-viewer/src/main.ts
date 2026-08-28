@@ -64,6 +64,9 @@ async function bootstrap(): Promise<void> {
       resolve(channel.objects.bridge);
     });
   });
+  if (disposed) {
+    return;
+  }
 
   try {
     abortController = new AbortController();

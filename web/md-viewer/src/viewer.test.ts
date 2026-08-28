@@ -185,6 +185,42 @@ describe("startViewer", () => {
     controller.destroy();
   });
 
+  it("keeps missing state after timeout when late callback returns true", async () => {
+    vi.useFakeTimers();
+    const root = document.createElement("div");
+    let callback: ((exists: boolean) => void) | null = null;
+    const bridge = createBridge({
+      wikiExists: vi.fn((_target: string, cb: (exists: boolean) => void) => {
+        callback = cb;
+      }),
+    });
+
+    const controllerPromise = startViewer(root, "[[missing]]", bridge.sourceUrl, bridge);
+    mermaidGate.release();
+    await vi.advanceTimersByTimeAsync(2000);
+    const controller = await controllerPromise;
+
+    const missing = root.querySelector<HTMLAnchorElement>('a[data-wiki-target="missing"]');
+    expect(missing?.classList.contains("is-missing")).toBe(true);
+    missing?.click();
+    expect(bridge.openWiki).not.toHaveBeenCalled();
+
+    const lateCallback = callback;
+    expect(lateCallback).not.toBeNull();
+    if (!lateCallback) {
+      throw new Error("missing wiki callback");
+    }
+    (lateCallback as (exists: boolean) => void)(true);
+    await vi.advanceTimersByTimeAsync(10);
+
+    expect(missing?.classList.contains("is-missing")).toBe(true);
+    expect(missing?.classList.contains("is-resolved")).toBe(false);
+    missing?.click();
+    expect(bridge.openWiki).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
   it("clears wiki timeout on destroy and ignores late callbacks", async () => {
     vi.useFakeTimers();
     const root = document.createElement("div");

@@ -142,6 +142,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 3（审查修复 Minor）：移除不完整 `src/type-fest.d.ts` ambient shim，按 `npm view` 结果安装 Node18 兼容且 exact 的 `type-fest@4.41.0` devDependency，并通过 `npm ci`
 - Markdown Visual Preview Task 3（审查修复 Minor）：清理 `.superpowers/sdd/md-task-3-report.md` 重复正文，保留单份原始 RED/GREEN 并追加本轮修复记录
 - Markdown Visual Preview Task 3 审查验证：RED `npm test -- src/main.test.ts src/viewer.test.ts` 复现 `7 failed`（late error/wiki hang/listener 泄漏）；GREEN 后同命令 `13 passed`；全量 Web `npm test`（`19 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）、`git diff --check` 通过
+- Markdown Visual Preview Task 3（复审 Important）：`viewer.ts` 的 `settleWikiExists` 入口先检查 `settled/active`，保证 2s timeout 收敛 missing 后任何 late callback 都 no-op，不再把 DOM 状态或 click 权限改回 resolved/open
+- Markdown Visual Preview Task 3（复审 Important）：`main.ts` 在 WebChannel bridge 返回后、创建 AbortController/fetch 前立即做 `if (disposed) return`，避免 dispose 先发生时仍触发 fetch/start 或误上报错误
+- Markdown Visual Preview Task 3（复审验证）：新增回归 `timeout -> missing -> late true callback` 与 `dispose before async QWebChannel callback`；RED `npm test -- src/main.test.ts src/viewer.test.ts` 复现 `2 failed`，GREEN 后同命令 `15 passed`；全量 Web `npm test`（`21 passed`）、`npm run typecheck`、`npm run build`、Python `tests/test_md_web_assets.py`（`7 passed`）与 `git diff --check` 通过
 
 ## 下一步
 

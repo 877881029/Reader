@@ -181,4 +181,38 @@ describe("main bootstrap", () => {
     expect(removeListenerSpy.mock.calls.filter(([name]) => name === "pagehide")).toHaveLength(2);
     expect(removeListenerSpy.mock.calls.filter(([name]) => name === "beforeunload")).toHaveLength(2);
   });
+
+  it("ignores async webchannel callback after dispose", async () => {
+    const transport = {};
+    const bridge = createBridge("file:///C:/docs/late.md");
+    let resolveChannel: (() => void) | null = null;
+    (window as typeof window & { qt?: { webChannelTransport?: unknown } }).qt = {
+      webChannelTransport: transport,
+    };
+    class DelayedQWebChannelStub {
+      constructor(
+        _transport: unknown,
+        callback: (channel: { objects: { bridge: BridgeStub } }) => void,
+      ) {
+        resolveChannel = () => callback({ objects: { bridge } });
+      }
+    }
+    (window as typeof window & { QWebChannel?: unknown }).QWebChannel =
+      DelayedQWebChannelStub as unknown as typeof window.QWebChannel;
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    startViewerMock.mockResolvedValue({ destroy: vi.fn() });
+
+    await import("./main");
+    window.readerMdDispose?.();
+    if (resolveChannel) {
+      (resolveChannel as () => void)();
+    }
+    await Promise.resolve();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(startViewerMock).not.toHaveBeenCalled();
+    expect(bridge.viewerError).not.toHaveBeenCalled();
+  });
 });
