@@ -87,3 +87,7 @@ npm test -- src/viewer.test.ts
 - `python -m pytest tests/test_md_view.py -v` -> `23 passed`
 - `python -m pytest tests/test_pptx_webengine.py -v` -> `3 passed`
 - `python -m pytest -v` -> `306 passed, 1 skipped`
+
+## 同步状态
+
+- controller 已成功 owner push `HEAD`（`4b74767`），Task 7 同步阻塞已关闭。
