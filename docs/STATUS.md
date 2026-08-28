@@ -123,7 +123,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 1（审查修复）：新增无第三方许可工具的 production-tree notice walker（`npm ls --omit=dev --all --json` + lock 路径映射 + 缺失 license text fail-fast）并保留确定性排序
 - Markdown Visual Preview Task 1（审查修复）：新增 `generate-manifest.mjs`，`npm run build` 顺序固定为 `vite build -> notices -> manifest`；clean 删除 `assets/md-viewer` 后可自动恢复 `index/assets/THIRD_PARTY_NOTICES/manifest`
 - Markdown Visual Preview Task 1（审查修复）：`tests/test_md_web_assets.py` 扩展到 6 项，锁定 lock 根元数据、Node18 兼容 devDependency 基线、manifest 脚本接线与 opt-in clean build 恢复校验，当前 `6 passed`
-- Markdown Visual Preview Task 1（审查修复）：已切换 repo owner 凭证路径执行同步，`origin/main` 推送恢复
+
+## 阻塞项
+
+- `2026-08-28`：Task 1 审查修复已本地提交（`8be7064`、`22515cd`），但 `git push origin main` 仍返回 `403 Permission denied to runqyang_amdeng`；需要先切换到仓库 owner 凭证后重试推送。
 
 ## 下一步
 

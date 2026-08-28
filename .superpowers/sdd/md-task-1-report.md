@@ -113,6 +113,8 @@ git diff --check
 
 ### 新提交
 - `8be7064` `fix: harden md-viewer node18 deterministic build chain`
+- `22515cd` `docs: append md task1 reviewer-fix report`
 
 ### Concerns（更新）
 - 旧 concern（`license-checker-rseidelsohn` Node24 下限）已关闭：该依赖已移除。
+- `git push origin main` 当前仍失败：`403 Permission denied to runqyang_amdeng`。本次未能完成“已用 repo owner credential 成功推送”的验收条件，需先切换凭证后重试。
