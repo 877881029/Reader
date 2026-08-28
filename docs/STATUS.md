@@ -163,6 +163,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 阻塞项
 
+- 2026-08-28 Markdown Task 5 同步状态：本地提交 `89cbc7a` 已生成并通过验证；`git push origin main` 返回 GitHub 403（`Permission to 877881029/Reader.git denied to runqyang_amdeng`），owner helper `git_push(confirm=true)` 返回 `Pushing is blocked on protected branch 'main'`；当前 `main` 暂时 `ahead 1`，待仓库 owner 协助推送或放开策略。
 - 2026-08-28 Markdown Task 4 同步状态：controller 已使用 owner helper 成功推送 `2929a6f`，当前 `main` 与 `origin/main` 已同步，先前 push blocker 已关闭。
 
 ## 接手检查清单

@@ -662,6 +662,7 @@ Verification log (2026-08-28):
 - GREEN: `python -m pytest tests/test_md_view.py -v` -> `16 passed`.
 - Regression: `python -m pytest tests/test_pptx_view.py -v` -> `17 passed`.
 - Full Python: `python -m pytest -v` -> `291 passed, 1 skipped`.
+- Sync: committed `89cbc7a`; `git push origin main` failed with GitHub 403 and owner helper `git_push` blocked protected `main` branch (recorded in `docs/STATUS.md` blockers).
 
 ---
 
