@@ -118,3 +118,6 @@ git diff --check
 ### Concerns（更新）
 - 旧 concern（`license-checker-rseidelsohn` Node24 下限）已关闭：该依赖已移除。
 - `git push origin main` 当前仍失败：`403 Permission denied to runqyang_amdeng`。本次未能完成“已用 repo owner credential 成功推送”的验收条件，需先切换凭证后重试。
+
+### Controller 关闭说明
+- `2026-08-28`：controller 已使用 repository owner 凭证将 HEAD `e403337` 推送到 `origin/main`，上述 push 权限 concern 已关闭。
