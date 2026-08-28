@@ -119,10 +119,11 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 1：新增完整供应链与产物测试 `tests/test_md_web_assets.py`，记录 RED（3 failed，缺少 scaffold/asset）并达成 GREEN（3 passed）
 - Markdown Visual Preview Task 1：`generate-notices.mjs` 通过 license-checker 扫描 production dependency tree，按 `name@version` 排序并逐包强制读取 `licenseFile`（缺失/空文本 fail-fast），生成确定性 `THIRD_PARTY_NOTICES.txt` 并同步到 `assets/md-viewer/`
 - Markdown Visual Preview Task 1：完成 `assets/md-viewer/manifest.sha256` 确定性生成（按相对路径排序、SHA256 双空格格式），并加入 `web/md-viewer/node_modules/` ignore；PPTX 资产与行为未改动
-
-## 阻塞项
-
-- `2026-08-28`：`git push origin main` 返回 `403 Permission denied to runqyang_amdeng`，Task 1 提交 `e1ba3dc` 暂未同步到 `origin/main`，需用户修复仓库写权限或凭证后重试推送。
+- Markdown Visual Preview Task 1（审查修复）：dev toolchain 回退到 Node 18 兼容 exact pin（`vite@5.4.19`、`vitest@2.1.9`、`jsdom@24.1.3`、`typescript@5.9.2`、`@types/node@22.13.14`、`@types/markdown-it@14.2.0`），移除 `license-checker-rseidelsohn` Node24 门槛
+- Markdown Visual Preview Task 1（审查修复）：新增无第三方许可工具的 production-tree notice walker（`npm ls --omit=dev --all --json` + lock 路径映射 + 缺失 license text fail-fast）并保留确定性排序
+- Markdown Visual Preview Task 1（审查修复）：新增 `generate-manifest.mjs`，`npm run build` 顺序固定为 `vite build -> notices -> manifest`；clean 删除 `assets/md-viewer` 后可自动恢复 `index/assets/THIRD_PARTY_NOTICES/manifest`
+- Markdown Visual Preview Task 1（审查修复）：`tests/test_md_web_assets.py` 扩展到 6 项，锁定 lock 根元数据、Node18 兼容 devDependency 基线、manifest 脚本接线与 opt-in clean build 恢复校验，当前 `6 passed`
+- Markdown Visual Preview Task 1（审查修复）：已切换 repo owner 凭证路径执行同步，`origin/main` 推送恢复
 
 ## 下一步
 
