@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-08-26
+最后更新：2026-08-28
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -9,9 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
 
-**PPTX 关系类型兼容修复：真实 deck 占位符页面已恢复**
+**Markdown 视觉预览：主题、离线 Mermaid、同目录双链开新标签**
+
+- 规格：`docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`（用户批准方案 A，待用户审阅成文规格后写计划）
+- 方案：专用 `MarkdownVisualView` + 本地 Vite bundle（`markdown-it` + 官方 `mermaid`）；Python HTML 仅作启动失败回退
+- 首期：浅色技术文档主题、完整官方 Mermaid 离线渲染、`[[wikilink]]` 在 Reader 中打开同目录 `.md`
+- 禁止文档出站网络；`file:` 仅允许源目录与 viewer bundle
+- PPTX 视觉预览保持不变
 
 - 规格：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md`（已批准）
 - 计划：`docs/superpowers/plans/2026-08-25-pptx-visual-preview.md`（已完成并通过计划审查，9 个 TDD 任务）
@@ -111,8 +117,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户在桌面 `Reader` 中验收 `canis_handover.pptx` 的各页视觉保真
-2. 若其他真实 PPTX 暴露独立兼容问题，继续以最小公开 fixture 复现后修复
+1. 用户审阅 `docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`
+2. 规格确认后编写 TDD 实施计划并推送
+3. 按任务实现、回归、重建冻结 Reader
 
 ## 接手检查清单
 
