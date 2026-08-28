@@ -29,4 +29,49 @@ describe("renderMarkdown", () => {
 
     expect(wikiLinks).toHaveLength(0);
   });
+
+  it("does not transform wikilinks inside markdown links", () => {
+    const { fragment, wikiLinks } = renderMarkdown(
+      "[see [[note]]](target.md)",
+      "file:///C:/docs/index.md",
+    );
+    const host = document.createElement("div");
+    host.append(fragment);
+
+    const anchors = host.querySelectorAll("a");
+    expect(wikiLinks).toHaveLength(0);
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0]?.getAttribute("href")).toBe("target.md");
+    expect(anchors[0]?.textContent).toBe("see [[note]]");
+  });
+
+  it("keeps invalid wikilink source text unchanged", () => {
+    const { fragment, wikiLinks } = renderMarkdown(
+      "[[|alias]] [[target|]]",
+      "file:///C:/docs/index.md",
+    );
+    const host = document.createElement("div");
+    host.append(fragment);
+
+    expect(wikiLinks).toHaveLength(0);
+    expect(host.textContent).toContain("[[|alias]]");
+    expect(host.textContent).toContain("[[target|]]");
+  });
+
+  it("does not rewrite absolute or special image sources", () => {
+    const { fragment } = renderMarkdown(
+      "![http](http://example.com/a.png)\n\n![data](data:image/png;base64,AAAA)\n\n![hash](#local-img)\n\n![cdn](//cdn.example.com/x.png)",
+      "file:///C:/docs/index.md",
+    );
+    const host = document.createElement("div");
+    host.append(fragment);
+
+    const sources = Array.from(host.querySelectorAll("img")).map((img) => img.getAttribute("src"));
+    expect(sources).toEqual([
+      "http://example.com/a.png",
+      "data:image/png;base64,AAAA",
+      "#local-img",
+      "//cdn.example.com/x.png",
+    ]);
+  });
 });

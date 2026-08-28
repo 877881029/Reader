@@ -9,6 +9,10 @@ const wikiClassName = "wiki-link is-pending";
 
 function createWikiLinkRule() {
   return (state: any, silent: boolean): boolean => {
+    if (state.linkLevel > 0) {
+      return false;
+    }
+
     const start = state.pos;
     if (start + 4 > state.posMax) {
       return false;
@@ -34,7 +38,7 @@ function createWikiLinkRule() {
     }
 
     if (silent) {
-      return true;
+      return false;
     }
 
     const open = state.push("link_open", "a", 1);

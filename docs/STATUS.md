@@ -130,6 +130,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 2：渲染后仅重写相对 `img[src]` 到 `new URL(..., sourceUrl).href`，保留 `data:`/绝对 URL；表格统一包裹 `.table-scroll`，代码块与行内代码中的 `[[...]]` 保持原样不转换
 - Markdown Visual Preview Task 2：新增 `web/md-viewer/src/style.css` 技术文档主题（paper/ink/accent/code 变量、表格/引用/内联代码/图片/selection/print 规则），并在 `main.ts` 挂载 `.markdown-document`
 - Markdown Visual Preview Task 2 验证：RED `npm test -- src/markdown.test.ts`（缺少 `./markdown` 导入失败）→ GREEN 同命令 `2 passed`；随后 `npm test`（`3 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）全部通过
+- Markdown Visual Preview Task 2（审查修复）：wikilink inline rule 增加链接上下文防护（`state.linkLevel > 0` 直接放弃转换），并修正 silent 解析路径，避免 `[see [[note]]](target.md)` 触发 nested anchor / `state.pos` 异常
+- Markdown Visual Preview Task 2（审查修复验证）：新增回归覆盖（普通链接内 wikilink 不转换且外层 `<a>` 结构合法、空 target/alias 保持源码、HTTP/data/hash/protocol-relative 图片不改写）；RED `npm test -- src/markdown.test.ts` 复现 `inline rule didn't increment state.pos`，GREEN 后同命令 `5 passed`；全量 `npm test`（`6 passed`）、`npm run typecheck`、`npm run build`、`python -m pytest tests/test_md_web_assets.py -v`（`7 passed`）、`git diff --check` 全部通过
 
 ## 下一步
 
