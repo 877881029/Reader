@@ -20,3 +20,4 @@ preview-cache/
 .env.*
 !.env.example
 web/pptx-viewer/node_modules/
+web/md-viewer/node_modules/

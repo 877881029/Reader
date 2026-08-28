@@ -78,7 +78,7 @@
 - Vite output is exactly `assets/md-viewer`, relative-base, empty-before-build.
 - Runtime dependencies are exact `markdown-it` and `mermaid`; dev dependencies are exact.
 
-- [ ] **Step 1: Write failing supply-chain/resource tests**
+- [x] **Step 1: Write failing supply-chain/resource tests**
 
 Create tests that require exact versions, local bootstrap, deterministic output, and complete notices:
 
@@ -109,7 +109,7 @@ def test_committed_md_bundle_manifest_matches_bytes():
     assert manifest.read_text("ascii").splitlines() == expected
 ```
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run:
 
@@ -119,7 +119,7 @@ Run:
 
 Expected: FAIL because `web/md-viewer` and `assets/md-viewer` do not exist.
 
-- [ ] **Step 3: Create package with current exact dependencies**
+- [x] **Step 3: Create package with current exact dependencies**
 
 Run from `web/md-viewer` after verifying the parent `web` directory:
 
@@ -147,7 +147,7 @@ Set:
 }
 ```
 
-- [ ] **Step 4: Add deterministic Vite and TypeScript configuration**
+- [x] **Step 4: Add deterministic Vite and TypeScript configuration**
 
 ```typescript
 // vite.config.ts
@@ -172,13 +172,13 @@ export default defineConfig({ test: { environment: "jsdom" } });
 `tsconfig.json` uses ES2022, ESNext, Bundler resolution, strict,
 `noUncheckedIndexedAccess`, DOM libs, and `vitest/globals` + `node` types.
 
-- [ ] **Step 5: Add local bootstrap**
+- [x] **Step 5: Add local bootstrap**
 
 `index.html` contains only `#app`, the qrc WebChannel script, and local
 `/src/main.ts`. Initial `main.ts` renders “Markdown viewer loading” without any
 network import.
 
-- [ ] **Step 6: Generate complete runtime notices**
+- [x] **Step 6: Generate complete runtime notices**
 
 `generate-notices.mjs` invokes the installed license checker with production
 dependencies, sorts `name@version`, reads every returned `licenseFile`, rejects
@@ -192,7 +192,7 @@ npm ls --omit=dev --all --json
 
 appears in the notice.
 
-- [ ] **Step 7: Build and generate manifest**
+- [x] **Step 7: Build and generate manifest**
 
 Run:
 
@@ -206,7 +206,7 @@ npm run build
 Generate `assets/md-viewer/manifest.sha256` with the same ordinal relative-path
 algorithm used for PPTX. Add `web/md-viewer/node_modules/` to `.gitignore`.
 
-- [ ] **Step 8: Verify GREEN and checkpoint**
+- [x] **Step 8: Verify GREEN and checkpoint**
 
 Run:
 

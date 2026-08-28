@@ -14,7 +14,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 **Markdown 视觉预览：主题、离线 Mermaid、同目录双链开新标签**
 
 - 规格：`docs/superpowers/specs/2026-08-28-markdown-visual-preview-design.md`（用户已批准）
-- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务，已完成并自审）
+- 计划：`docs/superpowers/plans/2026-08-28-markdown-visual-preview.md`（8 个 TDD 任务，Task 1 已完成）
 - 方案：专用 `MarkdownVisualView` + 本地 Vite bundle（`markdown-it` + 官方 `mermaid`）；Python HTML 仅作启动失败回退
 - 首期：浅色技术文档主题、完整官方 Mermaid 离线渲染、`[[wikilink]]` 在 Reader 中打开同目录 `.md`
 - 禁止文档出站网络；`file:` 仅允许源目录与 viewer bundle
@@ -115,12 +115,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - PPTX 关系兼容最终验证：Web `28 passed`、typecheck 通过；Python 全量 `263 passed, 1 skipped`；独立审查结论 `Approve`，无 Critical/Important
 - PPTX 关系兼容 clean build/smoke：`build_windows.ps1` exit 0；Phase A `visual-ready slides=4`，Phase B 两批各 2 文件 IPC 精确到达；source/frozen manifest SHA256 均为 `1f165ff62ea65b671d164b738fdd0f9ec599527149333400d69c0633d967e8fb`
 - 最终 `dist/Reader/Reader.exe`：`5885743 bytes`，SHA256 `c707de0bec0b5353ac0da629748804f5e08847091c5484eaa5f3add2a8932a3c`；桌面 `Reader.lnk` 已刷新并验证 target/workdir/icon
+- Markdown Visual Preview Task 1：建立 `web/md-viewer` 确定性离线 scaffold（runtime 仅 `markdown-it`/`mermaid`，全部依赖 `--save-exact`），新增 `notices/test/typecheck/build` 脚本、本地 bootstrap `index.html` 与占位 `main.ts`
+- Markdown Visual Preview Task 1：新增完整供应链与产物测试 `tests/test_md_web_assets.py`，记录 RED（3 failed，缺少 scaffold/asset）并达成 GREEN（3 passed）
+- Markdown Visual Preview Task 1：`generate-notices.mjs` 通过 license-checker 扫描 production dependency tree，按 `name@version` 排序并逐包强制读取 `licenseFile`（缺失/空文本 fail-fast），生成确定性 `THIRD_PARTY_NOTICES.txt` 并同步到 `assets/md-viewer/`
+- Markdown Visual Preview Task 1：完成 `assets/md-viewer/manifest.sha256` 确定性生成（按相对路径排序、SHA256 双空格格式），并加入 `web/md-viewer/node_modules/` ignore；PPTX 资产与行为未改动
 
 ## 下一步
 
-1. 选择 Subagent-Driven 或 Inline Execution 执行方式
-2. 按 8 个 TDD 任务实现，每个任务更新 STATUS、提交并推送
-3. 全量回归、重建冻结 Reader 并刷新桌面快捷方式
+1. 继续 Markdown Visual Preview Task 2（MarkdownIt 渲染器与安全 URL 重写）
+2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
+3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 
 ## 接手检查清单
 

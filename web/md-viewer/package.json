@@ -1,0 +1,28 @@
+{
+  "name": "reader-md-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "notices": "node scripts/generate-notices.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build && npm run notices"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.1",
+    "mermaid": "11.17.2"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "14.2.0",
+    "@types/node": "26.4.0",
+    "jsdom": "29.1.1",
+    "license-checker-rseidelsohn": "5.0.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}
