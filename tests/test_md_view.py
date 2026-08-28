@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import shiboken6
@@ -99,6 +100,52 @@ def test_resolve_wikilink_rejects_symlink_escape_when_available(tmp_path):
     assert resolve_wikilink(source, "escaped") is None
 
 
+def test_resolve_wikilink_uses_lexical_source_parent_for_symlink_source(tmp_path):
+    lexical_root = tmp_path / "lexical"
+    target_root = tmp_path / "target"
+    lexical_root.mkdir()
+    target_root.mkdir()
+    real_source = _touch(target_root / "page.md", "# real")
+    source = lexical_root / "page.md"
+    try:
+        source.symlink_to(real_source)
+    except OSError:
+        return
+    lexical_note = _touch(lexical_root / "note.md", "# local").resolve()
+    _touch(target_root / "note.md", "# target sibling")
+    outside = _touch(tmp_path / "outside.md", "# outside")
+    escaped = lexical_root / "escaped.md"
+    try:
+        escaped.symlink_to(outside)
+    except OSError:
+        pass
+
+    assert resolve_wikilink(source, "note") == lexical_note
+    assert resolve_wikilink(source, "page") is None
+    assert resolve_wikilink(source, "escaped") is None
+
+
+def test_resolve_wikilink_uses_lexical_parent_when_source_resolve_points_elsewhere(
+    tmp_path, monkeypatch
+):
+    import pathlib
+
+    source = _touch(tmp_path / "lexical" / "source.md", "# source")
+    lexical_note = _touch(source.parent / "note.md", "# lexical")
+    target_root = _touch(tmp_path / "target" / "source.md", "# target").parent
+    _touch(target_root / "note.md", "# target sibling")
+    original_resolve = pathlib.Path.resolve
+
+    def fake_resolve(path_obj: pathlib.Path, strict: bool = False):
+        if path_obj == source:
+            return target_root / "source.md"
+        return original_resolve(path_obj, strict=strict)
+
+    monkeypatch.setattr(pathlib.Path, "resolve", fake_resolve)
+
+    assert resolve_wikilink(source, "note") == lexical_note.resolve()
+
+
 def test_bridge_slot_contract_and_signal_values(tmp_path):
     source = _source(tmp_path, "bridge.md").resolve()
     resolved = _touch(source.parent / "wiki.md").resolve()
@@ -122,7 +169,7 @@ def test_bridge_slot_contract_and_signal_values(tmp_path):
     assert bridge.sourceUrl == QUrl.fromLocalFile(str(source)).toString(
         QUrl.ComponentFormattingOption.FullyEncoded
     )
-    assert opened == [str(resolved)]
+    assert opened == [os.path.normcase(os.path.realpath(str(resolved)))]
     assert missing == ["missing"]
     assert len(ready) == 1
     assert failed == ["renderer bad path C:/secret/raw.md"]
@@ -204,6 +251,99 @@ def test_interceptor_rejects_symlink_escape_from_allowed_roots(tmp_path):
 
     assert request.blocked == [True]
     assert interceptor.blocked_urls() == (request.requestUrl().toString(),)
+    interceptor.deleteLater()
+
+
+def test_interceptor_uses_lexical_source_root_for_symlink_source(tmp_path):
+    lexical_root = tmp_path / "lex-root"
+    target_root = tmp_path / "target-root"
+    bundle = tmp_path / "bundle"
+    lexical_root.mkdir()
+    target_root.mkdir()
+    bundle.mkdir()
+    real_source = _touch(target_root / "doc.md", "# real")
+    source = lexical_root / "doc.md"
+    try:
+        source.symlink_to(real_source)
+    except OSError:
+        return
+
+    lexical_child = _touch(lexical_root / "image.png")
+    target_sibling = _touch(target_root / "sibling.png")
+    interceptor = OfflineRequestInterceptor(source, bundle)
+
+    allowed = _FakeRequest(QUrl.fromLocalFile(str(real_source)).toString())
+    interceptor.interceptRequest(allowed)
+    assert allowed.blocked == []
+
+    allowed_lex = _FakeRequest(QUrl.fromLocalFile(str(lexical_child)).toString())
+    interceptor.interceptRequest(allowed_lex)
+    assert allowed_lex.blocked == []
+
+    blocked = _FakeRequest(QUrl.fromLocalFile(str(target_sibling)).toString())
+    interceptor.interceptRequest(blocked)
+    assert blocked.blocked == [True]
+    interceptor.deleteLater()
+
+
+def test_interceptor_uses_lexical_root_when_source_resolve_points_elsewhere(
+    tmp_path, monkeypatch
+):
+    import pathlib
+
+    source = _touch(tmp_path / "lexical" / "doc.md", "# source")
+    lexical_child = _touch(source.parent / "inside.png")
+    target_root = _touch(tmp_path / "target" / "doc.md", "# target").parent
+    target_sibling = _touch(target_root / "sibling.png")
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    original_resolve = pathlib.Path.resolve
+
+    def fake_resolve(path_obj: pathlib.Path, strict: bool = False):
+        if path_obj == source:
+            return target_root / "doc.md"
+        return original_resolve(path_obj, strict=strict)
+
+    monkeypatch.setattr(pathlib.Path, "resolve", fake_resolve)
+    interceptor = OfflineRequestInterceptor(source, bundle)
+
+    allowed_lex = _FakeRequest(QUrl.fromLocalFile(str(lexical_child)).toString())
+    interceptor.interceptRequest(allowed_lex)
+    assert allowed_lex.blocked == []
+
+    blocked_target = _FakeRequest(QUrl.fromLocalFile(str(target_sibling)).toString())
+    interceptor.interceptRequest(blocked_target)
+    assert blocked_target.blocked == [True]
+    interceptor.deleteLater()
+
+
+def test_interceptor_allows_qrc_data_blob_schemes(tmp_path):
+    source = _source(tmp_path, "docs/guide.md").resolve()
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    interceptor = OfflineRequestInterceptor(source, bundle)
+    for url in (
+        "qrc:/qtwebchannel/qwebchannel.js",
+        "data:text/plain,ok",
+        "blob:file:///opaque",
+    ):
+        request = _FakeRequest(url)
+        interceptor.interceptRequest(request)
+        assert request.blocked == []
+    interceptor.deleteLater()
+
+
+def test_interceptor_blocks_commonpath_prefix_collision(tmp_path):
+    source = _source(tmp_path, "docs/page.md").resolve()
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    outside_prefix = _touch(tmp_path / "docs-evil" / "steal.png")
+    interceptor = OfflineRequestInterceptor(source, bundle)
+    request = _FakeRequest(QUrl.fromLocalFile(str(outside_prefix)).toString())
+
+    interceptor.interceptRequest(request)
+
+    assert request.blocked == [True]
     interceptor.deleteLater()
 
 
@@ -297,6 +437,43 @@ def test_fallback_is_safe_and_atomic_for_load_timeout_and_bridge_error(
     )
     assert failures == ["Markdown 视觉预览不可用，请切换文本模式重试。"]
     view.shutdown()
+
+
+def test_fallback_keeps_interceptor_until_shutdown(qtbot, tmp_path, monkeypatch):
+    monkeypatch.setattr(MarkdownVisualView, "load", lambda *_args: None)
+    source = _source(tmp_path, "docs/source.md").resolve()
+    outside = _touch(tmp_path / "outside.png")
+    source_image = _touch(source.parent / "inside.png")
+    result = PreviewResult(
+        html="",
+        fallback_html=f"<img src='{outside.as_uri()}'><img src='{source_image.as_uri()}'>",
+        status_label="内置预览",
+        kind="markdown",
+    )
+    view = MarkdownVisualView(result, source)
+    qtbot.addWidget(view)
+    detach_calls: list[object | None] = []
+    monkeypatch.setattr(
+        view.profile, "setUrlRequestInterceptor", lambda value: detach_calls.append(value)
+    )
+
+    view.start()
+    view._load_finished(False)
+    assert view.is_fallback
+    assert view.interceptor is not None
+    assert detach_calls == []
+
+    blocked = _FakeRequest(QUrl.fromLocalFile(str(outside)).toString())
+    view.interceptor.interceptRequest(blocked)
+    assert blocked.blocked == [True]
+
+    allowed = _FakeRequest(QUrl.fromLocalFile(str(source_image)).toString())
+    view.interceptor.interceptRequest(allowed)
+    assert allowed.blocked == []
+
+    view.shutdown()
+    assert detach_calls == [None]
+    assert view.interceptor is None
 
 
 def test_oversized_fallback_uses_fixed_safe_text(qtbot, tmp_path, monkeypatch):

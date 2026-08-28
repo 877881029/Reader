@@ -26,3 +26,27 @@
 - 本任务严格限定在 `md_view.py` 与其测试，未改 `PptxVisualView`/公共抽象，保持 Task5 边界。
 - MainWindow 集成（`kind="markdown"` 默认 viewer factory、wiki-link 开新标签）保留到 Task 6。
 - 同步状态已关闭：controller 已使用 owner credential 成功推送 `08f5ef8`（包含 Task 5 提交 `89cbc7a`），当前 `main` 与 `origin/main` 已同步。
+
+## Reviewer Request Changes (2026-08-28)
+
+### RED
+- 先补失败用例并复现：
+  - `test_resolve_wikilink_uses_lexical_parent_when_source_resolve_points_elsewhere`
+  - `test_interceptor_uses_lexical_root_when_source_resolve_points_elsewhere`
+  - `test_fallback_keeps_interceptor_until_shutdown`
+- RED 执行：`python -m pytest tests/test_md_view.py -v`
+- RED 结果：`3 failed, 20 passed`，失败点与评审意见一致（source symlink lexical root、fallback 过早卸载 interceptor）。
+
+### GREEN
+- `src/reader/preview/md_view.py`：
+  - 新增 `_absolute_lexical_path()`；`MarkdownBridge.sourceUrl` 与 resolver/interceptor 均改为 lexical absolute source root。
+  - `resolve_wikilink()` 改为 lexical parent 解析，再以 canonical 路径做同目录约束，保持 symlink escape 拒绝。
+  - `OfflineRequestInterceptor` allowlist 改为：exact canonical source target + canonical lexical-root descendants + canonical bundle descendants。
+  - `_show_fallback()` 改为保留 interceptor（`detach_interceptor=False`），仅在 `shutdown()` detach。
+- `tests/test_md_view.py`：
+  - 补充 reviewer 指定 minor 覆盖：source target sibling 阻断、`qrc/data/blob` allow、prefix collision 阻断。
+
+### Verification
+- Task5：`python -m pytest tests/test_md_view.py -v` -> `23 passed`
+- PPTX 回归：`python -m pytest tests/test_pptx_view.py -v` -> `17 passed`
+- Python 全量：`python -m pytest -v` -> `298 passed, 1 skipped`

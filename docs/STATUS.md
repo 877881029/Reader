@@ -154,6 +154,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 5：新增 `MarkdownBridge`/`MarkdownVisualView` 与 `OfflineRequestInterceptor`，对齐 QWebChannel `sourceUrl/wikiExists/openWiki/viewerReady/viewerError` 契约；`ready` 仅上报 `1`，`open_path` 仅发 canonical path，`missing_link` 限制为 256 字符，shutdown 后 late bridge 调用无副作用
 - Markdown Visual Preview Task 5：Markdown WebEngine lifecycle 与安全边界落地（构造不加载、`start()` 加载 `assets/md-viewer/index.html`、off-the-record profile 隔离、仅放行 source 目录与 bundle 目录 descendants + `qrc/data/blob`、阻断 remote 与目录逃逸、fallback 原子 detach channel/scripts/interceptor + JS 禁用 + `QUrl()`，fallback HTML 1.9MB 上限）
 - Markdown Visual Preview Task 5 验证：RED `python -m pytest tests/test_md_view.py -v`（`ModuleNotFoundError: reader.preview.md_view`）；GREEN `16 passed`；PPTX 回归 `17 passed`；Python 全量 `291 passed, 1 skipped`
+- Markdown Visual Preview Task 5（Reviewer Request changes / Important）：修复 source symlink lexical root 语义；`sourceUrl` 与 resolver/interceptor 根均使用 `abspath` lexical source，权限判断改为 `exact canonical source target` + `canonical lexical-root descendants` + `canonical bundle descendants`，显式阻断 source target directory siblings 与 symlink escape
+- Markdown Visual Preview Task 5（Reviewer Request changes / Important）：secure fallback 不再提前卸载 interceptor；fallback 仅原子清 scripts/channel 并禁用 JS，继续由 interceptor 约束 fallback 期间绝对 `file:` 子资源；仅在 `shutdown()` 才 detach interceptor
+- Markdown Visual Preview Task 5（Reviewer Request changes / Minor）：补充回归 `tests/test_md_view.py`：source-resolve 指向他处时 lexical root 仍生效、target sibling 继续阻断、`qrc/data/blob` 允许、commonpath prefix collision 阻断
+- Markdown Visual Preview Task 5（Reviewer 修复验证）：RED `python -m pytest tests/test_md_view.py -v` 复现 `3 failed`（lexical root 与 fallback interceptor 时序）；GREEN 同命令 `23 passed`；PPTX 回归 `17 passed`；Python 全量 `298 passed, 1 skipped`
 
 ## 下一步
 

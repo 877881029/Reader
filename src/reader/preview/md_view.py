@@ -37,6 +37,10 @@ def _canonical_path(path: str | Path) -> str:
     return os.path.normcase(os.path.realpath(os.fspath(path)))
 
 
+def _absolute_lexical_path(path: str | Path) -> Path:
+    return Path(os.path.abspath(os.fspath(path)))
+
+
 def resolve_wikilink(source: Path, target: str) -> Path | None:
     value = target.strip()
     target_path = Path(value)
@@ -50,10 +54,13 @@ def resolve_wikilink(source: Path, target: str) -> Path | None:
         or value in {".", ".."}
     ):
         return None
-    source_parent = source.resolve().parent
+    source_parent = _absolute_lexical_path(source).parent
+    source_parent_canonical = _canonical_path(source_parent)
     name = value if value.lower().endswith(".md") else f"{value}.md"
-    candidate = (source_parent / name).resolve()
-    if candidate.parent != source_parent or not candidate.is_file():
+    candidate_lexical = source_parent / name
+    candidate_canonical = _canonical_path(candidate_lexical)
+    candidate = Path(candidate_canonical)
+    if candidate.parent != Path(source_parent_canonical) or not candidate.is_file():
         return None
     return candidate
 
@@ -66,7 +73,7 @@ class MarkdownBridge(QObject):
 
     def __init__(self, source: Path, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._source = source.resolve()
+        self._source = _absolute_lexical_path(source)
         self._source_url = QUrl.fromLocalFile(str(self._source)).toString(
             QUrl.ComponentFormattingOption.FullyEncoded
         )
@@ -179,7 +186,9 @@ class OfflineRequestInterceptor(QWebEngineUrlRequestInterceptor):
         super().__init__(parent)
         self._lock = threading.Lock()
         self._blocked: list[str] = []
-        self._source_dir = _canonical_path(source.resolve().parent)
+        source_lexical = _absolute_lexical_path(source)
+        self._source_target = _canonical_path(source_lexical)
+        self._source_dir = _canonical_path(source_lexical.parent)
         self._bundle_root = _canonical_path(bundle_root)
 
     @staticmethod
@@ -194,9 +203,11 @@ class OfflineRequestInterceptor(QWebEngineUrlRequestInterceptor):
         if not local_file:
             return False
         candidate = _canonical_path(local_file)
-        return self._is_within(candidate, self._source_dir) or self._is_within(
-            candidate, self._bundle_root
-        )
+        if candidate == self._source_target:
+            return True
+        if self._is_within(candidate, self._source_dir):
+            return True
+        return self._is_within(candidate, self._bundle_root)
 
     def interceptRequest(self, info) -> None:  # noqa: N802 - Qt virtual method
         url = info.requestUrl()
@@ -223,7 +234,7 @@ class MarkdownVisualView(QWebEngineView):
     def __init__(self, result: PreviewResult, source: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._result = result
-        self._source = source.resolve()
+        self._source = _absolute_lexical_path(source)
         self.started = False
         self.is_fallback = False
         self._shutdown = False
@@ -373,7 +384,7 @@ class MarkdownVisualView(QWebEngineView):
         self.stop()
         resources = self._resources
         if resources is not None:
-            resources.secure_page(detach_interceptor=True)
+            resources.secure_page(detach_interceptor=False)
         fallback = self._result.fallback_html or _SAFE_FALLBACK_HTML
         if len(fallback.encode("utf-8")) > _SET_HTML_SAFE_BYTES:
             fallback = _SAFE_FALLBACK_HTML
