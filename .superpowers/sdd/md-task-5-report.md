@@ -25,4 +25,4 @@
 ## Concerns
 - 本任务严格限定在 `md_view.py` 与其测试，未改 `PptxVisualView`/公共抽象，保持 Task5 边界。
 - MainWindow 集成（`kind="markdown"` 默认 viewer factory、wiki-link 开新标签）保留到 Task 6。
-- 同步阻塞：提交 `89cbc7a` 后，`git push origin main` 返回 403；owner helper `git_push` 返回 `protected branch 'main'`，当前分支相对 `origin/main` 为 `ahead 1`。
+- 同步状态已关闭：controller 已使用 owner credential 成功推送 `08f5ef8`（包含 Task 5 提交 `89cbc7a`），当前 `main` 与 `origin/main` 已同步。
