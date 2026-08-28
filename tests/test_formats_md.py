@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from reader.formats import md
 from reader.formats.md import to_html
 
 
@@ -16,3 +17,20 @@ def test_markdown_renders_heading_and_table(tmp_path: Path):
     assert "Hello" in result.html
     assert "<table" in result.html.lower()
     assert "<pre" in result.html.lower() or "print(1)" in result.html
+
+
+def test_markdown_visual_contract_and_safe_fallback(tmp_path: Path):
+    src = tmp_path / "note.md"
+    src.write_bytes(
+        b"# Hello\n\n```mermaid\nflowchart TB\nA-->B\n```\n\n<script>alert(1)</script>\xff"
+    )
+
+    result = md.to_visual(src)
+
+    assert result.kind == "markdown"
+    assert result.html == ""
+    assert result.status_label == "内置预览（视觉模式）"
+    assert result.fallback_html is not None
+    assert "<h1>Hello</h1>" in result.fallback_html
+    assert "\ufffd" in result.fallback_html
+    assert "<script" not in result.fallback_html.lower()

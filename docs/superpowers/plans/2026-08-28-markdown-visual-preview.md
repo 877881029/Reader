@@ -472,7 +472,7 @@ def to_html(path: Path) -> PreviewResult: ...
 def to_visual(path: Path) -> PreviewResult: ...
 ```
 
-- [ ] **Step 1: Add RED tests**
+- [x] **Step 1: Add RED tests**
 
 ```python
 def test_markdown_visual_contract_and_safe_fallback(tmp_path):
@@ -496,12 +496,12 @@ def test_markdown_default_is_visual_and_never_calls_office(tmp_path):
 Add cache test that `PreviewCache.put(... kind="markdown")` raises `ValueError`,
 and worker test that Markdown visual calls neither cache `get` nor `put`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run focused format/pipeline/cache/window tests; expect missing `markdown` kind
 and current HTML result.
 
-- [ ] **Step 3: Implement safe fallback and visual result**
+- [x] **Step 3: Implement safe fallback and visual result**
 
 ```python
 _MD = MarkdownIt("commonmark", {"html": False}).enable("table")
@@ -520,7 +520,7 @@ def to_visual(path: Path) -> PreviewResult:
 
 Keep fallback CSS readable but do not embed Mermaid JS.
 
-- [ ] **Step 4: Update pipeline and visual cache strategy**
+- [x] **Step 4: Update pipeline and visual cache strategy**
 
 Allow mode `visual` for suffixes `{".pptx", ".md"}`. For `.md` and modes
 `builtin`/`visual`, call `fmt_md.to_visual`; Markdown still never enters Office.
@@ -534,10 +534,17 @@ strategy = "visual" if visual_suffix and self.mode in {"builtin", "visual"} else
 
 Skip cache get/put for visual strategy exactly as today.
 
-- [ ] **Step 5: Verify GREEN and checkpoint**
+- [x] **Step 5: Verify GREEN and checkpoint**
 
-Run focused tests, then full Python suite. Update STATUS, commit
-`feat: route Markdown through visual preview`, and push.
+Focused RED: `python -m pytest tests/test_formats_md.py tests/test_pipeline.py tests/test_cache.py tests/test_window.py -v`
+captured expected failures (`5 failed`) for missing `markdown` kind/visual routing/cache skip.
+
+Focused GREEN: same command reached `126 passed`.
+
+Full Python regression: `python -m pytest -v` reached `275 passed, 1 skipped` after
+updating markdown real-fixture expectation to visual contract.
+
+Update STATUS, commit `feat: route Markdown through visual preview`, and push.
 
 ---
 

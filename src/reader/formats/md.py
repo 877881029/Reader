@@ -4,11 +4,15 @@ from markdown_it import MarkdownIt
 
 from reader.preview.result import PreviewResult
 
-_MD = MarkdownIt("commonmark").enable("table")
+_MD = MarkdownIt("commonmark", {"html": False}).enable("table")
+
+
+def _read(path: Path) -> str:
+    return Path(path).read_text(encoding="utf-8", errors="replace")
 
 
 def to_html(path: Path) -> PreviewResult:
-    text = Path(path).read_text(encoding="utf-8")
+    text = _read(path)
     body = _MD.render(text)
     html = (
         "<!DOCTYPE html><html><head><meta charset='utf-8'>"
@@ -18,3 +22,13 @@ def to_html(path: Path) -> PreviewResult:
         f"</head><body>{body}</body></html>"
     )
     return PreviewResult(html=html, status_label="内置预览", kind="html")
+
+
+def to_visual(path: Path) -> PreviewResult:
+    fallback = to_html(path)
+    return PreviewResult(
+        html="",
+        fallback_html=fallback.html,
+        status_label="内置预览（视觉模式）",
+        kind="markdown",
+    )

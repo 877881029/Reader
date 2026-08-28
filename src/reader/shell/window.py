@@ -152,10 +152,11 @@ class _PreviewWorker(QRunnable):
     def run(self) -> None:
         result: PreviewResult | None = None
         try:
+            suffix = self.path.suffix.lower()
+            visual_suffix = suffix in {".pptx", ".md"}
             strategy = (
                 "visual"
-                if self.path.suffix.lower() == ".pptx"
-                and self.mode in {"builtin", "visual"}
+                if visual_suffix and self.mode in {"builtin", "visual"}
                 else self.mode
             )
             cache: PreviewCache | None

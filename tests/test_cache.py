@@ -263,3 +263,23 @@ def test_put_rejects_pptx_visual_kind(tmp_path: Path):
                 fallback_html="<p>fallback</p>",
             ),
         )
+
+
+def test_put_rejects_markdown_visual_kind(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "note.md"
+    src.write_text("# note", encoding="utf-8")
+    cache = PreviewCache(tmp_path / "c")
+
+    with pytest.raises(ValueError, match="unsupported preview kind: markdown"):
+        cache.put(
+            src,
+            "visual",
+            PreviewResult(
+                html="",
+                status_label="内置预览（视觉模式）",
+                kind="markdown",
+                fallback_html="<p>fallback</p>",
+            ),
+        )

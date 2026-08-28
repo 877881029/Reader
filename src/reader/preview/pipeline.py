@@ -34,8 +34,11 @@ def preview(
 ) -> PreviewResult:
     path = Path(path)
     suffix = sniff(path)
-    if mode == "visual" and suffix != ".pptx":
-        raise ValueError("visual mode supports only .pptx")
+    if mode == "visual" and suffix not in {".pptx", ".md"}:
+        raise ValueError("visual mode supports only .pptx/.md")
+
+    if suffix == ".md" and mode in {"builtin", "visual"}:
+        return fmt_md.to_visual(path)
 
     if suffix == ".pptx":
         if mode in {"builtin", "visual"}:

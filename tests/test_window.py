@@ -1133,10 +1133,10 @@ def test_office_probe_uses_pool_independent_from_blocked_preview(
 
 
 def test_cache_hit_skips_preview_and_cache_miss_puts(qtbot, tmp_path: Path):
-    hit_path = tmp_path / "hit.md"
-    miss_path = tmp_path / "miss.md"
-    hit_path.write_text("hit", encoding="utf-8")
-    miss_path.write_text("miss", encoding="utf-8")
+    hit_path = tmp_path / "hit.docx"
+    miss_path = tmp_path / "miss.docx"
+    hit_path.write_bytes(b"hit")
+    miss_path.write_bytes(b"miss")
     hit_cache = FakeCache(hit=builtin_result("cached"))
     miss_cache = FakeCache()
     preview_calls: list[Path] = []
@@ -1216,6 +1216,31 @@ def test_pptx_visual_skips_cache_and_text_mode_uses_text_cache_strategy(
         ("get", path.resolve(), "text"),
         ("put", path.resolve(), "text"),
     ]
+
+
+def test_markdown_visual_skips_cache_get_and_put(qtbot, tmp_path: Path):
+    path = tmp_path / "note.md"
+    path.write_text("# Note", encoding="utf-8")
+    cache = FakeCache()
+    modes: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        modes.append(mode)
+        return PreviewResult(
+            html="",
+            status_label="内置预览（视觉模式）",
+            kind="markdown",
+            fallback_html="<h1>Note</h1>",
+        )
+
+    window = make_window(preview_fn, cache)
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert modes == ["builtin"]
+    assert cache.calls == []
 
 
 def test_office_action_disabled_when_office_missing(qtbot, tmp_path: Path):

@@ -145,10 +145,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 3（复审 Important）：`viewer.ts` 的 `settleWikiExists` 入口先检查 `settled/active`，保证 2s timeout 收敛 missing 后任何 late callback 都 no-op，不再把 DOM 状态或 click 权限改回 resolved/open
 - Markdown Visual Preview Task 3（复审 Important）：`main.ts` 在 WebChannel bridge 返回后、创建 AbortController/fetch 前立即做 `if (disposed) return`，避免 dispose 先发生时仍触发 fetch/start 或误上报错误
 - Markdown Visual Preview Task 3（复审验证）：新增回归 `timeout -> missing -> late true callback` 与 `dispose before async QWebChannel callback`；RED `npm test -- src/main.test.ts src/viewer.test.ts` 复现 `2 failed`，GREEN 后同命令 `15 passed`；全量 Web `npm test`（`21 passed`）、`npm run typecheck`、`npm run build`、Python `tests/test_md_web_assets.py`（`7 passed`）与 `git diff --check` 通过
+- Markdown Visual Preview Task 4：`PreviewKind` 新增 `markdown`；`src/reader/formats/md.py` 增加 `to_visual()`，返回 `kind="markdown"`、`html=""`、`fallback_html=to_html(path).html`，状态为 `内置预览（视觉模式）`
+- Markdown Visual Preview Task 4：Markdown fallback 读取改为 `utf-8 errors="replace"`，并将 `MarkdownIt("commonmark", {"html": False})` 作为安全渲染基线；invalid UTF-8 显示 `\ufffd`，raw HTML 不执行
+- Markdown Visual Preview Task 4：`preview()` 支持 `.md` 的 `visual` 模式，且 `.md` 在 `builtin/visual` 均走 `fmt_md.to_visual`；保持 Markdown 零 Office 探测/导出，PPTX 行为保持不变
+- Markdown Visual Preview Task 4：`_PreviewWorker.run` 将 `.md` 与 `.pptx` 统一纳入 visual strategy，visual 策略继续跳过 cache `get/put`；`PreviewCache.put(... kind="markdown")` 维持 `ValueError` 拒绝持久化
+- Markdown Visual Preview Task 4 验证：RED 聚焦 `5 failed, 121 passed`；GREEN 聚焦 `126 passed`；Python 全量 `275 passed, 1 skipped`
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 4（Python `MdVisualView` 生命周期与离线拦截）
+1. 继续 Markdown Visual Preview Task 5（`MarkdownVisualView` 生命周期、同目录解析与离线拦截）
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 

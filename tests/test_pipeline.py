@@ -25,15 +25,44 @@ class FakeOffice:
         return PreviewResult(html="<p>office</p>", status_label="Office 预览", kind="html")
 
 
-def test_md_never_uses_office(tmp_path: Path):
+def test_markdown_default_is_visual_and_never_calls_office(tmp_path: Path):
     p = tmp_path / "a.md"
     p.write_text("# Z", encoding="utf-8")
     office = FakeOffice(available=True)
     result = preview(p, office=office)
     assert office.calls == []
     assert office.available_calls == []
-    assert result.status_label == "内置预览"
-    assert "Z" in result.html
+    assert result.kind == "markdown"
+    assert result.status_label == "内置预览（视觉模式）"
+    assert result.fallback_html is not None
+    assert "Z" in result.fallback_html
+
+
+def test_markdown_visual_mode_supported_and_never_calls_office(tmp_path: Path):
+    p = tmp_path / "visual.md"
+    p.write_text("# Visual", encoding="utf-8")
+    office = FakeOffice(available=True)
+
+    result = preview(p, office=office, mode="visual")
+
+    assert office.calls == []
+    assert office.available_calls == []
+    assert result.kind == "markdown"
+    assert result.status_label == "内置预览（视觉模式）"
+    assert result.fallback_html is not None
+    assert "Visual" in result.fallback_html
+
+
+def test_visual_mode_rejects_non_visual_suffix(tmp_path: Path):
+    from docx import Document
+
+    p = tmp_path / "a.docx"
+    d = Document()
+    d.add_paragraph("not visual")
+    d.save(p)
+
+    with pytest.raises(ValueError, match="visual mode supports only .pptx/.md"):
+        preview(p, mode="visual")
 
 
 def test_docx_defaults_to_builtin_without_office_call(tmp_path: Path):
@@ -197,16 +226,16 @@ def test_xlsx_falls_back_when_office_missing(tmp_path: Path):
     assert "xlsx-fallback-cell" in result.html
 
 
-def test_builtin_renderer_error_propagates(tmp_path: Path, monkeypatch):
+def test_markdown_visual_renderer_error_propagates(tmp_path: Path, monkeypatch):
     from reader.preview import pipeline
 
     def boom(_path: Path) -> PreviewResult:
-        raise ValueError("builtin parse failed")
+        raise ValueError("visual parse failed")
 
-    monkeypatch.setitem(pipeline._BUILTIN, ".md", boom)
+    monkeypatch.setattr(pipeline.fmt_md, "to_visual", boom)
     p = tmp_path / "a.md"
     p.write_text("# x", encoding="utf-8")
-    with pytest.raises(ValueError, match="builtin parse failed"):
+    with pytest.raises(ValueError, match="visual parse failed"):
         preview(p)
 
 
