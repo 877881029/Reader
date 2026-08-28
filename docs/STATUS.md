@@ -158,10 +158,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Visual Preview Task 5（Reviewer Request changes / Important）：secure fallback 不再提前卸载 interceptor；fallback 仅原子清 scripts/channel 并禁用 JS，继续由 interceptor 约束 fallback 期间绝对 `file:` 子资源；仅在 `shutdown()` 才 detach interceptor
 - Markdown Visual Preview Task 5（Reviewer Request changes / Minor）：补充回归 `tests/test_md_view.py`：source-resolve 指向他处时 lexical root 仍生效、target sibling 继续阻断、`qrc/data/blob` 允许、commonpath prefix collision 阻断
 - Markdown Visual Preview Task 5（Reviewer 修复验证）：RED `python -m pytest tests/test_md_view.py -v` 复现 `3 failed`（lexical root 与 fallback interceptor 时序）；GREEN 同命令 `23 passed`；PPTX 回归 `17 passed`；Python 全量 `298 passed, 1 skipped`
+- Markdown Visual Preview Task 6：`MainWindow` 默认 viewer factory 新增 `kind="markdown" -> MarkdownVisualView`，`.md` 初始模式切换为 `visual`，并保持 `.pptx` 默认视觉模式不变
+- Markdown Visual Preview Task 6：visual 可选信号接线扩展到 `open_path` / `missing_link`，统一记录在 `visual_connections` 并复用 generation/document/widget/layout guard；resolved wikilink 通过 `open_paths([path])` 打开/复用标签页，missing 仅更新状态 `找不到：{target}`
+- Markdown Visual Preview Task 6：`_visual_ready` 仅在 `kind="pptx"` 时写入 `append_visual_ready`；Markdown ready 不写 PPTX telemetry
+- Markdown Visual Preview Task 6 验证：Task6 聚焦 RED `5 failed, 1 passed` -> GREEN `6 passed`；窗口全量 `99 passed`；`tests/test_md_view.py` `23 passed`；Python 全量 `304 passed, 1 skipped`
 
 ## 下一步
 
-1. 继续 Markdown Visual Preview Task 6（MainWindow 生命周期接线、`kind="markdown"` viewer factory 与 wikilink 开新标签集成）
+1. 继续 Markdown Visual Preview Task 7（真实 QWebEngine 集成与冻结链路回归）
 2. 维持每个任务边界更新 STATUS、提交并推送 `origin/main`
 3. 在 Markdown 全部任务完成后执行全量回归、重建冻结 Reader 并按需刷新桌面快捷方式
 

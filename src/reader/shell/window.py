@@ -375,6 +375,10 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
         from reader.preview.pptx_view import PptxVisualView
 
         return PptxVisualView(result, source_path)
+    if result.kind == "markdown":
+        from reader.preview.md_view import MarkdownVisualView
+
+        return MarkdownVisualView(result, source_path)
 
     from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -725,7 +729,7 @@ class MainWindow(QMainWindow):
         if self._closing:
             return
         initial_mode: Literal["builtin", "visual"] = (
-            "visual" if path.suffix.lower() == ".pptx" else "builtin"
+            "visual" if path.suffix.lower() in {".pptx", ".md"} else "builtin"
         )
         document_id = uuid4().hex
         page = QWidget()
@@ -1016,6 +1020,26 @@ class MainWindow(QMainWindow):
             )
             changed.connect(changed_slot)
             document.visual_connections.append((changed, changed_slot))
+        open_path = getattr(widget, "open_path", None)
+        if open_path is not None:
+            open_path_slot = lambda path: self._visual_open_path(
+                document_id,
+                generation,
+                widget,
+                path,
+            )
+            open_path.connect(open_path_slot)
+            document.visual_connections.append((open_path, open_path_slot))
+        missing_link = getattr(widget, "missing_link", None)
+        if missing_link is not None:
+            missing_link_slot = lambda target: self._visual_missing_link(
+                document_id,
+                generation,
+                widget,
+                target,
+            )
+            missing_link.connect(missing_link_slot)
+            document.visual_connections.append((missing_link, missing_link_slot))
         if document.visual_connections:
             document.visual_widget = widget
 
@@ -1052,7 +1076,8 @@ class MainWindow(QMainWindow):
         )
         if document is not None:
             document.visual_slide_count = count
-            append_visual_ready(str(document.path), count)
+            if document.last_result is not None and document.last_result.kind == "pptx":
+                append_visual_ready(str(document.path), count)
 
     def _visual_slide_changed(
         self,
@@ -1084,6 +1109,30 @@ class MainWindow(QMainWindow):
         if document is None:
             return
         document.status_label = "内置预览（视觉渲染失败）"
+        self._refresh_preview_actions()
+
+    def _visual_open_path(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+        path: str,
+    ) -> None:
+        if self._active_visual_document(document_id, generation, widget) is None:
+            return
+        self.open_paths([path])
+
+    def _visual_missing_link(
+        self,
+        document_id: str,
+        generation: int,
+        widget: QWidget,
+        target: str,
+    ) -> None:
+        document = self._active_visual_document(document_id, generation, widget)
+        if document is None:
+            return
+        document.status_label = f"找不到：{target}"
         self._refresh_preview_actions()
 
     def _restore_failed_request(

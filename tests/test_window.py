@@ -107,6 +107,15 @@ def visual_result() -> PreviewResult:
     )
 
 
+def markdown_visual_result() -> PreviewResult:
+    return PreviewResult(
+        html="",
+        fallback_html="<h1>md fallback</h1>",
+        status_label="内置预览（视觉模式）",
+        kind="markdown",
+    )
+
+
 class FakeVisual(QWidget):
     ready = Signal(int)
     slide_changed = Signal(int)
@@ -139,6 +148,11 @@ class EmittingOnStartVisual(FakeVisual):
         super().start()
         self.ready.emit(6)
         self.render_failed.emit("sync failure")
+
+
+class FakeMarkdownVisual(FakeVisual):
+    open_path = Signal(str)
+    missing_link = Signal(str)
 
 
 @pytest.fixture
@@ -208,6 +222,182 @@ def test_default_viewer_factory_uses_pptx_visual_view(monkeypatch, tmp_path: Pat
 
     assert _default_viewer(visual_result(), source) is expected
     assert calls == [(visual_result(), source)]
+
+
+def test_default_viewer_factory_uses_markdown_visual_view(monkeypatch, tmp_path: Path):
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "note.md"
+    source.write_text("# note", encoding="utf-8")
+    expected = QWidget()
+    calls = []
+
+    def fake_visual(result, path):
+        calls.append((result, path))
+        return expected
+
+    monkeypatch.setattr("reader.preview.md_view.MarkdownVisualView", fake_visual)
+
+    assert _default_viewer(markdown_visual_result(), source) is expected
+    assert calls == [(markdown_visual_result(), source)]
+
+
+def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
+    qtbot, tmp_path: Path, monkeypatch
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "note.md"
+    path.write_text("# note", encoding="utf-8")
+    visual = FakeMarkdownVisual()
+    modes: list[str] = []
+    ready_calls: list[tuple[str, int]] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        modes.append(mode)
+        return markdown_visual_result()
+
+    monkeypatch.setattr(
+        "reader.shell.window.append_visual_ready",
+        lambda source, count: ready_calls.append((source, count)),
+    )
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    document = next(iter(window._documents.values()))
+    assert modes == ["visual"]
+    assert document.mode == "visual"
+    assert document.builtin_mode == "visual"
+
+    visual.ready.emit(1)
+    qtbot.wait(20)
+    assert ready_calls == []
+
+
+def test_markdown_wikilink_open_path_opens_tab_and_dedupes_focus(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    source = tmp_path / "source.md"
+    sibling = tmp_path / "sibling.md"
+    source.write_text("[[sibling]]", encoding="utf-8")
+    sibling.write_text("# sibling", encoding="utf-8")
+    visuals = iter((FakeMarkdownVisual(), FakeMarkdownVisual()))
+    first = None
+
+    def viewer(_result: PreviewResult, _source_path: Path) -> FakeMarkdownVisual:
+        nonlocal first
+        visual = next(visuals)
+        if first is None:
+            first = visual
+        return visual
+
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+    qtbot.waitUntil(lambda: first is not None and first.start_calls == 1)
+
+    first.open_path.emit(str(sibling.resolve()))
+    qtbot.waitUntil(lambda: window.tab_count() == 2)
+    assert window.focus_path() == str(sibling.resolve())
+
+    window._tabs.setCurrentIndex(0)
+    first.open_path.emit(str(sibling.resolve()))
+    qtbot.wait(20)
+    assert window.tab_count() == 2
+    assert window.focus_path() == str(sibling.resolve())
+
+
+def test_markdown_wikilink_stale_generation_or_closed_signal_is_noop(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    source = tmp_path / "source.md"
+    sibling = tmp_path / "sibling.md"
+    source.write_text("[[sibling]]", encoding="utf-8")
+    sibling.write_text("# sibling", encoding="utf-8")
+    first = FakeMarkdownVisual()
+    replacement = FakeMarkdownVisual()
+    visuals = iter((first, replacement))
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: next(visuals),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    document_id = next(iter(window._documents.keys()))
+    document = next(iter(window._documents.values()))
+    stale_open_slot = document.visual_connections[3][1]
+
+    window._restart_preview(document_id, "builtin")
+    stale_open_slot(str(sibling.resolve()))
+    qtbot.waitUntil(lambda: replacement.start_calls == 1)
+    qtbot.wait(20)
+    assert window.tab_count() == 1
+    assert window.focus_path() == str(source.resolve())
+    document = next(iter(window._documents.values()))
+    closed_open_slot = document.visual_connections[3][1]
+
+    window.close_tab(0)
+    closed_open_slot(str(sibling.resolve()))
+    qtbot.wait(20)
+    assert window.tab_count() == 0
+
+
+def test_markdown_missing_link_updates_status_without_opening_tab(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    source = tmp_path / "source.md"
+    source.write_text("[[missing]]", encoding="utf-8")
+    visual = FakeMarkdownVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(source)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+
+    visual.missing_link.emit("missing")
+    qtbot.waitUntil(lambda: window.status_text() == "找不到：missing")
+    assert window.tab_count() == 1
+
+
+def test_markdown_close_tab_and_window_call_shutdown(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    first_path = tmp_path / "first.md"
+    second_path = tmp_path / "second.md"
+    first_path.write_text("# first", encoding="utf-8")
+    second_path.write_text("# second", encoding="utf-8")
+    first = FakeMarkdownVisual()
+    second = FakeMarkdownVisual()
+    visuals = iter((first, second))
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: next(visuals),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(first_path), str(second_path)])
+    qtbot.waitUntil(lambda: second.start_calls == 1)
+
+    window.close_tab(0)
+    assert first.shutdown_calls == 1
+    window.close()
+    assert second.shutdown_calls == 1
 
 
 def test_visual_worker_completion_binds_events_before_start(qtbot, tmp_path: Path):
@@ -1239,7 +1429,7 @@ def test_markdown_visual_skips_cache_get_and_put(qtbot, tmp_path: Path):
     window.open_paths([str(path)])
 
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
-    assert modes == ["builtin"]
+    assert modes == ["visual"]
     assert cache.calls == []
 
 
