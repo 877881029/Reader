@@ -573,6 +573,12 @@ class MainWindow(QMainWindow):
         self.actionVisualPreview.triggered.connect(self.switch_current_tab_to_visual)
         self.addAction(self.actionVisualPreview)
 
+        self.actionSave = QAction("保存", self)
+        self.actionSave.setObjectName("actionSave")
+        self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
+        self.actionSave.triggered.connect(self.save_current_tab)
+        self.addAction(self.actionSave)
+
         self.menuBar().clear()
         self.menuBar().setVisible(False)
         self.menuBar().setMaximumHeight(0)
@@ -729,11 +735,27 @@ class MainWindow(QMainWindow):
         is_pptx = (
             document is not None and document.path.suffix.lower() == ".pptx"
         )
+        is_md = (
+            document is not None and document.path.suffix.lower() == ".md"
+        )
         self.actionTextPreview.setEnabled(
-            is_pptx and document is not None and document.mode != "text"
+            document is not None
+            and document.mode != "text"
+            and (
+                (is_pptx and document.last_result is not None)
+                or is_md
+            )
         )
         self.actionVisualPreview.setEnabled(
-            is_pptx and document is not None and document.mode != "visual"
+            document is not None
+            and document.mode != "visual"
+            and (is_pptx or is_md)
+            and (is_md or document.last_result is not None)
+        )
+        self.actionSave.setEnabled(
+            document is not None
+            and is_md
+            and document.mode == "text"
         )
         self.statusBar().showMessage(document.status_label if document is not None else "")
 
@@ -777,16 +799,137 @@ class MainWindow(QMainWindow):
         return None
 
     def add_blank_tab(self) -> None:
+        self.add_untitled_markdown_tab()
+
+    def add_untitled_markdown_tab(self) -> None:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        document_id = uuid4().hex
+        path = Path(f"未命名-{document_id[:8]}.md")
         page = QWidget()
         page.setProperty("readerBlankTab", True)
         layout = QVBoxLayout(page)
-        hint = QLabel("拖入文件，或按 Ctrl+O 打开")
-        hint.setObjectName("blankDropHint")
-        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(hint)
-        self._tabs.addTab(page, "未命名")
+        layout.setContentsMargins(0, 0, 0, 0)
+        view = MarkdownTextView(page)
+        view.load_untitled()
+        layout.addWidget(view)
+        document = _Document(
+            path=path,
+            page=page,
+            mode="text",
+            builtin_mode="text",
+            status_label="文本编辑",
+            last_result=PreviewResult(html="", status_label="文本编辑", kind="html"),
+        )
+        self._documents[document_id] = document
+        self._tabs.addTab(page, view.display_title())
         self._tabs.setCurrentWidget(page)
+        view.dirty_changed.connect(
+            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
+        )
+        view.path_changed.connect(
+            lambda _path, did=document_id: self._on_markdown_path_changed(did)
+        )
         self._refresh_content_stack()
+        self._refresh_preview_actions()
+
+    def _sync_markdown_tab_title(self, document_id: str) -> None:
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+        view = document.page.findChild(QWidget, "markdownTextView")
+        if view is None:
+            return
+        index = self._tabs.indexOf(document.page)
+        if index >= 0:
+            self._tabs.setTabText(index, view.display_title())
+
+    def _on_markdown_path_changed(self, document_id: str) -> None:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+        view = document.page.findChild(MarkdownTextView)
+        if view is None or view.path is None:
+            return
+        document.path = view.path
+        document.page.setProperty("readerBlankTab", False)
+        self._sync_markdown_tab_title(document_id)
+        self._refresh_preview_actions()
+
+    def save_current_tab(self) -> None:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        view = document.page.findChild(MarkdownTextView)
+        if view is None or document.mode != "text":
+            return
+        if view.path is not None:
+            view.save()
+            self._sync_markdown_tab_title(document_id)
+            self.statusBar().showMessage("已保存")
+            return
+        path, _selected = QFileDialog.getSaveFileName(
+            self,
+            "另存为",
+            "未命名.md",
+            "Markdown (*.md)",
+        )
+        if not path:
+            return
+        target = Path(path)
+        if target.suffix.lower() != ".md":
+            target = target.with_suffix(".md")
+        view.save_as(target)
+        self._on_markdown_path_changed(document_id)
+        self.statusBar().showMessage("已保存")
+
+    def _open_markdown_text_tab(
+        self,
+        path: Path,
+        *,
+        replace_tab_index: int | None = None,
+    ) -> None:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        document_id = uuid4().hex
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        view = MarkdownTextView(page)
+        view.load_path(path, editable=False)
+        layout.addWidget(view)
+        resolved = path.resolve()
+        document = _Document(
+            path=resolved,
+            page=page,
+            mode="text",
+            builtin_mode="text",
+            status_label="文本编辑",
+            last_result=PreviewResult(html="", status_label="文本编辑", kind="html"),
+        )
+        self._documents[document_id] = document
+        if replace_tab_index is None:
+            self._tabs.addTab(page, view.display_title())
+        else:
+            old_page = self._tabs.widget(replace_tab_index)
+            self._tabs.removeTab(replace_tab_index)
+            if old_page is not None:
+                old_page.deleteLater()
+            self._tabs.insertTab(replace_tab_index, page, view.display_title())
+        self._tabs.setCurrentWidget(page)
+        view.dirty_changed.connect(
+            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
+        )
+        view.path_changed.connect(
+            lambda _path, did=document_id: self._on_markdown_path_changed(did)
+        )
+        self._refresh_content_stack()
+        self._refresh_preview_actions()
 
     def _open_dialog(self) -> None:
         paths, _selected_filter = QFileDialog.getOpenFileNames(
@@ -834,8 +977,11 @@ class MainWindow(QMainWindow):
     def _start_preview(self, path: Path, *, replace_tab_index: int | None = None) -> None:
         if self._closing:
             return
+        if path.suffix.lower() == ".md":
+            self._open_markdown_text_tab(path, replace_tab_index=replace_tab_index)
+            return
         initial_mode: Literal["builtin", "visual"] = (
-            "visual" if path.suffix.lower() in {".pptx", ".md"} else "builtin"
+            "visual" if path.suffix.lower() == ".pptx" else "builtin"
         )
         document_id = uuid4().hex
         page = QWidget()
@@ -943,7 +1089,13 @@ class MainWindow(QMainWindow):
         if document_id is None:
             return
         document = self._documents[document_id]
-        if document.path.suffix.lower() != ".pptx" or document.mode == "text":
+        suffix = document.path.suffix.lower()
+        if document.mode == "text":
+            return
+        if suffix == ".md":
+            self._restore_markdown_text(document_id, document)
+            return
+        if suffix != ".pptx":
             return
         self._restart_preview(document_id, "text")
 
@@ -952,9 +1104,61 @@ class MainWindow(QMainWindow):
         if document_id is None:
             return
         document = self._documents[document_id]
-        if document.path.suffix.lower() != ".pptx" or document.mode == "visual":
+        suffix = document.path.suffix.lower()
+        if document.mode == "visual":
+            return
+        if suffix == ".md":
+            from reader.preview.md_text_view import MarkdownTextView
+
+            view = document.page.findChild(MarkdownTextView)
+            if view is not None and view.dirty:
+                if view.path is None:
+                    self.statusBar().showMessage("请先保存后再切换视觉预览")
+                    return
+                view.save()
+            self._restart_preview(document_id, "visual")
+            return
+        if suffix != ".pptx":
             return
         self._restart_preview(document_id, "visual")
+
+    def _restore_markdown_text(self, document_id: str, document: _Document) -> None:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        self._cancel_availability_probe(document)
+        document.generation += 1
+        if document.request_id is not None:
+            self._requests.pop(document.request_id, None)
+            self._owned_request_ids.discard(document.request_id)
+            self._executor.cancel(document.request_id)
+            document.request_id = None
+        self._disconnect_visual_events(document)
+        view = MarkdownTextView(document.page)
+        if document.path.exists():
+            view.load_path(document.path, editable=False)
+        else:
+            view.load_untitled()
+        if not self._install_document_content(
+            document_id,
+            document,
+            view,
+            document.generation,
+        ):
+            return
+        document.mode = "text"
+        document.builtin_mode = "text"
+        document.status_label = "文本编辑"
+        document.last_result = PreviewResult(
+            html="", status_label="文本编辑", kind="html"
+        )
+        view.dirty_changed.connect(
+            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
+        )
+        view.path_changed.connect(
+            lambda _path, did=document_id: self._on_markdown_path_changed(did)
+        )
+        self._sync_markdown_tab_title(document_id)
+        self._refresh_preview_actions()
 
     def _cancel_availability_probe(self, document: _Document) -> None:
         request_id = document.availability_request_id

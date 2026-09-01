@@ -45,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     win = app.new_window()
     if files:
         win.open_paths(files)
+    else:
+        add_draft = getattr(win, "add_untitled_markdown_tab", None)
+        if callable(add_draft):
+            add_draft()
 
     if not _shell_integration_disabled():
         exe, args = _association_target()

@@ -37,23 +37,10 @@
 
 **Files:** `title_chrome.py`, `window.py`, `tests/test_window.py`, `tests/test_title_chrome.py`
 
-- [ ] **Step 1: Failing tests**
-
-```python
-def test_default_size_is_1200x640(qtbot):
-    window = make_window(...)
-    assert window.size().toTuple() == (1200, 640)
-
-def test_chrome_icon_region_is_caption(qtbot):
-    # after show: hit_test on titleAppIcon center == HTCAPTION
-    # hit_test on tabNewButton center == HTCLIENT
-```
-
-Update any tests hard-coding `(1200, 800)`.
-
-- [ ] **Step 2: RED**
-- [ ] **Step 3: Implement hit-test + `DEFAULT_SIZE = (1200, 640)` / lower minimum height to `(800, 400)`**
-- [ ] **Step 4: GREEN + commit/push**
+- [x] **Step 1: Failing tests**
+- [x] **Step 2: RED**
+- [x] **Step 3: Implement hit-test + `DEFAULT_SIZE = (1200, 640)` / lower minimum height to `(800, 400)`**
+- [x] **Step 4: GREEN + commit/push** (`39f27f4`)
 
 ---
 
@@ -61,10 +48,10 @@ Update any tests hard-coding `(1200, 800)`.
 
 **Files:** create `md_text_view.py`, `tests/test_md_text_view.py`; wire `window.py`
 
-- [ ] **Step 1: Failing unit tests** for load read-only, click enables edit, dirty `*`, save/save_as UTF-8
-- [ ] **Step 2: Implement `MarkdownTextView`**
-- [ ] **Step 3: Window loads `.md` via text view by default; `actionSave` Ctrl+S; visual action still works**
-- [ ] **Step 4: GREEN focused tests + commit/push**
+- [x] **Step 1: Failing unit tests** for load read-only, click enables edit, dirty `*`, save/save_as UTF-8
+- [x] **Step 2: Implement `MarkdownTextView`**
+- [x] **Step 3: Window loads `.md` via text view by default; `actionSave` Ctrl+S; visual action still works**
+- [x] **Step 4: GREEN focused tests + commit/push**
 
 ---
 
@@ -72,10 +59,10 @@ Update any tests hard-coding `(1200, 800)`.
 
 **Files:** `window.py`, `app.py`/`__main__.py`, tests
 
-- [ ] New window with no files → one untitled MD draft (editable)
-- [ ] `+` adds another untitled draft
-- [ ] Empty-window hint only when zero tabs (after closing all)
-- [ ] Commit/push
+- [x] New window with no files → one untitled MD draft (editable)
+- [x] `+` adds another untitled draft
+- [x] Empty-window hint only when zero tabs (after closing all)
+- [x] Commit/push
 
 ---
 
@@ -83,15 +70,15 @@ Update any tests hard-coding `(1200, 800)`.
 
 **Files:** `webengine_warmup.py`, `app.py`, tests
 
-- [ ] `warmup_webengine(app)` creates hidden profile/page, processes events, disposes; second call no-op
-- [ ] Schedule via `QTimer.singleShot(0, ...)` after first window
-- [ ] Commit/push
+- [x] `warmup_webengine(app)` creates hidden profile/page, processes events, disposes; second call no-op
+- [x] Schedule via `QTimer.singleShot(0, ...)` after first window
+- [x] Commit/push
 
 ---
 
 ### Task 5: Full regression + frozen certify
 
-- [ ] `pytest` full
+- [x] `pytest` full (`321 passed, 1 skipped`)
 - [ ] `build_windows.ps1` + `smoke_windows.ps1`
 - [ ] Refresh desktop shortcut
 - [ ] STATUS complete + push

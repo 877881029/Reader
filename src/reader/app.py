@@ -138,6 +138,10 @@ class ReaderApp:
         self._windows.append(window)
         self._place_window(window)
         window.show()
+        if len(self._windows) == 1:
+            from reader.preview.webengine_warmup import schedule_webengine_warmup
+
+            schedule_webengine_warmup(self._qapp, delay_ms=0)
         return window
 
     def _place_window(self, window: MainWindow) -> None:

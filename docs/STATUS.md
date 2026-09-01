@@ -14,7 +14,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 **Markdown 记事本编辑 + 表头拖动/高度/WebEngine 预热**
 
 - 规格：`docs/superpowers/specs/2026-09-01-markdown-edit-chrome-design.md`（用户批准方案 A，连续执行）
-- 计划：`docs/superpowers/plans/2026-09-01-markdown-edit-chrome.md`（5 个 TDD 任务）
+- 计划：`docs/superpowers/plans/2026-09-01-markdown-edit-chrome.md`
+- Task 1–4 已实现；Task 5（冻结构建 / smoke / 快捷方式）进行中
 - 要点：整段 chrome 可拖；默认 `1200×640`；新建/`+` → 未命名可编辑 md；打开 md 快显只读、点击编辑、Ctrl+S；启动预热 WebEngine
 
 ## 上一目标（已完成）
@@ -199,11 +200,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 执行计划 Task 1–5（拖动/高度 → MD 编辑 → 新建草稿 → WebEngine 预热 → 冻结认证）
-2. 每任务提交并推送 `origin/main`
+1. 执行 Task 5：`build_windows.ps1` + `smoke_windows.ps1`，刷新桌面快捷方式
+2. 认证通过后把本目标标为已完成并推送
 
 ## 已完成（本增量）
 
+- Markdown Edit Chrome Task 1：整段 chrome（除标签/`+`/窗控）`HTCAPTION`；默认尺寸 `1200×640`、最小 `(800, 400)`；已推送 `39f27f4`
+- Markdown Edit Chrome Task 2：`MarkdownTextView` UTF-8 快显只读→点击编辑；`.md` 默认文本编辑；`Ctrl+S` 有路径覆盖 / 无路径另存为；视觉 MD 仍可切换
+- Markdown Edit Chrome Task 3：无文件启动与 `+` 默认 `未命名.md` 可编辑草稿；零标签时显示空窗口提示
+- Markdown Edit Chrome Task 4：`warmup_webengine` 幂等预热；首窗 `QTimer.singleShot(0, ...)` 调度
+- Markdown Edit Chrome Task 2–4 验证：全量 `321 passed, 1 skipped`
 - Notepad Title Bar Task 1：隐藏菜单栏与标签栏「打开」按钮；空白提示改为 `拖入文件，或按 Ctrl+O 打开`；`Ctrl+O`/`actionNewTab`/预览 QAction 保留为窗口动作
 - Notepad Title Bar Task 2：新增 `TitleChrome`，把 `QTabBar` 重排到单行 chrome（图标 | 标签 | + | 标题拖拽区）；`+` 紧跟末标签
 - Notepad Title Bar Task 3：无边框窗口 + 自绘最小化/最大化/关闭按钮，状态切换刷新最大化图标

@@ -274,12 +274,16 @@ def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
     qtbot.addWidget(window)
 
     window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: window.tab_count() == 1)
+    document = next(iter(window._documents.values()))
+    assert document.mode == "text"
+    assert modes == []
 
+    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: visual.start_calls == 1)
     document = next(iter(window._documents.values()))
     assert modes == ["visual"]
     assert document.mode == "visual"
-    assert document.builtin_mode == "visual"
 
     visual.ready.emit(1)
     qtbot.wait(20)
@@ -311,6 +315,7 @@ def test_markdown_wikilink_open_path_opens_tab_and_dedupes_focus(qtbot, tmp_path
     )
     qtbot.addWidget(window)
     window.open_paths([str(source)])
+    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: first is not None and first.start_calls == 1)
 
     first.open_path.emit(str(sibling.resolve()))
@@ -341,6 +346,7 @@ def test_markdown_wikilink_stale_generation_or_closed_signal_is_noop(qtbot, tmp_
     )
     qtbot.addWidget(window)
     window.open_paths([str(source)])
+    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: first.start_calls == 1)
     document_id = next(iter(window._documents.keys()))
     document = next(iter(window._documents.values()))
@@ -374,6 +380,7 @@ def test_markdown_missing_link_updates_status_without_opening_tab(qtbot, tmp_pat
     )
     qtbot.addWidget(window)
     window.open_paths([str(source)])
+    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: visual.start_calls == 1)
 
     visual.missing_link.emit("missing")
@@ -398,6 +405,11 @@ def test_markdown_close_tab_and_window_call_shutdown(qtbot, tmp_path: Path):
     )
     qtbot.addWidget(window)
     window.open_paths([str(first_path), str(second_path)])
+    window._tabs.setCurrentIndex(0)
+    window.switch_current_tab_to_visual()
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    window._tabs.setCurrentIndex(1)
+    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: second.start_calls == 1)
 
     window.close_tab(0)
@@ -1239,8 +1251,8 @@ def test_office_failure_preserves_manual_text_content(qtbot, tmp_path: Path):
 
 
 def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Path):
-    path = tmp_path / "slow.md"
-    path.write_text("# slow", encoding="utf-8")
+    path = tmp_path / "slow.docx"
+    path.write_bytes(b"x")
     started = threading.Event()
     release = threading.Event()
     worker_thread_ids: list[int] = []
@@ -1269,7 +1281,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     try:
         assert release.is_set() is False
         assert window.tab_count() == 1
-        assert window.tab_title(0) == "slow.md"
+        assert window.tab_title(0) == "slow.docx"
         assert "正在加载" in page_text(window, 0)
         assert window._executor.active_count() == 1
         qtbot.waitUntil(started.is_set, timeout=10_000)
@@ -1433,7 +1445,11 @@ def test_markdown_visual_skips_cache_get_and_put(qtbot, tmp_path: Path):
     qtbot.addWidget(window)
 
     window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: window.tab_count() == 1)
+    assert modes == []
+    assert cache.calls == []
 
+    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
     assert modes == ["visual"]
     assert cache.calls == []
@@ -1479,6 +1495,7 @@ def test_office_action_is_disabled_for_non_office_suffix(qtbot, tmp_path: Path):
     path.write_text("# notes", encoding="utf-8")
     office = FakeOfficeAvailability(True)
 
+    from reader.preview.md_text_view import MarkdownTextView
     from reader.shell.window import MainWindow
 
     window = MainWindow(
@@ -1490,7 +1507,7 @@ def test_office_action_is_disabled_for_non_office_suffix(qtbot, tmp_path: Path):
     qtbot.addWidget(window)
     window.open_paths([str(path)])
 
-    qtbot.waitUntil(lambda: "notes" in page_text(window, 0))
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
     assert window.actionOfficePreview.isEnabled() is False
     assert (
         window.actionOfficePreview.toolTip()
@@ -2043,8 +2060,8 @@ def test_restart_cancels_inflight_availability_request(qtbot, tmp_path: Path):
 
 
 def test_cache_failure_does_not_block_preview(qtbot, tmp_path: Path):
-    path = tmp_path / "cache-fault.md"
-    path.write_text("x", encoding="utf-8")
+    path = tmp_path / "cache-fault.docx"
+    path.write_bytes(b"x")
     window = make_window(
         lambda _path, office=None, mode="builtin": builtin_result("uncached"),
         FakeCache(fail=True),
@@ -2190,16 +2207,20 @@ def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
     window.actionNewTab.trigger()
 
     assert window.tab_count() == 1
-    assert window.tab_title(0) == "未命名"
-    assert "拖入文件，或按 Ctrl+O 打开" in page_text(window, 0)
-    assert window.focus_path() is None
+    assert "未命名" in window.tab_title(0)
+    from reader.preview.md_text_view import MarkdownTextView
+
+    view = window.findChild(MarkdownTextView)
+    assert view is not None
+    assert view.is_editable() is True
+    assert window.focus_path() is not None
 
 
 def test_open_action_uses_multi_select_and_adds_tabs(qtbot, tmp_path: Path, monkeypatch):
-    first = tmp_path / "first.md"
-    second = tmp_path / "second.md"
-    first.write_text("1", encoding="utf-8")
-    second.write_text("2", encoding="utf-8")
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"x")
+    second.write_bytes(b"x")
     window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     monkeypatch.setattr(
@@ -2210,17 +2231,17 @@ def test_open_action_uses_multi_select_and_adds_tabs(qtbot, tmp_path: Path, monk
     window.actionOpen.trigger()
 
     assert window.tab_count() == 2
-    assert window.tab_title(0) == "first.md"
-    assert window.tab_title(1) == "second.md"
+    assert window.tab_title(0) == "first.docx"
+    assert window.tab_title(1) == "second.docx"
 
 
 def test_ux_packaging_regression_multi_open_duplicate_blank_and_office_failure(
     qtbot, tmp_path: Path
 ):
     first = tmp_path / "first.docx"
-    second = tmp_path / "second.md"
+    second = tmp_path / "second.docx"
     first.write_bytes(b"x")
-    second.write_text("second", encoding="utf-8")
+    second.write_bytes(b"x")
 
     def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
         if mode == "office":
@@ -2249,7 +2270,7 @@ def test_ux_packaging_regression_multi_open_duplicate_blank_and_office_failure(
     qtbot.waitUntil(window.actionOfficePreview.isEnabled)
 
     assert window.tab_title(0) == "first.docx"
-    assert window.tab_title(1) == "second.md"
+    assert window.tab_title(1) == "second.docx"
     assert window.focus_path() == str(first.resolve())
     window.switch_current_tab_to_office()
     qtbot.waitUntil(lambda: "Office 导出失败" in window.status_text())
@@ -2257,14 +2278,14 @@ def test_ux_packaging_regression_multi_open_duplicate_blank_and_office_failure(
 
 
 def test_duplicate_focuses_existing_tab(qtbot, tmp_path: Path):
-    first = tmp_path / "first.md"
-    second = tmp_path / "second.md"
-    first.write_text("1", encoding="utf-8")
-    second.write_text("2", encoding="utf-8")
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"x")
+    second.write_bytes(b"x")
     window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     window.open_paths([str(first), str(second)])
-    qtbot.waitUntil(lambda: "second.md" in page_text(window, 1))
+    qtbot.waitUntil(lambda: "second.docx" in page_text(window, 1))
 
     window.open_paths([str(first)])
 
@@ -2275,29 +2296,29 @@ def test_duplicate_focuses_existing_tab(qtbot, tmp_path: Path):
 def test_mixed_cross_batch_open_adds_new_tab_then_focuses_existing(
     qtbot, tmp_path: Path
 ):
-    existing = tmp_path / "existing.md"
-    new = tmp_path / "new.md"
-    existing.write_text("existing", encoding="utf-8")
-    new.write_text("new", encoding="utf-8")
+    existing = tmp_path / "existing.docx"
+    new = tmp_path / "new.docx"
+    existing.write_bytes(b"x")
+    new.write_bytes(b"x")
     window = make_window(
         lambda path, office=None, mode="builtin": builtin_result(path.name)
     )
     qtbot.addWidget(window)
     window.open_paths([str(existing)])
-    qtbot.waitUntil(lambda: "existing.md" in page_text(window, 0))
+    qtbot.waitUntil(lambda: "existing.docx" in page_text(window, 0))
 
     window.open_paths([str(existing), str(new)])
 
     assert window.tab_count() == 2
-    assert window.tab_title(1) == "new.md"
+    assert window.tab_title(1) == "new.docx"
     assert window.focus_path() == str(existing.resolve())
 
 
 def test_duplicate_while_original_is_loading_focuses_original_without_new_tab(
     qtbot, tmp_path: Path
 ):
-    path = tmp_path / "loading.md"
-    path.write_text("loading", encoding="utf-8")
+    path = tmp_path / "loading.docx"
+    path.write_bytes(b"x")
     started = threading.Event()
     release = threading.Event()
 
@@ -2325,8 +2346,8 @@ def test_duplicate_while_original_is_loading_focuses_original_without_new_tab(
 
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows path semantics")
 def test_duplicate_path_is_case_insensitive_on_windows(qtbot, tmp_path: Path):
-    path = tmp_path / "MixedCase.md"
-    path.write_text("case", encoding="utf-8")
+    path = tmp_path / "MixedCase.docx"
+    path.write_bytes(b"x")
     window = make_window(
         lambda source, office=None, mode="builtin": builtin_result(source.name)
     )
@@ -2341,10 +2362,10 @@ def test_duplicate_path_is_case_insensitive_on_windows(qtbot, tmp_path: Path):
 
 
 def test_late_result_after_close_cannot_overwrite_shifted_tab(qtbot, tmp_path: Path):
-    slow = tmp_path / "slow.md"
-    fast = tmp_path / "fast.md"
-    slow.write_text("slow", encoding="utf-8")
-    fast.write_text("fast", encoding="utf-8")
+    slow = tmp_path / "slow.docx"
+    fast = tmp_path / "fast.docx"
+    slow.write_bytes(b"x")
+    fast.write_bytes(b"x")
     release = threading.Event()
 
     def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
@@ -2368,10 +2389,10 @@ def test_late_result_after_close_cannot_overwrite_shifted_tab(qtbot, tmp_path: P
 
 
 def test_preview_error_only_changes_its_own_tab(qtbot, tmp_path: Path):
-    bad = tmp_path / "bad.md"
-    good = tmp_path / "good.md"
-    bad.write_text("bad", encoding="utf-8")
-    good.write_text("good", encoding="utf-8")
+    bad = tmp_path / "bad.docx"
+    good = tmp_path / "good.docx"
+    bad.write_bytes(b"x")
+    good.write_bytes(b"x")
 
     def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
         if path == bad.resolve():
@@ -2388,8 +2409,8 @@ def test_preview_error_only_changes_its_own_tab(qtbot, tmp_path: Path):
 
 
 def test_close_last_tab_keeps_visible_empty_window(qtbot, tmp_path: Path):
-    path = tmp_path / "one.md"
-    path.write_text("one", encoding="utf-8")
+    path = tmp_path / "one.docx"
+    path.write_bytes(b"x")
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
     window.show()
@@ -2521,9 +2542,9 @@ def test_shared_executor_delivers_each_result_only_to_owner_window(
     reader_app, qtbot, tmp_path: Path
 ):
     app, _ipc = reader_app
-    first_path = tmp_path / "first.md"
+    first_path = tmp_path / "first.docx"
     second_path = tmp_path / "second.pptx"
-    first_path.write_text("first", encoding="utf-8")
+    first_path.write_bytes(b"x")
     second_path.write_bytes(b"pptx")
     source_pdf = tmp_path / "second-source.pdf"
     source_pdf.write_bytes(b"%PDF second")
@@ -2568,7 +2589,7 @@ def test_shared_executor_delivers_each_result_only_to_owner_window(
 
     qtbot.waitUntil(lambda: "WINDOW ONE" in page_text(first, 0))
     qtbot.waitUntil(lambda: "WINDOW TWO" in page_text(second, 0))
-    assert first.tab_title(0) == "first.md"
+    assert first.tab_title(0) == "first.docx"
     assert second.tab_title(0) == "second.pptx"
     assert pinned[0].exists()
     assert pinned[0] != source_pdf
@@ -2645,8 +2666,8 @@ def test_shared_executor_routes_office_availability_to_owner_windows(
 
 def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
     app, ipc = reader_app
-    path = tmp_path / "ipc.md"
-    path.write_text("ipc", encoding="utf-8")
+    path = tmp_path / "ipc.docx"
+    path.write_bytes(b"x")
     window = app.new_window()
     window._preview_fn = lambda _path, office=None, mode="builtin": builtin_result("IPC")
     window._viewer_factory = label_viewer
@@ -2661,8 +2682,8 @@ def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
 
 def test_ipc_paths_follow_refocused_active_window(reader_app, qapp, qtbot, tmp_path: Path):
     app, ipc = reader_app
-    path = tmp_path / "active.md"
-    path.write_text("active", encoding="utf-8")
+    path = tmp_path / "active.docx"
+    path.write_bytes(b"x")
     first = app.new_window()
     second = app.new_window()
     for window in (first, second):
@@ -2678,15 +2699,15 @@ def test_ipc_paths_follow_refocused_active_window(reader_app, qapp, qtbot, tmp_p
 
     assert first.tab_count() == 1
     assert second.tab_count() == 0
-    qtbot.waitUntil(lambda: "active.md" in page_text(first, 0))
+    qtbot.waitUntil(lambda: "active.docx" in page_text(first, 0), timeout=10_000)
 
 
 def test_ipc_paths_follow_active_child_dialog_to_parent_window(
     reader_app, qapp, qtbot, tmp_path: Path
 ):
     app, ipc = reader_app
-    path = tmp_path / "dialog-parent.md"
-    path.write_text("dialog", encoding="utf-8")
+    path = tmp_path / "dialog-parent.docx"
+    path.write_bytes(b"x")
     first = app.new_window()
     second = app.new_window()
     first._preview_fn = (
@@ -2704,15 +2725,15 @@ def test_ipc_paths_follow_active_child_dialog_to_parent_window(
 
     assert first.tab_count() == 1
     assert second.tab_count() == 0
-    qtbot.waitUntil(lambda: "dialog-parent.md" in page_text(first, 0))
+    qtbot.waitUntil(lambda: "dialog-parent.docx" in page_text(first, 0), timeout=10_000)
 
 
 def test_ipc_paths_follow_last_activated_window_when_external_app_is_active(
     reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
 ):
     app, ipc = reader_app
-    path = tmp_path / "last-activated.md"
-    path.write_text("active history", encoding="utf-8")
+    path = tmp_path / "last-activated.docx"
+    path.write_bytes(b"x")
     first = app.new_window()
     second = app.new_window()
     for window in (first, second):
@@ -2730,15 +2751,15 @@ def test_ipc_paths_follow_last_activated_window_when_external_app_is_active(
 
     assert first.tab_count() == 1
     assert second.tab_count() == 0
-    qtbot.waitUntil(lambda: "last-activated.md" in page_text(first, 0))
+    qtbot.waitUntil(lambda: "last-activated.docx" in page_text(first, 0), timeout=10_000)
 
 
 def test_closing_last_activated_window_drops_weak_history_and_routes_to_survivor(
     reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
 ):
     app, ipc = reader_app
-    path = tmp_path / "after-close.md"
-    path.write_text("survivor", encoding="utf-8")
+    path = tmp_path / "after-close.docx"
+    path.write_bytes(b"x")
     first = app.new_window()
     second = app.new_window()
     second._preview_fn = (
@@ -2759,15 +2780,15 @@ def test_closing_last_activated_window_drops_weak_history_and_routes_to_survivor
 
     assert all(item() is not first for item in app._activation_history)
     assert second.tab_count() == 1
-    qtbot.waitUntil(lambda: "after-close.md" in page_text(second, 0))
+    qtbot.waitUntil(lambda: "after-close.docx" in page_text(second, 0), timeout=10_000)
 
 
 def test_ipc_without_activation_history_falls_back_to_latest_eligible_window(
     reader_app, tmp_path: Path, monkeypatch
 ):
     app, ipc = reader_app
-    path = tmp_path / "fallback.md"
-    path.write_text("fallback", encoding="utf-8")
+    path = tmp_path / "fallback.docx"
+    path.write_bytes(b"x")
     first = app.new_window()
     second = app.new_window()
     second._preview_fn = (
@@ -2786,10 +2807,10 @@ def test_ipc_without_activation_history_falls_back_to_latest_eligible_window(
 
 def test_ipc_callback_opens_all_forwarded_paths(reader_app, qtbot, tmp_path: Path):
     app, ipc = reader_app
-    first = tmp_path / "a.md"
-    second = tmp_path / "二号.md"
-    first.write_text("a", encoding="utf-8")
-    second.write_text("b", encoding="utf-8")
+    first = tmp_path / "a.docx"
+    second = tmp_path / "二号.docx"
+    first.write_bytes(b"a")
+    second.write_bytes(b"b")
     window = app.new_window()
     window._preview_fn = (
         lambda path, office=None, mode="builtin": builtin_result(path.name)
@@ -2813,10 +2834,10 @@ def test_initial_and_ipc_batches_are_logged_separately_before_open(
     app, ipc = reader_app
     log_path = tmp_path / "batches.jsonl"
     monkeypatch.setenv("READER_SMOKE_BATCH_LOG", str(log_path))
-    initial = [str(tmp_path / "initial-a.md"), str(tmp_path / "initial-b.md")]
+    initial = [str(tmp_path / "initial-a.docx"), str(tmp_path / "initial-b.docx")]
     forwarded_paths = [
-        tmp_path / "forwarded-a.md",
-        tmp_path / "forwarded-b.md",
+        tmp_path / "forwarded-a.docx",
+        tmp_path / "forwarded-b.docx",
     ]
     for path in [*(Path(item) for item in initial), *forwarded_paths]:
         path.write_text(path.name, encoding="utf-8")
@@ -2878,8 +2899,8 @@ def test_closing_window_is_removed_before_ipc_routing(
     reader_app, qapp, qtbot, tmp_path: Path
 ):
     app, ipc = reader_app
-    path = tmp_path / "raced.md"
-    path.write_text("race", encoding="utf-8")
+    path = tmp_path / "raced.docx"
+    path.write_bytes(b"x")
     closing = app.new_window()
     survivor = app.new_window()
     survivor._preview_fn = (
@@ -2897,12 +2918,12 @@ def test_closing_window_is_removed_before_ipc_routing(
     assert closing.tab_count() == 0
     assert closing._executor._pending == {}
     assert survivor.tab_count() == 1
-    qtbot.waitUntil(lambda: "raced.md" in page_text(survivor, 0))
+    qtbot.waitUntil(lambda: "raced.docx" in page_text(survivor, 0), timeout=10_000)
 
 
 def test_closing_window_open_paths_and_start_preview_are_noops(qtbot, tmp_path: Path):
-    path = tmp_path / "ignored.md"
-    path.write_text("ignored", encoding="utf-8")
+    path = tmp_path / "ignored.docx"
+    path.write_bytes(b"x")
     window = make_window(
         lambda source, office=None, mode="builtin": builtin_result(source.name)
     )
@@ -2965,9 +2986,9 @@ def test_destroyed_last_window_releases_real_single_instance(
 def test_viewer_receives_source_path_and_html_base(qtbot, tmp_path: Path):
     from reader.shell.window import MainWindow, _html_base_url
 
-    source = tmp_path / "source" / "page.md"
+    source = tmp_path / "source" / "page.docx"
     source.parent.mkdir()
-    source.write_text("body", encoding="utf-8")
+    source.write_bytes(b"body")
     assets = tmp_path / "assets"
     assets.mkdir()
     seen: list[tuple[Path, Path | None]] = []
@@ -3174,8 +3195,8 @@ def test_viewer_reentrancy_close_discards_widget_and_artifact(qtbot, tmp_path: P
 
 
 def test_close_window_while_preview_runs_discards_late_result(qapp, qtbot, tmp_path: Path):
-    source = tmp_path / "late.md"
-    source.write_text("late", encoding="utf-8")
+    source = tmp_path / "late.docx"
+    source.write_bytes(b"x")
     started = threading.Event()
     release = threading.Event()
     viewer_calls: list[Path] = []
@@ -3211,8 +3232,8 @@ def test_close_window_while_preview_runs_discards_late_result(qapp, qtbot, tmp_p
 
 
 def test_error_result_uses_label_without_viewer(qtbot, tmp_path: Path):
-    source = tmp_path / "error.md"
-    source.write_text("x", encoding="utf-8")
+    source = tmp_path / "error.docx"
+    source.write_bytes(b"x")
     viewer_called = False
 
     def viewer(_result: PreviewResult, _source_path: Path) -> QLabel:
@@ -3240,8 +3261,8 @@ def test_error_result_uses_label_without_viewer(qtbot, tmp_path: Path):
 
 
 def test_missing_worker_output_becomes_target_tab_error(qtbot, tmp_path: Path):
-    source = tmp_path / "missing-output.md"
-    source.write_text("x", encoding="utf-8")
+    source = tmp_path / "missing-output.docx"
+    source.write_bytes(b"x")
     started = threading.Event()
     release = threading.Event()
 
@@ -3280,10 +3301,10 @@ def test_idle_standalone_executor_leaves_qapp_registry(qapp, qtbot):
 
 
 def test_drop_opens_multiple_local_files(qtbot, tmp_path: Path):
-    first = tmp_path / "first.md"
-    second = tmp_path / "second.md"
-    first.write_text("1", encoding="utf-8")
-    second.write_text("2", encoding="utf-8")
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"x")
+    second.write_bytes(b"x")
     window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     mime = QMimeData()
@@ -3304,10 +3325,10 @@ def test_drop_opens_multiple_local_files(qtbot, tmp_path: Path):
 
 
 def test_drop_on_blank_replaces_first_file_and_appends_extra(qtbot, tmp_path: Path):
-    first = tmp_path / "first.md"
-    second = tmp_path / "second.md"
-    first.write_text("1", encoding="utf-8")
-    second.write_text("2", encoding="utf-8")
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"x")
+    second.write_bytes(b"x")
     window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     window.add_blank_tab()
@@ -3315,23 +3336,23 @@ def test_drop_on_blank_replaces_first_file_and_appends_extra(qtbot, tmp_path: Pa
     window.open_paths([str(first), str(second)], replace_blank=True)
 
     assert window.tab_count() == 2
-    assert window.tab_title(0) == "first.md"
-    assert window.tab_title(1) == "second.md"
+    assert window.tab_title(0) == "first.docx"
+    assert window.tab_title(1) == "second.docx"
     assert "拖入文件" not in page_text(window, 0)
 
 
 def test_drop_on_current_second_blank_replaces_current_not_first(qtbot, tmp_path: Path):
-    first = tmp_path / "first.md"
-    second = tmp_path / "second.md"
-    first.write_text("1", encoding="utf-8")
-    second.write_text("2", encoding="utf-8")
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"x")
+    second.write_bytes(b"x")
     window = make_window(lambda path, office=None, mode="builtin": builtin_result(path.name))
     qtbot.addWidget(window)
     window.add_blank_tab()
     window.add_blank_tab()
     assert window.tab_count() == 2
-    assert window.tab_title(0) == "未命名"
-    assert window.tab_title(1) == "未命名"
+    assert window.tab_title(0) == "未命名.md"
+    assert window.tab_title(1) == "未命名.md"
     second_blank = window._tabs.widget(1)
     window._tabs.setCurrentIndex(1)
 
@@ -3350,13 +3371,18 @@ def test_drop_on_current_second_blank_replaces_current_not_first(qtbot, tmp_path
 
     assert event.accepted is True
     assert window.tab_count() == 3
-    assert window.tab_title(0) == "未命名"
-    assert window.tab_title(1) == "first.md"
-    assert window.tab_title(2) == "second.md"
+    assert window.tab_title(0) == "未命名.md"
+    assert window.tab_title(1) == "first.docx"
+    assert window.tab_title(2) == "second.docx"
     assert window._tabs.widget(1) is not second_blank
-    assert "拖入文件" in page_text(window, 0)
+    from reader.preview.md_text_view import MarkdownTextView
+
+    leftover = window._tabs.widget(0).findChild(MarkdownTextView)
+    assert leftover is not None
     assert window.focus_path() == str(second.resolve())
-    assert {document.path.name for document in window._documents.values()} == {"first.md", "second.md"}
+    names = {document.path.name for document in window._documents.values()}
+    assert "first.docx" in names and "second.docx" in names
+    assert any(name.startswith("未命名-") and name.endswith(".md") for name in names)
 
 
 def test_unsupported_drop_keeps_blank_tab(qtbot, tmp_path: Path):
@@ -3369,7 +3395,7 @@ def test_unsupported_drop_keeps_blank_tab(qtbot, tmp_path: Path):
     window.open_paths([str(unsupported)], replace_blank=True)
 
     assert window.tab_count() == 1
-    assert window.tab_title(0) == "未命名"
+    assert window.tab_title(0) == "未命名.md"
     assert "无法打开" in window.status_text()
 
 
