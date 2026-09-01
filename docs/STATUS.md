@@ -184,8 +184,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 执行计划 Task 5（全量回归 + 冻结构建/smoke + 桌面快捷方式）
-2. 完成后将本目标标为完成并推送
+1. 用户用桌面 `Reader` 目视确认：无菜单栏、单行标签、`+` 在末标签后、拖拽标题区、最大化贴靠
+2. 若需要恢复可见「预览/文件」入口，另开规格增量
 
 ## 已完成（本增量）
 
@@ -193,6 +193,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Notepad Title Bar Task 2：新增 `TitleChrome`，把 `QTabBar` 重排到单行 chrome（图标 | 标签 | + | 标题拖拽区）；`+` 紧跟末标签
 - Notepad Title Bar Task 3：无边框窗口 + 自绘最小化/最大化/关闭按钮，状态切换刷新最大化图标
 - Notepad Title Bar Task 4：`hit_test_for_window` + `nativeEvent` 处理 `WM_NCHITTEST`/`WM_NCCALCSIZE`（标题拖拽、边缘缩放、最大化按钮 HTMAXBUTTON）
+- Notepad Title Bar Task 5：全量回归、冻结构建、smoke、桌面快捷方式刷新完成
 
 ## 阻塞项
 
