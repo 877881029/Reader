@@ -2108,6 +2108,43 @@ def test_frameless_main_window_has_custom_chrome_buttons(qtbot):
     assert window.findChild(QWidget, "titleCloseButton") is not None
 
 
+def test_frameless_window_keeps_win32_taskbar_styles(qtbot):
+    import ctypes
+
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+
+    hwnd = int(window.winId())
+    style = ctypes.windll.user32.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+    ws_caption = 0x00C00000
+    ws_thickframe = 0x00040000
+    ws_minimizebox = 0x00020000
+    ws_maximizebox = 0x00010000
+    ws_sysmenu = 0x00080000
+    assert style & ws_caption
+    assert style & ws_thickframe
+    assert style & ws_minimizebox
+    assert style & ws_maximizebox
+    assert style & ws_sysmenu
+
+
+def test_empty_window_shows_drop_hint_and_accepts_drops(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+
+    assert window.tab_count() == 0
+    hint = window.findChild(QLabel, "emptyWindowHint")
+    assert hint is not None
+    assert hint.isVisible()
+    assert "Ctrl+O" in hint.text()
+    assert window.acceptDrops()
+    assert window._tabs.acceptDrops()
+
+
 def test_hit_test_regions(qtbot):
     from reader.shell.title_chrome import (
         HTCAPTION,
@@ -2358,6 +2395,8 @@ def test_close_last_tab_keeps_visible_empty_window(qtbot, tmp_path: Path):
     assert window.tab_count() == 0
     assert window.isVisible()
     assert window.focus_path() is None
+    hint = window.findChild(QLabel, "emptyWindowHint")
+    assert hint is not None and hint.isVisible()
 
 
 def test_new_window_action_and_single_ipc_owner(reader_app):

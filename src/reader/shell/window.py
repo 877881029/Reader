@@ -13,12 +13,21 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QIcon, QKeySequence
+from PySide6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QDragEnterEvent,
+    QDropEvent,
+    QIcon,
+    QKeySequence,
+    QShowEvent,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QLabel,
     QMainWindow,
+    QStackedWidget,
     QStatusBar,
     QTabWidget,
     QVBoxLayout,
@@ -36,6 +45,16 @@ from reader.smoke import append_markdown_ready, append_visual_ready
 
 WM_NCHITTEST = 0x0084
 WM_NCCALCSIZE = 0x0083
+GWL_STYLE = -16
+WS_CAPTION = 0x00C00000
+WS_SYSMENU = 0x00080000
+WS_THICKFRAME = 0x00040000
+WS_MINIMIZEBOX = 0x00020000
+WS_MAXIMIZEBOX = 0x00010000
+SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
+SWP_NOZORDER = 0x0004
+SWP_FRAMECHANGED = 0x0020
 
 PreviewFunction = Callable[..., PreviewResult]
 CacheFactory = Callable[[], PreviewCache]
@@ -426,7 +445,12 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Reader")
         self.setWindowFlags(
-            Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
+            Qt.WindowType.Window
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowSystemMenuHint
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
         )
         self.resize(*self.DEFAULT_SIZE)
         self.setMinimumSize(*self.MINIMUM_SIZE)
@@ -479,6 +503,7 @@ class MainWindow(QMainWindow):
         self._tabs.setTabsClosable(True)
         self._tabs.tabCloseRequested.connect(self.close_tab)
         self._tabs.setDocumentMode(True)
+        self._tabs.setAcceptDrops(True)
 
         self._title_chrome = TitleChrome(self)
         self._title_chrome.set_window_icon(self.windowIcon())
@@ -489,12 +514,26 @@ class MainWindow(QMainWindow):
         self._title_chrome.close_requested.connect(self.close)
         self._title_chrome.update_maximize_state(self.isMaximized())
 
+        empty_page = QWidget()
+        empty_page.setAcceptDrops(True)
+        empty_layout = QVBoxLayout(empty_page)
+        empty_hint = QLabel("拖入文件，或按 Ctrl+O 打开")
+        empty_hint.setObjectName("emptyWindowHint")
+        empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(empty_hint)
+
+        self._content_stack = QStackedWidget()
+        self._content_stack.setAcceptDrops(True)
+        self._content_stack.addWidget(empty_page)
+        self._content_stack.addWidget(self._tabs)
+
         container = QWidget(self)
+        container.setAcceptDrops(True)
         root = QVBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(self._title_chrome)
-        root.addWidget(self._tabs, 1)
+        root.addWidget(self._content_stack, 1)
         self.setCentralWidget(container)
         self.setStatusBar(QStatusBar())
 
@@ -540,6 +579,44 @@ class MainWindow(QMainWindow):
 
         self._tabs.currentChanged.connect(self._refresh_preview_actions)
         self._refresh_preview_actions()
+        self._refresh_content_stack()
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
+        super().showEvent(event)
+        self._ensure_win32_frame_styles()
+
+    def _ensure_win32_frame_styles(self) -> None:
+        if os.name != "nt":
+            return
+        hwnd = int(self.winId())
+        if hwnd == 0:
+            return
+        style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
+        wanted = (
+            WS_CAPTION
+            | WS_THICKFRAME
+            | WS_MINIMIZEBOX
+            | WS_MAXIMIZEBOX
+            | WS_SYSMENU
+        )
+        if style & wanted == wanted:
+            return
+        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style | wanted)
+        ctypes.windll.user32.SetWindowPos(
+            hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+        )
+
+    def _refresh_content_stack(self) -> None:
+        stack = getattr(self, "_content_stack", None)
+        if stack is None:
+            return
+        stack.setCurrentIndex(0 if self._tabs.count() == 0 else 1)
 
     def event(self, event: QEvent) -> bool:
         if (
@@ -682,6 +759,7 @@ class MainWindow(QMainWindow):
         self._tabs.removeTab(index)
         page.deleteLater()
         self._refresh_preview_actions()
+        self._refresh_content_stack()
 
     def _blank_tab_index(self, preferred_page: QWidget | None = None) -> int | None:
         if preferred_page is not None:
@@ -708,6 +786,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(hint)
         self._tabs.addTab(page, "未命名")
         self._tabs.setCurrentWidget(page)
+        self._refresh_content_stack()
 
     def _open_dialog(self) -> None:
         paths, _selected_filter = QFileDialog.getOpenFileNames(
@@ -790,6 +869,7 @@ class MainWindow(QMainWindow):
                 old_page.deleteLater()
             self._tabs.insertTab(replace_tab_index, page, path.name)
         self._tabs.setCurrentWidget(page)
+        self._refresh_content_stack()
         self.statusBar().showMessage("正在加载…")
         self._executor.submit(
             document_id,

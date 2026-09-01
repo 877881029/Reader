@@ -9,7 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**热修：无边框标题栏导致白屏/拖放失效/任务栏异常**
+
+- 根因：纯 `FramelessWindowHint` 去掉 `WS_CAPTION|THICKFRAME|MIN/MAX`，任务栏无法正常最小化/还原；空窗口无拖放提示且内容区未显式 `acceptDrops`
+- 修复：`showEvent` 补回 Win32 边框样式；空窗口显示 `emptyWindowHint`；内容栈/标签接受拖放
+- 规格仍适用：`docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`
+
+## 上一目标（已完成）
 
 **记事本式单行标题栏：去掉菜单/打开按钮，图标与标签同一行**
 
