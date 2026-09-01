@@ -9,7 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**Markdown 记事本编辑 + 表头拖动/高度/WebEngine 预热**
+
+- 规格：`docs/superpowers/specs/2026-09-01-markdown-edit-chrome-design.md`（用户批准方案 A，连续执行）
+- 计划：`docs/superpowers/plans/2026-09-01-markdown-edit-chrome.md`（5 个 TDD 任务）
+- 要点：整段 chrome 可拖；默认 `1200×640`；新建/`+` → 未命名可编辑 md；打开 md 快显只读、点击编辑、Ctrl+S；启动预热 WebEngine
+
+## 上一目标（已完成）
 
 **热修：无边框标题栏导致白屏/拖放失效/任务栏异常**
 
@@ -191,8 +199,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户用桌面 `Reader` 确认：空窗口有拖放提示、拖入文件可开、任务栏最小化/还原正常
-2. 若需要恢复可见「预览/文件」入口，另开规格增量
+1. 执行计划 Task 1–5（拖动/高度 → MD 编辑 → 新建草稿 → WebEngine 预热 → 冻结认证）
+2. 每任务提交并推送 `origin/main`
 
 ## 已完成（本增量）
 
