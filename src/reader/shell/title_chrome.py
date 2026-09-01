@@ -62,10 +62,16 @@ def hit_test_for_window(window: QMainWindow, global_pos: QPoint) -> int:
             return HTLEFT
         if right:
             return HTRIGHT
-        if top:
-            return HTTOP
         if bottom:
             return HTBOTTOM
+        # Top edge resize only outside the custom title chrome height so the
+        # chrome row itself remains draggable (HTCAPTION) like Notepad.
+        chrome = window.findChild(QWidget, "titleChrome")
+        chrome_bottom = chrome.height() if chrome is not None else 0
+        if top and local.y() < border and local.y() >= chrome_bottom:
+            return HTTOP
+        if top and chrome is None:
+            return HTTOP
 
     if _contains_global(window.findChild(QWidget, "titleMinButton"), global_pos):
         return HTMINBUTTON
@@ -73,7 +79,18 @@ def hit_test_for_window(window: QMainWindow, global_pos: QPoint) -> int:
         return HTMAXBUTTON
     if _contains_global(window.findChild(QWidget, "titleCloseButton"), global_pos):
         return HTCLOSE
-    if _contains_global(window.findChild(QWidget, "titleCaption"), global_pos):
+
+    tab_bar = None
+    tabs = getattr(window, "_tabs", None)
+    if tabs is not None:
+        tab_bar = tabs.tabBar()
+    if _contains_global(tab_bar, global_pos):
+        return HTCLIENT
+    if _contains_global(window.findChild(QWidget, "tabNewButton"), global_pos):
+        return HTCLIENT
+
+    chrome = window.findChild(QWidget, "titleChrome")
+    if _contains_global(chrome, global_pos):
         return HTCAPTION
     return HTCLIENT
 

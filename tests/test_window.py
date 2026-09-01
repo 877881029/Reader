@@ -2086,7 +2086,7 @@ def test_chrome_hides_menu_and_open_button(qtbot):
 def test_plus_button_follows_last_tab_not_far_right_corner(qtbot):
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
-    window.resize(1200, 800)
+    window.resize(1200, 640)
     window.show()
     qtbot.waitExposed(window)
     window.actionNewTab.trigger()
@@ -2156,17 +2156,22 @@ def test_hit_test_regions(qtbot):
 
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
-    window.resize(1200, 800)
+    window.resize(1200, 640)
     window.show()
     qtbot.waitExposed(window)
 
-    caption = window.findChild(QWidget, "titleCaption")
+    icon = window.findChild(QWidget, "titleAppIcon")
+    plus = window.findChild(QWidget, "tabNewButton")
     max_btn = window.findChild(QWidget, "titleMaxButton")
-    assert caption is not None and max_btn is not None
+    assert icon is not None and plus is not None and max_btn is not None
 
     assert (
-        hit_test_for_window(window, caption.mapToGlobal(caption.rect().center()))
+        hit_test_for_window(window, icon.mapToGlobal(icon.rect().center()))
         == HTCAPTION
+    )
+    assert (
+        hit_test_for_window(window, plus.mapToGlobal(plus.rect().center()))
+        == HTCLIENT
     )
     assert (
         hit_test_for_window(window, max_btn.mapToGlobal(max_btn.rect().center()))
@@ -2231,8 +2236,8 @@ def test_ux_packaging_regression_multi_open_duplicate_blank_and_office_failure(
         office=FakeOfficeAvailability(True),
     )
     qtbot.addWidget(window)
-    assert window.size().toTuple() == (1200, 800)
-    assert window.minimumSize().toTuple() == (800, 500)
+    assert window.size().toTuple() == (1200, 640)
+    assert window.minimumSize().toTuple() == (800, 400)
     assert window.actionOpen.shortcut().matches(
         QKeySequence(QKeySequence.StandardKey.Open)
     ) == QKeySequence.SequenceMatch.ExactMatch
@@ -2420,9 +2425,9 @@ def test_main_window_default_size_and_minimum(qtbot):
     qtbot.addWidget(window)
 
     assert window.size().width() == 1200
-    assert window.size().height() == 800
+    assert window.size().height() == 640
     assert window.minimumSize().width() == 800
-    assert window.minimumSize().height() == 500
+    assert window.minimumSize().height() == 400
 
 
 def test_new_window_offsets_from_existing_window(reader_app):

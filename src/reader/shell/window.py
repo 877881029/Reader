@@ -424,8 +424,8 @@ def _dispose_widget(widget: QWidget) -> None:
 
 
 class MainWindow(QMainWindow):
-    DEFAULT_SIZE = (1200, 800)
-    MINIMUM_SIZE = (800, 500)
+    DEFAULT_SIZE = (1200, 640)
+    MINIMUM_SIZE = (800, 400)
 
     def __init__(
         self,
