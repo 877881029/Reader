@@ -9,13 +9,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **热修：无边框标题栏导致白屏/拖放失效/任务栏异常**
 
-- 根因：纯 `FramelessWindowHint` 去掉 `WS_CAPTION|THICKFRAME|MIN/MAX`，任务栏无法正常最小化/还原；空窗口无拖放提示且内容区未显式 `acceptDrops`
+- 根因：纯 `FramelessWindowHint` 去掉 `WS_CAPTION|THICKFRAME|MIN/MAX`，任务栏无法正常最小化/还原；空窗口无拖放提示
 - 修复：`showEvent` 补回 Win32 边框样式；空窗口显示 `emptyWindowHint`；内容栈/标签接受拖放
-- 规格仍适用：`docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`
+- 验证：窗口/标题栏 `107 passed`；全量 `315 passed, 3 skipped`；frozen smoke PPTX/Markdown/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5906378 bytes`，SHA256 `f30e82086ad05f0b7d7b506278c6478419f43ead7768dbd1d0eb671a86ae9d45`
 
 ## 上一目标（已完成）
 
@@ -24,8 +25,6 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - 规格：`docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`（已实现）
 - 计划：`docs/superpowers/plans/2026-09-01-notepad-titlebar.md`（5 个 TDD 任务均已完成）
 - 方案：无边框窗口 + `TitleChrome` 单行（图标 | 标签 | + | 拖拽区 | 窗控）+ `WM_NCHITTEST`
-- 验证：Python `315 passed, 1 skipped`；`build_windows.ps1` exit 0；frozen smoke PPTX `slides=4` + Markdown `kind=markdown` + 两批 IPC；桌面 `Reader.lnk` 已刷新
-- 最终 `dist/Reader/Reader.exe`：`5905089 bytes`，SHA256 `21c7a720222384ee0568cd31ae59984c7ca55a9c0e056f44be6c4ecbc74a5569`
 
 ## 上一目标（已完成）
 
