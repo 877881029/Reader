@@ -9,7 +9,7 @@ import weakref
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl, Signal
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl, Qt, Signal
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QDialog, QLabel, QWidget
 
@@ -2099,6 +2099,13 @@ def test_plus_button_follows_last_tab_not_far_right_corner(qtbot):
     tab_right = tab_bar.mapTo(window, QPoint(last.right(), last.center().y()))
     assert abs(plus_global.x() - tab_right.x()) < 80
     assert plus_global.x() < window.width() - 120
+
+
+def test_frameless_main_window_has_custom_chrome_buttons(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    assert bool(window.windowFlags() & Qt.WindowType.FramelessWindowHint)
+    assert window.findChild(QWidget, "titleCloseButton") is not None
 
 
 def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):

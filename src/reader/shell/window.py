@@ -420,6 +420,9 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle("Reader")
+        self.setWindowFlags(
+            Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
+        )
         self.resize(*self.DEFAULT_SIZE)
         self.setMinimumSize(*self.MINIMUM_SIZE)
         icon_path = (
@@ -476,6 +479,10 @@ class MainWindow(QMainWindow):
         self._title_chrome.set_window_icon(self.windowIcon())
         self._title_chrome.adopt_tab_bar(self._tabs.tabBar())
         self._title_chrome.set_plus_handler(self.add_blank_tab)
+        self._title_chrome.minimize_requested.connect(self.showMinimized)
+        self._title_chrome.maximize_requested.connect(self._toggle_maximize)
+        self._title_chrome.close_requested.connect(self.close)
+        self._title_chrome.update_maximize_state(self.isMaximized())
 
         container = QWidget(self)
         root = QVBoxLayout(container)
@@ -537,7 +544,17 @@ class MainWindow(QMainWindow):
             callback = getattr(self, "_on_activated", None)
             if callback is not None:
                 callback(self)
+        if event.type() == QEvent.Type.WindowStateChange:
+            chrome = getattr(self, "_title_chrome", None)
+            if chrome is not None:
+                chrome.update_maximize_state(self.isMaximized())
         return super().event(event)
+
+    def _toggle_maximize(self) -> None:
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
 
     def center_on_screen(self, offset: int = 0) -> None:
         screen = self.screen() or QApplication.primaryScreen()

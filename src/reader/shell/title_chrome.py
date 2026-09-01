@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -15,6 +15,10 @@ from PySide6.QtWidgets import (
 
 class TitleChrome(QWidget):
     """Single-row Notepad-like chrome: icon | tabs | + | caption | buttons."""
+
+    minimize_requested = Signal()
+    maximize_requested = Signal()
+    close_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -50,6 +54,33 @@ class TitleChrome(QWidget):
         self._caption.setMinimumWidth(24)
         row.addWidget(self._caption, 1)
 
+        self._min_button = QToolButton(self)
+        self._min_button.setObjectName("titleMinButton")
+        self._min_button.setText("─")
+        self._min_button.setAutoRaise(True)
+        self._min_button.setFixedSize(46, 32)
+        self._min_button.setToolTip("最小化")
+        self._min_button.clicked.connect(self.minimize_requested.emit)
+        row.addWidget(self._min_button, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self._max_button = QToolButton(self)
+        self._max_button.setObjectName("titleMaxButton")
+        self._max_button.setText("□")
+        self._max_button.setAutoRaise(True)
+        self._max_button.setFixedSize(46, 32)
+        self._max_button.setToolTip("最大化")
+        self._max_button.clicked.connect(self.maximize_requested.emit)
+        row.addWidget(self._max_button, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self._close_button = QToolButton(self)
+        self._close_button.setObjectName("titleCloseButton")
+        self._close_button.setText("✕")
+        self._close_button.setAutoRaise(True)
+        self._close_button.setFixedSize(46, 32)
+        self._close_button.setToolTip("关闭")
+        self._close_button.clicked.connect(self.close_requested.emit)
+        row.addWidget(self._close_button, 0, Qt.AlignmentFlag.AlignVCenter)
+
         self.setStyleSheet(
             """
             QWidget#titleChrome {
@@ -79,6 +110,22 @@ class TitleChrome(QWidget):
             QToolButton#tabNewButton:hover {
                 background: #e0e0e0;
             }
+            QToolButton#titleMinButton,
+            QToolButton#titleMaxButton,
+            QToolButton#titleCloseButton {
+                border: none;
+                border-radius: 0;
+                font-size: 12px;
+                color: #222;
+            }
+            QToolButton#titleMinButton:hover,
+            QToolButton#titleMaxButton:hover {
+                background: #e5e5e5;
+            }
+            QToolButton#titleCloseButton:hover {
+                background: #e81123;
+                color: #ffffff;
+            }
             """
         )
 
@@ -98,3 +145,11 @@ class TitleChrome(QWidget):
 
     def set_plus_handler(self, callback: Callable[[], None]) -> None:
         self._plus.clicked.connect(callback)
+
+    def update_maximize_state(self, is_maximized: bool) -> None:
+        if is_maximized:
+            self._max_button.setText("❐")
+            self._max_button.setToolTip("还原")
+        else:
+            self._max_button.setText("□")
+            self._max_button.setToolTip("最大化")
