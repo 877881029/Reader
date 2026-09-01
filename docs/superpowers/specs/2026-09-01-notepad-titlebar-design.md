@@ -1,7 +1,7 @@
 # Notepad-Style Title Bar Design
 
 Date: 2026-09-01  
-Status: Approved by user (Approach A); plan written; implementing  
+Status: Implemented (Approach A)
 Depends on: `docs/superpowers/specs/2026-08-24-reader-ux-packaging-design.md`  
 Progress ledger: `docs/STATUS.md`
 

@@ -9,15 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **记事本式单行标题栏：去掉菜单/打开按钮，图标与标签同一行**
 
-- 规格：`docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`（用户批准方案 A）
-- 计划：`docs/superpowers/plans/2026-09-01-notepad-titlebar.md`（5 个 TDD 任务；用户要求写完计划后连续执行到成功）
-- 方案：无边框窗口 + 自绘一行 chrome + `WM_NCHITTEST` 保留拖动/缩放/双击最大化/贴靠
-- `+` 始终跟在最后一个标签后；无可见「文件/预览」菜单；`Ctrl+O` 与拖入仍可用
-- 预览策略与 PPTX/Markdown 视觉渲染不变
+- 规格：`docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`（已实现）
+- 计划：`docs/superpowers/plans/2026-09-01-notepad-titlebar.md`（5 个 TDD 任务均已完成）
+- 方案：无边框窗口 + `TitleChrome` 单行（图标 | 标签 | + | 拖拽区 | 窗控）+ `WM_NCHITTEST`
+- 验证：Python `315 passed, 1 skipped`；`build_windows.ps1` exit 0；frozen smoke PPTX `slides=4` + Markdown `kind=markdown` + 两批 IPC；桌面 `Reader.lnk` 已刷新
+- 最终 `dist/Reader/Reader.exe`：`5905089 bytes`，SHA256 `21c7a720222384ee0568cd31ae59984c7ca55a9c0e056f44be6c4ecbc74a5569`
 
 ## 上一目标（已完成）
 
