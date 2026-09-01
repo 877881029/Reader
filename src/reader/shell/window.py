@@ -15,12 +15,10 @@ from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QIc
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
-    QHBoxLayout,
     QLabel,
     QMainWindow,
     QStatusBar,
     QTabWidget,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -31,6 +29,7 @@ from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
+from reader.shell.title_chrome import TitleChrome
 from reader.smoke import append_markdown_ready, append_visual_ready
 
 PreviewFunction = Callable[..., PreviewResult]
@@ -471,9 +470,21 @@ class MainWindow(QMainWindow):
         self._tabs = QTabWidget()
         self._tabs.setTabsClosable(True)
         self._tabs.tabCloseRequested.connect(self.close_tab)
-        self.setCentralWidget(self._tabs)
+        self._tabs.setDocumentMode(True)
+
+        self._title_chrome = TitleChrome(self)
+        self._title_chrome.set_window_icon(self.windowIcon())
+        self._title_chrome.adopt_tab_bar(self._tabs.tabBar())
+        self._title_chrome.set_plus_handler(self.add_blank_tab)
+
+        container = QWidget(self)
+        root = QVBoxLayout(container)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(self._title_chrome)
+        root.addWidget(self._tabs, 1)
+        self.setCentralWidget(container)
         self.setStatusBar(QStatusBar())
-        self._tabs.setCornerWidget(self._build_tab_controls(), Qt.Corner.TopRightCorner)
 
         self.actionOpen = QAction("打开", self)
         self.actionOpen.setObjectName("actionOpen")
@@ -541,19 +552,6 @@ class MainWindow(QMainWindow):
     def _spawn(self) -> None:
         if self._on_new_window is not None:
             self._on_new_window()
-
-    def _build_tab_controls(self) -> QWidget:
-        controls = QWidget(self)
-        layout = QHBoxLayout(controls)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-
-        add_button = QToolButton(controls)
-        add_button.setText("+")
-        add_button.setObjectName("tabNewButton")
-        add_button.clicked.connect(self.add_blank_tab)
-        layout.addWidget(add_button)
-        return controls
 
     def tab_count(self) -> int:
         return self._tabs.count()

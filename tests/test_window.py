@@ -2083,6 +2083,24 @@ def test_chrome_hides_menu_and_open_button(qtbot):
     assert plus.isEnabled()
 
 
+def test_plus_button_follows_last_tab_not_far_right_corner(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.resize(1200, 800)
+    window.show()
+    qtbot.waitExposed(window)
+    window.actionNewTab.trigger()
+
+    plus = window.findChild(QWidget, "tabNewButton")
+    tab_bar = window._tabs.tabBar()
+    assert plus is not None
+    plus_global = plus.mapTo(window, plus.rect().center())
+    last = tab_bar.tabRect(tab_bar.count() - 1)
+    tab_right = tab_bar.mapTo(window, QPoint(last.right(), last.center().y()))
+    assert abs(plus_global.x() - tab_right.x()) < 80
+    assert plus_global.x() < window.width() - 120
+
+
 def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
