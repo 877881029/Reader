@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-08-28
+最后更新：2026-09-01
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -9,7 +9,17 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**记事本式单行标题栏：去掉菜单/打开按钮，图标与标签同一行**
+
+- 规格：`docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`（用户批准方案 A）
+- 计划：`docs/superpowers/plans/2026-09-01-notepad-titlebar.md`（5 个 TDD 任务；用户要求写完计划后连续执行到成功）
+- 方案：无边框窗口 + 自绘一行 chrome + `WM_NCHITTEST` 保留拖动/缩放/双击最大化/贴靠
+- `+` 始终跟在最后一个标签后；无可见「文件/预览」菜单；`Ctrl+O` 与拖入仍可用
+- 预览策略与 PPTX/Markdown 视觉渲染不变
+
+## 上一目标（已完成）
 
 **Markdown 视觉预览：主题、离线 Mermaid、同目录双链开新标签**
 
@@ -174,8 +184,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户用桌面 `Reader` 打开含表格与 Mermaid 的日常 `.md`，确认主题、流程图和 `[[双链]]`
-2. 若其他真实笔记暴露独立兼容问题，以最小公开 fixture 复现后修复
+1. 执行计划 Task 1–5（隐藏菜单 → TitleChrome → 无边框按钮 → hit-test → 冻结 smoke）
+2. 每任务提交并推送 `origin/main`，同步更新本文件
 
 ## 阻塞项
 
