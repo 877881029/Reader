@@ -2070,6 +2070,19 @@ def test_unsupported_is_nonblocking_and_does_not_add_tab(qtbot, tmp_path: Path):
     assert "x.pdf" in window.status_text()
 
 
+def test_chrome_hides_menu_and_open_button(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+
+    assert window.menuBar().isVisible() is False
+    assert window.findChild(QWidget, "tabOpenButton") is None
+    plus = window.findChild(QWidget, "tabNewButton")
+    assert plus is not None
+    assert plus.isEnabled()
+
+
 def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
@@ -2078,7 +2091,7 @@ def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
 
     assert window.tab_count() == 1
     assert window.tab_title(0) == "未命名"
-    assert "拖入文件，或使用 文件 → 打开" in page_text(window, 0)
+    assert "拖入文件，或按 Ctrl+O 打开" in page_text(window, 0)
     assert window.focus_path() is None
 
 

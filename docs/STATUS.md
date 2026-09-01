@@ -184,8 +184,12 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 执行计划 Task 1–5（隐藏菜单 → TitleChrome → 无边框按钮 → hit-test → 冻结 smoke）
+1. 执行计划 Task 2–5（TitleChrome → 无边框按钮 → hit-test → 冻结 smoke）
 2. 每任务提交并推送 `origin/main`，同步更新本文件
+
+## 已完成（本增量）
+
+- Notepad Title Bar Task 1：隐藏菜单栏与标签栏「打开」按钮；空白提示改为 `拖入文件，或按 Ctrl+O 打开`；`Ctrl+O`/`actionNewTab`/预览 QAction 保留为窗口动作
 
 ## 阻塞项
 
