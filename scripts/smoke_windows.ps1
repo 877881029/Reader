@@ -226,7 +226,9 @@ function Set-SmokeEnvironment {
         [AllowEmptyString()]
         [string]$BatchLogPath,
         [AllowEmptyString()]
-        [string]$VisualLogPath
+        [string]$VisualLogPath,
+        [AllowEmptyString()]
+        [string]$MarkdownVisual = ""
     )
 
     $values = @{
@@ -234,6 +236,7 @@ function Set-SmokeEnvironment {
         "READER_IPC_NAMESPACE" = $Namespace
         "READER_SMOKE_BATCH_LOG" = $BatchLogPath
         "READER_SMOKE_VISUAL_LOG" = $VisualLogPath
+        "READER_SMOKE_MD_VISUAL" = $MarkdownVisual
         "QTWEBENGINE_CHROMIUM_FLAGS" = "--user-data-dir=`"$ProfileRoot\chromium`""
         "USERPROFILE" = $ProfileRoot
         "APPDATA" = (Join-Path $ProfileRoot "AppData\Roaming")
@@ -344,6 +347,7 @@ $environmentNames = @(
     "READER_IPC_NAMESPACE",
     "READER_SMOKE_BATCH_LOG",
     "READER_SMOKE_VISUAL_LOG",
+    "READER_SMOKE_MD_VISUAL",
     "QTWEBENGINE_CHROMIUM_FLAGS",
     "USERPROFILE",
     "APPDATA",
@@ -402,14 +406,15 @@ try {
     Remove-VisualIsolation
     $visualProcess = $null
 
-    # Phase B: frozen markdown rendering in its own process and namespace.
+    # Phase B: frozen markdown visual rendering (explicit smoke override; product default is text edit).
     Set-SmokeEnvironment `
         -Namespace $markdownNamespace `
         -ProfileRoot $markdownProfileRoot `
         -LocalAppDataRoot $hostLocalAppData `
         -TempRoot $markdownTempRoot `
         -BatchLogPath "" `
-        -VisualLogPath $markdownLog
+        -VisualLogPath $markdownLog `
+        -MarkdownVisual "1"
     New-Item -ItemType File -Force $markdownLog | Out-Null
 
     $markdownProcess = Start-Process `

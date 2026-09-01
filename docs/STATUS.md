@@ -9,14 +9,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **Markdown 记事本编辑 + 表头拖动/高度/WebEngine 预热**
 
-- 规格：`docs/superpowers/specs/2026-09-01-markdown-edit-chrome-design.md`（用户批准方案 A，连续执行）
-- 计划：`docs/superpowers/plans/2026-09-01-markdown-edit-chrome.md`
-- Task 1–4 已实现；Task 5（冻结构建 / smoke / 快捷方式）进行中
-- 要点：整段 chrome 可拖；默认 `1200×640`；新建/`+` → 未命名可编辑 md；打开 md 快显只读、点击编辑、Ctrl+S；启动预热 WebEngine
+- 规格：`docs/superpowers/specs/2026-09-01-markdown-edit-chrome-design.md`（方案 A）
+- 计划：`docs/superpowers/plans/2026-09-01-markdown-edit-chrome.md`（5 个 TDD 任务均已完成）
+- 验证：全量 `321 passed, 1 skipped`；frozen smoke PPTX/Markdown 视觉（`READER_SMOKE_MD_VISUAL`）/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5914744 bytes`，SHA256 `8954aa8f8842db783d3dab1f9c1de31b0f7f4568eafc7a4717785cafd4cd3afd`
 
 ## 上一目标（已完成）
 

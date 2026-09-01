@@ -277,6 +277,7 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "READER_IPC_NAMESPACE" in script
     assert "READER_SMOKE_BATCH_LOG" in script
     assert "READER_SMOKE_VISUAL_LOG" in script
+    assert "READER_SMOKE_MD_VISUAL" in script
     assert "QTWEBENGINE_CHROMIUM_FLAGS" in script
     assert "visual-elements.pptx" in script
     assert "visual-document.md" in script

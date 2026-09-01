@@ -79,9 +79,9 @@
 ### Task 5: Full regression + frozen certify
 
 - [x] `pytest` full (`321 passed, 1 skipped`)
-- [ ] `build_windows.ps1` + `smoke_windows.ps1`
-- [ ] Refresh desktop shortcut
-- [ ] STATUS complete + push
+- [x] `build_windows.ps1` + `smoke_windows.ps1`（Phase B 用 `READER_SMOKE_MD_VISUAL=1`）
+- [x] Refresh desktop shortcut
+- [x] STATUS complete + push
 
 ## Spec coverage
 
