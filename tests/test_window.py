@@ -2108,6 +2108,39 @@ def test_frameless_main_window_has_custom_chrome_buttons(qtbot):
     assert window.findChild(QWidget, "titleCloseButton") is not None
 
 
+def test_hit_test_regions(qtbot):
+    from reader.shell.title_chrome import (
+        HTCAPTION,
+        HTCLIENT,
+        HTLEFT,
+        HTMAXBUTTON,
+        hit_test_for_window,
+    )
+
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.resize(1200, 800)
+    window.show()
+    qtbot.waitExposed(window)
+
+    caption = window.findChild(QWidget, "titleCaption")
+    max_btn = window.findChild(QWidget, "titleMaxButton")
+    assert caption is not None and max_btn is not None
+
+    assert (
+        hit_test_for_window(window, caption.mapToGlobal(caption.rect().center()))
+        == HTCAPTION
+    )
+    assert (
+        hit_test_for_window(window, max_btn.mapToGlobal(max_btn.rect().center()))
+        == HTMAXBUTTON
+    )
+    content_pt = window.mapToGlobal(QPoint(window.width() // 2, 200))
+    assert hit_test_for_window(window, content_pt) == HTCLIENT
+    edge = window.mapToGlobal(QPoint(1, window.height() // 2))
+    assert hit_test_for_window(window, edge) == HTLEFT
+
+
 def test_plus_action_adds_blank_tab_with_drop_hint(qtbot):
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)

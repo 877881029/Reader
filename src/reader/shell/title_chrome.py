@@ -2,15 +2,80 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QMainWindow,
     QTabBar,
     QToolButton,
     QWidget,
 )
+
+HTCLIENT = 1
+HTCAPTION = 2
+HTMINBUTTON = 8
+HTMAXBUTTON = 9
+HTLEFT = 10
+HTRIGHT = 11
+HTTOP = 12
+HTTOPLEFT = 13
+HTTOPRIGHT = 14
+HTBOTTOM = 15
+HTBOTTOMLEFT = 16
+HTBOTTOMRIGHT = 17
+HTCLOSE = 20
+
+BORDER_PX = 8
+
+
+def _contains_global(widget: QWidget | None, global_pos: QPoint) -> bool:
+    if widget is None or not widget.isVisible():
+        return False
+    top_left = widget.mapToGlobal(QPoint(0, 0))
+    return QRect(top_left, widget.size()).contains(global_pos)
+
+
+def hit_test_for_window(window: QMainWindow, global_pos: QPoint) -> int:
+    """Map a screen point to a Win32 HT* code for frameless chrome."""
+    local = window.mapFromGlobal(global_pos)
+    width = window.width()
+    height = window.height()
+    border = BORDER_PX
+    maximized = window.isMaximized()
+
+    if not maximized:
+        left = local.x() < border
+        right = local.x() >= width - border
+        top = local.y() < border
+        bottom = local.y() >= height - border
+        if top and left:
+            return HTTOPLEFT
+        if top and right:
+            return HTTOPRIGHT
+        if bottom and left:
+            return HTBOTTOMLEFT
+        if bottom and right:
+            return HTBOTTOMRIGHT
+        if left:
+            return HTLEFT
+        if right:
+            return HTRIGHT
+        if top:
+            return HTTOP
+        if bottom:
+            return HTBOTTOM
+
+    if _contains_global(window.findChild(QWidget, "titleMinButton"), global_pos):
+        return HTMINBUTTON
+    if _contains_global(window.findChild(QWidget, "titleMaxButton"), global_pos):
+        return HTMAXBUTTON
+    if _contains_global(window.findChild(QWidget, "titleCloseButton"), global_pos):
+        return HTCLOSE
+    if _contains_global(window.findChild(QWidget, "titleCaption"), global_pos):
+        return HTCAPTION
+    return HTCLIENT
 
 
 class TitleChrome(QWidget):
