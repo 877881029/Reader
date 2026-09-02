@@ -9,7 +9,17 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**记事本标题栏表面：整条浅灰、选中标签与编辑区同白、按钮悬停变色**
+
+- 规格：`docs/superpowers/specs/2026-09-02-notepad-title-surface-design.md`
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-title-surface.md`
+- Task 1 已实现（样式泄漏修复）；Task 2 冻结构建进行中
+- 约束：不改命中测试 / `startSystemMove` / 窗控点击
+- 根因：`centralWidget` 的 `background:#ffffff` 泄漏到标题栏子控件
+
+## 上一目标（已完成）
 
 **记事本命中测试修复：按钮可点、可重复拖动、边框对准、灰标题/白内容**
 
@@ -224,8 +234,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 关掉旧 Reader 后从桌面快捷方式打开：多次拖动、右上角三键、边缘缩放、灰标题/白编辑区
-2. 若还要 File / Edit / View 菜单行，再开规格
+1. 执行标题栏表面计划（样式泄漏修复，不改拖动/按钮逻辑）
+2. 每任务提交并推送 `origin/main`
 
 ## 已完成（本增量）
 

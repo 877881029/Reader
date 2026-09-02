@@ -533,14 +533,16 @@ class MainWindow(QMainWindow):
         empty_layout.addWidget(empty_hint)
 
         self._content_stack = QStackedWidget()
+        self._content_stack.setObjectName("contentStack")
         self._content_stack.setAcceptDrops(True)
-        self._content_stack.setStyleSheet("background: #ffffff;")
+        self._content_stack.setStyleSheet("#contentStack { background: #ffffff; }")
         self._content_stack.addWidget(empty_page)
         self._content_stack.addWidget(self._tabs)
 
         container = QWidget(self)
+        container.setObjectName("readerRoot")
         container.setAcceptDrops(True)
-        container.setStyleSheet("background: #ffffff;")
+        container.setStyleSheet("#readerRoot { background: #ffffff; }")
         root = QVBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)

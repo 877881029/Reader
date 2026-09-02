@@ -2216,6 +2216,21 @@ def test_window_buttons_are_client_hits_and_clickable(qtbot):
     assert clicks == ["max", "min"]
 
 
+def test_root_white_fill_does_not_leak_onto_title_chrome(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    root = window.centralWidget()
+    assert root is not None
+    assert root.objectName() == "readerRoot"
+    sheet = root.styleSheet().replace(" ", "").lower()
+    assert "#readerroot" in sheet
+    assert sheet.strip() == "#readerroot{background:#ffffff;}"
+    chrome_sheet = window._title_chrome.styleSheet().replace(" ", "").lower()
+    assert "qwidget#titlechrome" in chrome_sheet
+    assert "background:#f3f3f3" in chrome_sheet
+    assert "qtabbar::tab:selected{background:#ffffff;}" in chrome_sheet.replace("\n", "")
+
+
 def test_hit_test_regions(qtbot):
     from reader.shell.title_chrome import (
         HTCLIENT,

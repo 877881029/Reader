@@ -194,12 +194,24 @@ class TitleChrome(QWidget):
                 background: #f3f3f3;
                 border-bottom: none;
             }
+            QWidget#titleCaption,
+            QWidget#titleTabHost,
+            QLabel#titleAppIcon {
+                background: transparent;
+            }
+            QTabBar {
+                background: transparent;
+                border: none;
+            }
             QTabBar::tab {
                 background: transparent;
                 border: none;
                 padding: 6px 12px;
-                margin: 4px 2px;
-                border-radius: 6px;
+                margin: 4px 2px 0 2px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
                 color: #222;
             }
             QTabBar::tab:selected {
@@ -209,17 +221,20 @@ class TitleChrome(QWidget):
                 background: #e8e8e8;
             }
             QToolButton#tabNewButton {
+                background: transparent;
                 padding: 2px 8px;
                 border: none;
                 border-radius: 4px;
                 font-size: 16px;
+                color: #222;
             }
             QToolButton#tabNewButton:hover {
-                background: #e0e0e0;
+                background: #e5e5e5;
             }
             QToolButton#titleMinButton,
             QToolButton#titleMaxButton,
             QToolButton#titleCloseButton {
+                background: #f3f3f3;
                 border: none;
                 border-radius: 0;
                 padding: 0;
@@ -229,6 +244,10 @@ class TitleChrome(QWidget):
             QToolButton#titleMinButton:hover,
             QToolButton#titleMaxButton:hover {
                 background: #e5e5e5;
+            }
+            QToolButton#titleMinButton:pressed,
+            QToolButton#titleMaxButton:pressed {
+                background: #dcdcdc;
             }
             QToolButton#titleCloseButton:hover {
                 background: #e81123;
