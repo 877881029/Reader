@@ -32,4 +32,4 @@
 ### Task 3: Frozen certify
 
 - [x] pytest (`327 passed, 1 skipped`)
-- [ ] build; smoke; shortcut; STATUS
+- [x] build; smoke; shortcut; STATUS
