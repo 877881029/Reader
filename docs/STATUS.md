@@ -9,14 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **记事本命中测试修复：按钮可点、可重复拖动、边框对准、灰标题/白内容**
 
 - 规格：`docs/superpowers/specs/2026-09-02-notepad-chrome-hittest-design.md`
-- 计划：`docs/superpowers/plans/2026-09-02-notepad-chrome-hittest.md`
-- Task 1–2 已实现；Task 3 冻结构建进行中
-- 根因：`HTMINBUTTON/HTCAPTION` 与 `startSystemMove` 抢事件；`lParam` 未走 `ScreenToClient`
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-chrome-hittest.md`（3 个 TDD 任务均已完成）
+- 根因：把 Qt 按钮映射成 `HTMINBUTTON/HTCAPTION` 后系统点到不存在的非客户区；`startSystemMove` 只能拖一次；`lParam` 未走 `ScreenToClient`
+- 验证：全量 `327 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5917525 bytes`，SHA256 `98d37371d34a4e7f75539fc945134b3ea305c7761dfb50fc945522acb4c9968a`
 
 ## 上一目标（已完成）
 
@@ -223,8 +224,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 执行命中测试修复计划（按钮 / 重复拖动 / 边框 / 记事本配色）
-2. 每任务提交并推送 `origin/main`
+1. 关掉旧 Reader 后从桌面快捷方式打开：多次拖动、右上角三键、边缘缩放、灰标题/白编辑区
+2. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
