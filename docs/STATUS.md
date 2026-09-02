@@ -9,7 +9,17 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**冷启动首行空隙 + 任务栏图标**
+
+- 规格：`docs/superpowers/specs/2026-09-02-notepad-cold-open-icon-design.md`
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-cold-open-icon.md`
+- 用户确认：直接打开第一行上方仍有空隙（放大再缩小后消失）；任务栏小图标是窗口缩略图而不是蓝色 R
+- 根因：`SWP_FRAMECHANGED` 之后 `QTabWidget` 把内容栈推回 `y≈30`；补边框样式后 HWND 未再 `WM_SETICON`
+- 未改拖动 / 窗控命中测试
+
+## 上一目标（已完成）
 
 **记事本间距与表面：+ 贴标签、柔和页色、窗口圆角、编辑区贴标题栏**
 
@@ -244,8 +254,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 关掉旧 Reader，从桌面快捷方式打开：`+` 贴着标签、编辑区 `#F9F9F9`、窗口圆角、正文紧挨标题栏
-2. 若还要 File / Edit / View 菜单行，再开规格
+1. 实现冷启动 pane stretch + `WM_SETICON`（计划 Task 1）
+2. 全量测试、冻结构建、smoke、刷新桌面快捷方式
+3. 关掉旧 Reader，从桌面快捷方式打开：第一行紧贴标题栏；任务栏是蓝色 R，不是窗口缩略图
+4. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
