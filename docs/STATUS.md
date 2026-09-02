@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-01
+最后更新：2026-09-02
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -9,7 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**记事本式无缝表头：真正可拖动 + 标签/编辑区同色无分隔 + 隐藏状态栏**
+
+- 规格：`docs/superpowers/specs/2026-09-02-notepad-seamless-chrome-design.md`
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-seamless-chrome.md`（3 个 TDD 任务）
+- 根因：`WM_NCHITTEST` 在无边框 + 补回 `WS_CAPTION` 时被 Qt 吞掉，空 caption 未调用 `startSystemMove`
+- 不做：File/Edit/View 与格式工具栏（第三张截图那条栏）
+
+## 上一目标（已完成）
 
 **Markdown 记事本编辑 + 表头拖动/高度/WebEngine 预热**
 
@@ -200,8 +209,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 执行 Task 5：`build_windows.ps1` + `smoke_windows.ps1`，刷新桌面快捷方式
-2. 认证通过后把本目标标为已完成并推送
+1. 执行计划 Task 1–3（`startSystemMove` 拖动 → 白底无缝 + 隐藏状态栏 → 冻结认证）
+2. 每任务提交并推送 `origin/main`
 
 ## 已完成（本增量）
 
@@ -209,7 +218,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - Markdown Edit Chrome Task 2：`MarkdownTextView` UTF-8 快显只读→点击编辑；`.md` 默认文本编辑；`Ctrl+S` 有路径覆盖 / 无路径另存为；视觉 MD 仍可切换
 - Markdown Edit Chrome Task 3：无文件启动与 `+` 默认 `未命名.md` 可编辑草稿；零标签时显示空窗口提示
 - Markdown Edit Chrome Task 4：`warmup_webengine` 幂等预热；首窗 `QTimer.singleShot(0, ...)` 调度
-- Markdown Edit Chrome Task 2–4 验证：全量 `321 passed, 1 skipped`
+- Markdown Edit Chrome Task 2–4 验证：全量 `321 passed, 1 skipped`；已推送 `7f7a465`
+- Markdown Edit Chrome Task 5：`READER_SMOKE_MD_VISUAL` 保留冻结 Markdown 视觉认证；`build_windows.ps1` + smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已刷新
 - Notepad Title Bar Task 1：隐藏菜单栏与标签栏「打开」按钮；空白提示改为 `拖入文件，或按 Ctrl+O 打开`；`Ctrl+O`/`actionNewTab`/预览 QAction 保留为窗口动作
 - Notepad Title Bar Task 2：新增 `TitleChrome`，把 `QTabBar` 重排到单行 chrome（图标 | 标签 | + | 标题拖拽区）；`+` 紧跟末标签
 - Notepad Title Bar Task 3：无边框窗口 + 自绘最小化/最大化/关闭按钮，状态切换刷新最大化图标
