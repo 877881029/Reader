@@ -49,9 +49,9 @@
 
 ### Task 3: Regression + frozen certify
 
-- [ ] Full pytest
-- [ ] `build_windows.ps1` + `smoke_windows.ps1`
-- [ ] Refresh desktop shortcut; STATUS complete + push
+- [x] Full pytest
+- [x] `build_windows.ps1` + `smoke_windows.ps1`
+- [x] Refresh desktop shortcut; STATUS complete + push
 
 ## Spec coverage
 

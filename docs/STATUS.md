@@ -9,14 +9,19 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **记事本式无缝表头：真正可拖动 + 标签/编辑区同色无分隔 + 隐藏状态栏**
 
 - 规格：`docs/superpowers/specs/2026-09-02-notepad-seamless-chrome-design.md`
-- 计划：`docs/superpowers/plans/2026-09-02-notepad-seamless-chrome.md`
-- Task 1–2 已实现；Task 3（全量回归 / 冻结构建）进行中
-- 拖动改走 `QWindow.startSystemMove()`（无边框窗口的 `WM_NCHITTEST` 会被 Qt 吞掉）
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-seamless-chrome.md`（3 个 TDD 任务均已完成）
+- 根因：无边框窗口的 `WM_NCHITTEST` 被 Qt 吞掉；改为 caption/图标 `startSystemMove()`，Win32 `WM_NCLBUTTONDOWN` 兜底
+- 验证：聚焦 chrome 测试通过；全量 `325 passed, 1 skipped`（packaging 文案断言已对齐）；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5917281 bytes`，SHA256 `4094bd713c892c40877a3d8209a9eb0b91cc58c75c9e4eedc9bd6d75f2424eda`
+
+## 上一目标（已完成）
+
+**Markdown 记事本编辑 + 表头拖动/高度/WebEngine 预热**
 
 ## 上一目标（已完成）
 
