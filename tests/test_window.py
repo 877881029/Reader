@@ -2188,15 +2188,38 @@ def test_caption_press_on_main_window_starts_system_move(qtbot, monkeypatch):
     caption = window.findChild(QWidget, "titleCaption")
     assert caption is not None
     qtbot.mousePress(caption, Qt.MouseButton.LeftButton)
-    assert calls == ["move"]
+    qtbot.mousePress(caption, Qt.MouseButton.LeftButton)
+    assert calls == ["move", "move"]
+
+
+def test_window_buttons_are_client_hits_and_clickable(qtbot):
+    from reader.shell.title_chrome import HTCLIENT, hit_test_for_window
+
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    clicks: list[str] = []
+    window._title_chrome.maximize_requested.connect(lambda: clicks.append("max"))
+    window._title_chrome.minimize_requested.connect(lambda: clicks.append("min"))
+    max_btn = window.findChild(QWidget, "titleMaxButton")
+    min_btn = window.findChild(QWidget, "titleMinButton")
+    close_btn = window.findChild(QWidget, "titleCloseButton")
+    assert max_btn is not None and min_btn is not None and close_btn is not None
+    for button in (min_btn, max_btn, close_btn):
+        assert (
+            hit_test_for_window(window, button.mapToGlobal(button.rect().center()))
+            == HTCLIENT
+        )
+    qtbot.mouseClick(max_btn, Qt.MouseButton.LeftButton)
+    qtbot.mouseClick(min_btn, Qt.MouseButton.LeftButton)
+    assert clicks == ["max", "min"]
 
 
 def test_hit_test_regions(qtbot):
     from reader.shell.title_chrome import (
-        HTCAPTION,
         HTCLIENT,
         HTLEFT,
-        HTMAXBUTTON,
         hit_test_for_window,
     )
 
@@ -2209,11 +2232,13 @@ def test_hit_test_regions(qtbot):
     icon = window.findChild(QWidget, "titleAppIcon")
     plus = window.findChild(QWidget, "tabNewButton")
     max_btn = window.findChild(QWidget, "titleMaxButton")
+    caption = window.findChild(QWidget, "titleCaption")
     assert icon is not None and plus is not None and max_btn is not None
+    assert caption is not None
 
     assert (
         hit_test_for_window(window, icon.mapToGlobal(icon.rect().center()))
-        == HTCAPTION
+        == HTCLIENT
     )
     assert (
         hit_test_for_window(window, plus.mapToGlobal(plus.rect().center()))
@@ -2221,7 +2246,11 @@ def test_hit_test_regions(qtbot):
     )
     assert (
         hit_test_for_window(window, max_btn.mapToGlobal(max_btn.rect().center()))
-        == HTMAXBUTTON
+        == HTCLIENT
+    )
+    assert (
+        hit_test_for_window(window, caption.mapToGlobal(caption.rect().center()))
+        == HTCLIENT
     )
     content_pt = window.mapToGlobal(QPoint(window.width() // 2, 200))
     assert hit_test_for_window(window, content_pt) == HTCLIENT

@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import os
 from collections.abc import Callable
+from ctypes import wintypes
 
 from PySide6.QtCore import QEvent, QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QIcon, QMouseEvent
@@ -29,8 +30,7 @@ HTBOTTOMLEFT = 16
 HTBOTTOMRIGHT = 17
 HTCLOSE = 20
 
-BORDER_PX = 8
-WM_NCLBUTTONDOWN = 0x00A1
+RESIZE_BORDER_PX = 4
 _INTERACTIVE_CHROME = {
     "tabNewButton",
     "titleMinButton",
@@ -40,40 +40,53 @@ _INTERACTIVE_CHROME = {
 
 
 def begin_window_move(widget: QWidget) -> bool:
-    """Start a native move. WM_NCHITTEST alone is swallowed on frameless Qt windows."""
+    """Move the top-level window. Never use HTCAPTION/WM_NCLBUTTONDOWN — those eat later clicks."""
     window = widget.window()
-    handle = window.windowHandle()
-    if handle is not None:
-        try:
-            if handle.startSystemMove():
-                return True
-        except Exception:
-            pass
     if os.name == "nt":
-        hwnd = int(window.winId())
-        if hwnd:
-            ctypes.windll.user32.ReleaseCapture()
-            ctypes.windll.user32.SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0)
+        ctypes.windll.user32.ReleaseCapture()
+    handle = window.windowHandle()
+    if handle is None:
+        return False
+    try:
+        return bool(handle.startSystemMove())
+    except Exception:
+        return False
+
+
+def lparam_to_local(window: QWidget, x: int, y: int) -> QPoint:
+    """WM_NCHITTEST lParam is native screen pixels; widgets use logical local pixels."""
+    hwnd = int(window.winId())
+    point = wintypes.POINT(int(x), int(y))
+    ctypes.windll.user32.ScreenToClient(hwnd, ctypes.byref(point))
+    dpr = float(window.devicePixelRatioF())
+    if dpr <= 0:
+        dpr = 1.0
+    return QPoint(round(point.x / dpr), round(point.y / dpr))
+
+
+def _contains_local(window: QWidget, widget: QWidget | None, local: QPoint) -> bool:
+    if widget is None or not widget.isVisible():
+        return False
+    top_left = widget.mapTo(window, QPoint(0, 0))
+    return QRect(top_left, widget.size()).contains(local)
+
+
+def _interactive_chrome_at(window: QMainWindow, local: QPoint) -> bool:
+    for name in _INTERACTIVE_CHROME:
+        if _contains_local(window, window.findChild(QWidget, name), local):
             return True
+    tabs = getattr(window, "_tabs", None)
+    if tabs is not None and _contains_local(window, tabs.tabBar(), local):
+        return True
     return False
 
 
-def _contains_global(widget: QWidget | None, global_pos: QPoint) -> bool:
-    if widget is None or not widget.isVisible():
-        return False
-    top_left = widget.mapToGlobal(QPoint(0, 0))
-    return QRect(top_left, widget.size()).contains(global_pos)
-
-
-def hit_test_for_window(window: QMainWindow, global_pos: QPoint) -> int:
-    """Map a screen point to a Win32 HT* code for frameless chrome."""
-    local = window.mapFromGlobal(global_pos)
-    width = window.width()
-    height = window.height()
-    border = BORDER_PX
-    maximized = window.isMaximized()
-
-    if not maximized:
+def hit_test_local(window: QMainWindow, local: QPoint) -> int:
+    """Qt chrome is always HTCLIENT. Only an empty 4px frame reports resize."""
+    if not window.isMaximized() and not _interactive_chrome_at(window, local):
+        width = window.width()
+        height = window.height()
+        border = RESIZE_BORDER_PX
         left = local.x() < border
         right = local.x() >= width - border
         top = local.y() < border
@@ -90,37 +103,15 @@ def hit_test_for_window(window: QMainWindow, global_pos: QPoint) -> int:
             return HTLEFT
         if right:
             return HTRIGHT
+        if top:
+            return HTTOP
         if bottom:
             return HTBOTTOM
-        # Top edge resize only outside the custom title chrome height so the
-        # chrome row itself remains draggable (HTCAPTION) like Notepad.
-        chrome = window.findChild(QWidget, "titleChrome")
-        chrome_bottom = chrome.height() if chrome is not None else 0
-        if top and local.y() < border and local.y() >= chrome_bottom:
-            return HTTOP
-        if top and chrome is None:
-            return HTTOP
-
-    if _contains_global(window.findChild(QWidget, "titleMinButton"), global_pos):
-        return HTMINBUTTON
-    if _contains_global(window.findChild(QWidget, "titleMaxButton"), global_pos):
-        return HTMAXBUTTON
-    if _contains_global(window.findChild(QWidget, "titleCloseButton"), global_pos):
-        return HTCLOSE
-
-    tab_bar = None
-    tabs = getattr(window, "_tabs", None)
-    if tabs is not None:
-        tab_bar = tabs.tabBar()
-    if _contains_global(tab_bar, global_pos):
-        return HTCLIENT
-    if _contains_global(window.findChild(QWidget, "tabNewButton"), global_pos):
-        return HTCLIENT
-
-    chrome = window.findChild(QWidget, "titleChrome")
-    if _contains_global(chrome, global_pos):
-        return HTCAPTION
     return HTCLIENT
+
+
+def hit_test_for_window(window: QMainWindow, global_pos: QPoint) -> int:
+    return hit_test_local(window, window.mapFromGlobal(global_pos))
 
 
 class TitleChrome(QWidget):
@@ -171,37 +162,40 @@ class TitleChrome(QWidget):
         self._min_button.setObjectName("titleMinButton")
         self._min_button.setText("─")
         self._min_button.setAutoRaise(True)
-        self._min_button.setFixedSize(46, 32)
+        self._min_button.setFixedSize(46, 36)
+        self._min_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._min_button.setToolTip("最小化")
         self._min_button.clicked.connect(self.minimize_requested.emit)
-        row.addWidget(self._min_button, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self._min_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self._max_button = QToolButton(self)
         self._max_button.setObjectName("titleMaxButton")
         self._max_button.setText("□")
         self._max_button.setAutoRaise(True)
-        self._max_button.setFixedSize(46, 32)
+        self._max_button.setFixedSize(46, 36)
+        self._max_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._max_button.setToolTip("最大化")
         self._max_button.clicked.connect(self.maximize_requested.emit)
-        row.addWidget(self._max_button, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self._max_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self._close_button = QToolButton(self)
         self._close_button.setObjectName("titleCloseButton")
         self._close_button.setText("✕")
         self._close_button.setAutoRaise(True)
-        self._close_button.setFixedSize(46, 32)
+        self._close_button.setFixedSize(46, 36)
+        self._close_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._close_button.setToolTip("关闭")
         self._close_button.clicked.connect(self.close_requested.emit)
-        row.addWidget(self._close_button, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self._close_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.setStyleSheet(
             """
             QWidget#titleChrome {
-                background: #ffffff;
+                background: #f3f3f3;
                 border-bottom: none;
             }
             QTabBar::tab {
-                background: #f3f3f3;
+                background: transparent;
                 border: none;
                 padding: 6px 12px;
                 margin: 4px 2px;
@@ -212,7 +206,7 @@ class TitleChrome(QWidget):
                 background: #ffffff;
             }
             QTabBar::tab:hover:!selected {
-                background: #ececec;
+                background: #e8e8e8;
             }
             QToolButton#tabNewButton {
                 padding: 2px 8px;
@@ -228,6 +222,7 @@ class TitleChrome(QWidget):
             QToolButton#titleCloseButton {
                 border: none;
                 border-radius: 0;
+                padding: 0;
                 font-size: 12px;
                 color: #222;
             }

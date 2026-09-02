@@ -53,11 +53,14 @@ def test_caption_and_icon_press_start_system_move(qtbot, monkeypatch):
     qtbot.mousePress(icon, Qt.MouseButton.LeftButton)
     assert calls == ["move", "move"]
 
+    qtbot.mousePress(caption, Qt.MouseButton.LeftButton)
+    assert calls == ["move", "move", "move"]
+
     qtbot.mousePress(plus, Qt.MouseButton.LeftButton)
-    assert calls == ["move", "move"]
+    assert calls == ["move", "move", "move"]
 
 
-def test_title_chrome_matches_editor_white_without_bottom_border(qtbot):
+def test_title_chrome_is_notepad_gray(qtbot):
     from reader.shell.title_chrome import TitleChrome
 
     chrome = TitleChrome()
@@ -65,5 +68,5 @@ def test_title_chrome_matches_editor_white_without_bottom_border(qtbot):
     chrome.show()
     qtbot.waitExposed(chrome)
     sheet = chrome.styleSheet().replace(" ", "").lower()
-    assert "background:#ffffff" in sheet
+    assert "background:#f3f3f3" in sheet
     assert "border-bottom:1px" not in sheet

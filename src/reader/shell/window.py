@@ -40,7 +40,7 @@ from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
-from reader.shell.title_chrome import TitleChrome, hit_test_for_window
+from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
 from reader.smoke import append_markdown_ready, append_visual_ready
 
 WM_NCHITTEST = 0x0084
@@ -675,12 +675,8 @@ class MainWindow(QMainWindow):
             if msg.message == WM_NCHITTEST:
                 x = ctypes.c_int16(msg.lParam & 0xFFFF).value
                 y = ctypes.c_int16((msg.lParam >> 16) & 0xFFFF).value
-                handle = self.windowHandle()
-                dpr = float(handle.devicePixelRatio()) if handle is not None else 1.0
-                if dpr and dpr != 1.0:
-                    x = round(x / dpr)
-                    y = round(y / dpr)
-                return True, hit_test_for_window(self, QPoint(x, y))
+                local = lparam_to_local(self, x, y)
+                return True, hit_test_local(self, local)
             if msg.message == WM_NCCALCSIZE and msg.wParam:
                 return True, 0
         return super().nativeEvent(eventType, message)

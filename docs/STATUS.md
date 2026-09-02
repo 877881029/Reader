@@ -9,7 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**记事本命中测试修复：按钮可点、可重复拖动、边框对准、灰标题/白内容**
+
+- 规格：`docs/superpowers/specs/2026-09-02-notepad-chrome-hittest-design.md`
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-chrome-hittest.md`
+- Task 1–2 已实现；Task 3 冻结构建进行中
+- 根因：`HTMINBUTTON/HTCAPTION` 与 `startSystemMove` 抢事件；`lParam` 未走 `ScreenToClient`
+
+## 上一目标（已完成）
 
 **记事本式无缝表头：真正可拖动 + 标签/编辑区同色无分隔 + 隐藏状态栏**
 
@@ -214,11 +223,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 执行计划 Task 1–3（`startSystemMove` 拖动 → 白底无缝 + 隐藏状态栏 → 冻结认证）
+1. 执行命中测试修复计划（按钮 / 重复拖动 / 边框 / 记事本配色）
 2. 每任务提交并推送 `origin/main`
 
 ## 已完成（本增量）
 
+- Notepad Seamless Chrome Task 1：caption/图标按下调用 `startSystemMove`；`+`/窗控不拖窗；DPI 校正 `WM_NCHITTEST`
+- Notepad Seamless Chrome Task 2：chrome/标签页/编辑器统一 `#ffffff`；去掉表头底边与编辑框；隐藏状态栏，`status_text()` 仍可用
+- Notepad Seamless Chrome Task 3：冻结构建 + smoke + 桌面快捷方式刷新
 - Markdown Edit Chrome Task 1：整段 chrome（除标签/`+`/窗控）`HTCAPTION`；默认尺寸 `1200×640`、最小 `(800, 400)`；已推送 `39f27f4`
 - Markdown Edit Chrome Task 2：`MarkdownTextView` UTF-8 快显只读→点击编辑；`.md` 默认文本编辑；`Ctrl+S` 有路径覆盖 / 无路径另存为；视觉 MD 仍可切换
 - Markdown Edit Chrome Task 3：无文件启动与 `+` 默认 `未命名.md` 可编辑草稿；零标签时显示空窗口提示
