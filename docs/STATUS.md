@@ -9,15 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **记事本标题栏表面：整条浅灰、选中标签与编辑区同白、按钮悬停变色**
 
 - 规格：`docs/superpowers/specs/2026-09-02-notepad-title-surface-design.md`
-- 计划：`docs/superpowers/plans/2026-09-02-notepad-title-surface.md`
-- Task 1 已实现（样式泄漏修复）；Task 2 冻结构建进行中
-- 约束：不改命中测试 / `startSystemMove` / 窗控点击
-- 根因：`centralWidget` 的 `background:#ffffff` 泄漏到标题栏子控件
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-title-surface.md`（2 个任务均已完成）
+- 未改命中测试 / `startSystemMove` / 窗控点击
+- 验证：全量 `328 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5917666 bytes`，SHA256 `126da20aa2a4ccebbb90dd7a93e8651b5842b6ed8545472961d61c94b0820174`
 
 ## 上一目标（已完成）
 

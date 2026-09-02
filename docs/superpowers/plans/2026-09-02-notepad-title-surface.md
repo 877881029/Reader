@@ -24,4 +24,4 @@
 
 ### Task 2: Frozen certify
 
-- [ ] Full pytest; build; smoke; shortcut
+- [x] Full pytest; build; smoke; shortcut
