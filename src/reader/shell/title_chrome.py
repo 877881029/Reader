@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QSizePolicy,
     QTabBar,
     QToolButton,
     QWidget,
@@ -137,19 +138,26 @@ class TitleChrome(QWidget):
         self._icon.setScaledContents(True)
         row.addWidget(self._icon, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self._tab_host = QWidget(self)
+        self._tab_cluster = QWidget(self)
+        self._tab_cluster.setObjectName("titleTabCluster")
+        cluster = QHBoxLayout(self._tab_cluster)
+        cluster.setContentsMargins(0, 0, 0, 0)
+        cluster.setSpacing(0)
+
+        self._tab_host = QWidget(self._tab_cluster)
         self._tab_host.setObjectName("titleTabHost")
         self._tab_host_layout = QHBoxLayout(self._tab_host)
         self._tab_host_layout.setContentsMargins(0, 0, 0, 0)
         self._tab_host_layout.setSpacing(0)
-        row.addWidget(self._tab_host, 0, Qt.AlignmentFlag.AlignVCenter)
+        cluster.addWidget(self._tab_host, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self._plus = QToolButton(self)
+        self._plus = QToolButton(self._tab_cluster)
         self._plus.setObjectName("tabNewButton")
         self._plus.setText("+")
         self._plus.setAutoRaise(True)
         self._plus.setToolTip("新建标签")
-        row.addWidget(self._plus, 0, Qt.AlignmentFlag.AlignVCenter)
+        cluster.addWidget(self._plus, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self._tab_cluster, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self._caption = QWidget(self)
         self._caption.setObjectName("titleCaption")
@@ -196,6 +204,7 @@ class TitleChrome(QWidget):
             }
             QWidget#titleCaption,
             QWidget#titleTabHost,
+            QWidget#titleTabCluster,
             QLabel#titleAppIcon {
                 background: transparent;
             }
@@ -206,23 +215,23 @@ class TitleChrome(QWidget):
             QTabBar::tab {
                 background: transparent;
                 border: none;
-                padding: 6px 12px;
-                margin: 4px 2px 0 2px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
+                padding: 6px 10px;
+                margin: 2px 0 0 2px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
                 border-bottom-left-radius: 0;
                 border-bottom-right-radius: 0;
                 color: #222;
             }
             QTabBar::tab:selected {
-                background: #ffffff;
+                background: #f9f9f9;
             }
             QTabBar::tab:hover:!selected {
                 background: #e8e8e8;
             }
             QToolButton#tabNewButton {
                 background: transparent;
-                padding: 2px 8px;
+                padding: 2px 6px;
                 border: none;
                 border-radius: 4px;
                 font-size: 16px;
@@ -265,15 +274,30 @@ class TitleChrome(QWidget):
         tab_bar.setExpanding(False)
         tab_bar.setUsesScrollButtons(True)
         tab_bar.setDrawBase(False)
+        tab_bar.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         tab_bar.setParent(self._tab_host)
         self._tab_host_layout.addWidget(tab_bar)
         tab_bar.show()
+        self._adopted_tab_bar = tab_bar
+        tab_bar.installEventFilter(self)
+        tab_bar.currentChanged.connect(lambda *_: self._fit_tab_bar(tab_bar))
+        tab_bar.tabMoved.connect(lambda *_: self._fit_tab_bar(tab_bar))
+        self._fit_tab_bar(tab_bar)
+
+    def _fit_tab_bar(self, tab_bar: QTabBar) -> None:
+        tab_bar.adjustSize()
+        width = max(tab_bar.sizeHint().width(), 1)
+        tab_bar.setFixedWidth(width)
         self._tab_host.adjustSize()
+        self._tab_cluster.adjustSize()
 
     def set_plus_handler(self, callback: Callable[[], None]) -> None:
         self._plus.clicked.connect(callback)
 
     def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802
+        adopted = getattr(self, "_adopted_tab_bar", None)
+        if watched is adopted and event.type() == QEvent.Type.LayoutRequest:
+            self._fit_tab_bar(adopted)
         if watched in {self._icon, self._caption}:
             if (
                 event.type() == QEvent.Type.MouseButtonPress

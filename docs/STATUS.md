@@ -9,7 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**记事本间距与表面：+ 贴标签、柔和页色、窗口圆角、编辑区贴标题栏**
+
+- 规格：`docs/superpowers/specs/2026-09-02-notepad-spacing-surface-design.md`
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-spacing-surface.md`
+- Task 1 已实现；Task 2 冻结构建进行中
+- 不改拖动 / 窗控命中测试
+
+## 上一目标（已完成）
 
 **记事本标题栏表面：整条浅灰、选中标签与编辑区同白、按钮悬停变色**
 
@@ -234,8 +243,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 关掉旧 Reader，从桌面快捷方式打开：浅灰标题栏、白标签贴着白编辑区、最小/最大悬停变灰、关闭悬停变红，拖动和三键仍可用
-2. 若还要 File / Edit / View 菜单行，再开规格
+1. 执行间距/页色/圆角计划（不改拖动与三键）
+2. 每任务提交并推送 `origin/main`
 
 ## 已完成（本增量）
 

@@ -25,8 +25,9 @@ class MarkdownTextView(QWidget):
         self._editor.setObjectName("markdownTextEditor")
         self._editor.setFrameShape(QFrame.Shape.NoFrame)
         self._editor.setStyleSheet(
-            "QPlainTextEdit#markdownTextEditor { background: #ffffff; border: none; }"
+            "QPlainTextEdit#markdownTextEditor { background: #f9f9f9; border: none; }"
         )
+        self._editor.document().setDocumentMargin(8)
         self._editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self._editor.viewport().installEventFilter(self)
         self._editor.installEventFilter(self)

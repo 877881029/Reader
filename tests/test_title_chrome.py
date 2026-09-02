@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QTabWidget, QWidget
 
 
@@ -20,7 +20,14 @@ def test_title_chrome_orders_icon_tabs_plus_caption(qtbot):
     plus = chrome.findChild(QWidget, "tabNewButton")
     caption = chrome.findChild(QWidget, "titleCaption")
     assert icon is not None and host is not None and plus is not None and caption is not None
-    assert icon.x() < host.x() < plus.x() < caption.x()
+    icon_x = icon.mapTo(chrome, icon.rect().topLeft()).x()
+    host_x = host.mapTo(chrome, host.rect().topLeft()).x()
+    plus_x = plus.mapTo(chrome, plus.rect().topLeft()).x()
+    caption_x = caption.mapTo(chrome, caption.rect().topLeft()).x()
+    assert icon_x < host_x < plus_x < caption_x
+    host_right = host.mapTo(chrome, QPoint(host.width(), 0)).x()
+    plus_left = plus.mapTo(chrome, QPoint(0, 0)).x()
+    assert plus_left - host_right <= 2
 
 
 def test_title_chrome_window_buttons_exist(qtbot):
@@ -71,7 +78,7 @@ def test_title_chrome_is_notepad_gray(qtbot):
     assert "qwidget#titlechrome" in sheet
     assert "background:#f3f3f3" in sheet
     assert "qtabbar::tab:selected" in sheet
-    assert "background:#ffffff" in sheet
+    assert "background:#f9f9f9" in sheet
     assert "border-bottom:1px" not in sheet
     assert "titleminbutton:hover" in sheet
     assert "background:#e5e5e5" in sheet

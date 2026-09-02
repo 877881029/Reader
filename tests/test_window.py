@@ -2224,11 +2224,28 @@ def test_root_white_fill_does_not_leak_onto_title_chrome(qtbot):
     assert root.objectName() == "readerRoot"
     sheet = root.styleSheet().replace(" ", "").lower()
     assert "#readerroot" in sheet
-    assert sheet.strip() == "#readerroot{background:#ffffff;}"
+    assert sheet.strip() == "#readerroot{background:#f9f9f9;}"
     chrome_sheet = window._title_chrome.styleSheet().replace(" ", "").lower()
     assert "qwidget#titlechrome" in chrome_sheet
     assert "background:#f3f3f3" in chrome_sheet
-    assert "qtabbar::tab:selected{background:#ffffff;}" in chrome_sheet.replace("\n", "")
+    assert "qtabbar::tab:selected{background:#f9f9f9;}" in chrome_sheet.replace("\n", "")
+
+
+def test_untitled_editor_starts_flush_under_title_chrome(qtbot):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.add_untitled_markdown_tab()
+    window.show()
+    qtbot.waitExposed(window)
+    window._tabs._stretch_pane()
+    chrome = window.findChild(QWidget, "titleChrome")
+    view = window.findChild(MarkdownTextView)
+    assert chrome is not None and view is not None
+    chrome_bottom = chrome.mapTo(window, QPoint(0, chrome.height())).y()
+    editor_top = view._editor.mapTo(window, QPoint(0, 0)).y()
+    assert 0 <= editor_top - chrome_bottom <= 12
 
 
 def test_hit_test_regions(qtbot):

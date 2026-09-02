@@ -20,6 +20,7 @@ from PySide6.QtGui import (
     QDropEvent,
     QIcon,
     QKeySequence,
+    QResizeEvent,
     QShowEvent,
 )
 from PySide6.QtWidgets import (
@@ -55,6 +56,32 @@ SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
 SWP_FRAMECHANGED = 0x0020
+DWMWA_WINDOW_CORNER_PREFERENCE = 33
+DWMWCP_ROUND = 2
+
+PAGE_FILL = "#f9f9f9"
+
+
+class ChromeTabWidget(QTabWidget):
+    """QTabWidget that does not keep a ghost tab-bar gap after the bar is reparented."""
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._stretch_pane()
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._stretch_pane()
+
+    def tabInserted(self, index: int) -> None:  # noqa: N802
+        super().tabInserted(index)
+        self._stretch_pane()
+
+    def _stretch_pane(self) -> None:
+        stack = self.findChild(QStackedWidget, "qt_tabwidget_stackedwidget")
+        if stack is None:
+            return
+        stack.setGeometry(0, 0, self.width(), self.height())
 
 PreviewFunction = Callable[..., PreviewResult]
 CacheFactory = Callable[[], PreviewCache]
@@ -499,25 +526,27 @@ class MainWindow(QMainWindow):
         self._owned_request_ids: set[str] = set()
         self._closing = False
 
-        self._tabs = QTabWidget()
+        self._tabs = ChromeTabWidget()
         self._tabs.setTabsClosable(True)
         self._tabs.tabCloseRequested.connect(self.close_tab)
         self._tabs.setDocumentMode(True)
         self._tabs.setAcceptDrops(True)
         self._tabs.setStyleSheet(
-            """
-            QTabWidget::pane {
+            f"""
+            QTabWidget::pane {{
                 border: none;
                 margin: 0px;
                 padding: 0px;
-                background: #ffffff;
-            }
+                top: 0px;
+                background: {PAGE_FILL};
+            }}
             """
         )
 
         self._title_chrome = TitleChrome(self)
         self._title_chrome.set_window_icon(self.windowIcon())
         self._title_chrome.adopt_tab_bar(self._tabs.tabBar())
+        self._tabs._stretch_pane()
         self._title_chrome.set_plus_handler(self.add_blank_tab)
         self._title_chrome.minimize_requested.connect(self.showMinimized)
         self._title_chrome.maximize_requested.connect(self._toggle_maximize)
@@ -535,14 +564,14 @@ class MainWindow(QMainWindow):
         self._content_stack = QStackedWidget()
         self._content_stack.setObjectName("contentStack")
         self._content_stack.setAcceptDrops(True)
-        self._content_stack.setStyleSheet("#contentStack { background: #ffffff; }")
+        self._content_stack.setStyleSheet(f"#contentStack {{ background: {PAGE_FILL}; }}")
         self._content_stack.addWidget(empty_page)
         self._content_stack.addWidget(self._tabs)
 
         container = QWidget(self)
         container.setObjectName("readerRoot")
         container.setAcceptDrops(True)
-        container.setStyleSheet("#readerRoot { background: #ffffff; }")
+        container.setStyleSheet(f"#readerRoot {{ background: {PAGE_FILL}; }}")
         root = QVBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -632,18 +661,30 @@ class MainWindow(QMainWindow):
             | WS_MAXIMIZEBOX
             | WS_SYSMENU
         )
-        if style & wanted == wanted:
+        if style & wanted != wanted:
+            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style | wanted)
+            ctypes.windll.user32.SetWindowPos(
+                hwnd,
+                0,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+            )
+        self._apply_rounded_corners(hwnd)
+
+    def _apply_rounded_corners(self, hwnd: int) -> None:
+        try:
+            preference = ctypes.c_int(DWMWCP_ROUND)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                ctypes.byref(preference),
+                ctypes.sizeof(preference),
+            )
+        except Exception:
             return
-        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style | wanted)
-        ctypes.windll.user32.SetWindowPos(
-            hwnd,
-            0,
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
-        )
 
     def _refresh_content_stack(self) -> None:
         stack = getattr(self, "_content_stack", None)
