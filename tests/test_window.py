@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl, Qt, Signal
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QDialog, QLabel, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QLabel, QStackedWidget, QWidget
 
 from reader.preview.result import PreviewResult
 
@@ -2239,13 +2239,48 @@ def test_untitled_editor_starts_flush_under_title_chrome(qtbot):
     window.add_untitled_markdown_tab()
     window.show()
     qtbot.waitExposed(window)
-    window._tabs._stretch_pane()
-    chrome = window.findChild(QWidget, "titleChrome")
-    view = window.findChild(MarkdownTextView)
-    assert chrome is not None and view is not None
-    chrome_bottom = chrome.mapTo(window, QPoint(0, chrome.height())).y()
-    editor_top = view._editor.mapTo(window, QPoint(0, 0)).y()
-    assert 0 <= editor_top - chrome_bottom <= 12
+
+    def gap() -> int:
+        chrome = window.findChild(QWidget, "titleChrome")
+        view = window.findChild(MarkdownTextView)
+        assert chrome is not None and view is not None
+        chrome_bottom = chrome.mapTo(window, QPoint(0, chrome.height())).y()
+        editor_top = view._editor.mapTo(window, QPoint(0, 0)).y()
+        return editor_top - chrome_bottom
+
+    def stack_y() -> int:
+        stack = window._tabs.findChild(QStackedWidget, "qt_tabwidget_stackedwidget")
+        assert stack is not None
+        return stack.y()
+
+    qtbot.waitUntil(lambda: 0 <= gap() <= 12, timeout=1000)
+
+    stack = window._tabs.findChild(QStackedWidget, "qt_tabwidget_stackedwidget")
+    assert stack is not None
+    stack.setGeometry(0, 30, max(stack.width(), 1), max(window._tabs.height() - 30, 1))
+    assert gap() > 12
+    window._ensure_win32_frame_styles()
+    QApplication.sendEvent(window._tabs, QEvent(QEvent.Type.LayoutRequest))
+    qtbot.waitUntil(lambda: 0 <= gap() <= 12 and stack_y() <= 2, timeout=1000)
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Win32 HWND icons")
+def test_win32_frame_styles_restore_hwnd_icons(qtbot):
+    import ctypes
+
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    hwnd = int(window.winId())
+    user32 = ctypes.windll.user32
+    wm_seticon, wm_geticon = 0x0080, 0x007F
+    user32.SendMessageW(hwnd, wm_seticon, 0, 0)
+    user32.SendMessageW(hwnd, wm_seticon, 1, 0)
+    assert user32.SendMessageW(hwnd, wm_geticon, 0, 0) == 0
+    window._ensure_win32_frame_styles()
+    assert user32.SendMessageW(hwnd, wm_geticon, 0, 0) != 0
+    assert user32.SendMessageW(hwnd, wm_geticon, 1, 0) != 0
 
 
 def test_hit_test_regions(qtbot):

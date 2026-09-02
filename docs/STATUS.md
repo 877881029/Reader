@@ -17,7 +17,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 - 计划：`docs/superpowers/plans/2026-09-02-notepad-cold-open-icon.md`
 - 用户确认：直接打开第一行上方仍有空隙（放大再缩小后消失）；任务栏小图标是窗口缩略图而不是蓝色 R
 - 根因：`SWP_FRAMECHANGED` 之后 `QTabWidget` 把内容栈推回 `y≈30`；补边框样式后 HWND 未再 `WM_SETICON`
+- Task 1 已实现：`LayoutRequest` / frame restore 后再 stretch pane；`WM_SETICON` 在补边框后重设蓝色 R
 - 未改拖动 / 窗控命中测试
+- 验证（代码）：全量 `330 passed, 1 skipped`；拖动/窗控测试仍绿
+- 待做：冻结构建、smoke、刷新桌面快捷方式
 
 ## 上一目标（已完成）
 
@@ -254,13 +257,13 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 实现冷启动 pane stretch + `WM_SETICON`（计划 Task 1）
-2. 全量测试、冻结构建、smoke、刷新桌面快捷方式
-3. 关掉旧 Reader，从桌面快捷方式打开：第一行紧贴标题栏；任务栏是蓝色 R，不是窗口缩略图
-4. 若还要 File / Edit / View 菜单行，再开规格
+1. 冻结构建、smoke、刷新桌面快捷方式（计划 Task 2）
+2. 关掉旧 Reader，从桌面快捷方式打开：第一行紧贴标题栏；任务栏是蓝色 R，不是窗口缩略图
+3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- Notepad Cold-Open Icon Task 1：frame restore/`LayoutRequest` 后 stretch 编辑区；HWND `WM_SETICON` 重设 `reader.ico`；flush/icon 测试覆盖冷启动回归
 - Notepad Seamless Chrome Task 1：caption/图标按下调用 `startSystemMove`；`+`/窗控不拖窗；DPI 校正 `WM_NCHITTEST`
 - Notepad Seamless Chrome Task 2：chrome/标签页/编辑器统一 `#ffffff`；去掉表头底边与编辑框；隐藏状态栏，`status_text()` 仍可用
 - Notepad Seamless Chrome Task 3：冻结构建 + smoke + 桌面快捷方式刷新

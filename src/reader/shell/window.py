@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
@@ -56,6 +56,15 @@ SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
 SWP_FRAMECHANGED = 0x0020
+WM_SETICON = 0x0080
+ICON_SMALL = 0
+ICON_BIG = 1
+IMAGE_ICON = 1
+LR_LOADFROMFILE = 0x0010
+SM_CXICON = 11
+SM_CYICON = 12
+SM_CXSMICON = 49
+SM_CYSMICON = 50
 DWMWA_WINDOW_CORNER_PREFERENCE = 33
 DWMWCP_ROUND = 2
 
@@ -72,16 +81,31 @@ class ChromeTabWidget(QTabWidget):
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
         super().showEvent(event)
         self._stretch_pane()
+        QTimer.singleShot(0, self, self._stretch_pane)
 
     def tabInserted(self, index: int) -> None:  # noqa: N802
         super().tabInserted(index)
         self._stretch_pane()
 
+    def event(self, event: QEvent) -> bool:
+        handled = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            self._stretch_pane()
+        return handled
+
     def _stretch_pane(self) -> None:
-        stack = self.findChild(QStackedWidget, "qt_tabwidget_stackedwidget")
+        try:
+            stack = self.findChild(QStackedWidget, "qt_tabwidget_stackedwidget")
+        except RuntimeError:
+            return
         if stack is None:
             return
-        stack.setGeometry(0, 0, self.width(), self.height())
+        target = self.rect()
+        if target.width() <= 0 or target.height() <= 0:
+            return
+        if stack.geometry() == target:
+            return
+        stack.setGeometry(target)
 
 PreviewFunction = Callable[..., PreviewResult]
 CacheFactory = Callable[[], PreviewCache]
@@ -484,6 +508,8 @@ class MainWindow(QMainWindow):
         icon_path = (
             icon_path_provider() if icon_path_provider is not None else _window_icon_path()
         )
+        self._icon_path = icon_path
+        self._native_icon_handles: tuple[int, int] | None = None
         _load_icon_if_exists(icon_path, icon_applier or self.setWindowIcon)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setAcceptDrops(True)
@@ -640,6 +666,8 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         self._ensure_win32_frame_styles()
         self._hide_status_bar()
+        self._tabs._stretch_pane()
+        QTimer.singleShot(0, self._tabs, self._tabs._stretch_pane)
 
     def _hide_status_bar(self) -> None:
         bar = self.statusBar()
@@ -673,6 +701,37 @@ class MainWindow(QMainWindow):
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
             )
         self._apply_rounded_corners(hwnd)
+        self._apply_native_window_icons(hwnd)
+        self._tabs._stretch_pane()
+
+    def _apply_native_window_icons(self, hwnd: int) -> None:
+        if os.name != "nt" or hwnd == 0:
+            return
+        icon_path = getattr(self, "_icon_path", None)
+        if icon_path is None or not Path(icon_path).exists():
+            return
+        handles = self._native_icon_handles
+        if handles is None:
+            user32 = ctypes.windll.user32
+            small = _load_native_icon(
+                Path(icon_path),
+                user32.GetSystemMetrics(SM_CXSMICON),
+                user32.GetSystemMetrics(SM_CYSMICON),
+            )
+            big = _load_native_icon(
+                Path(icon_path),
+                user32.GetSystemMetrics(SM_CXICON),
+                user32.GetSystemMetrics(SM_CYICON),
+            )
+            if small == 0 and big == 0:
+                return
+            handles = (small, big)
+            self._native_icon_handles = handles
+        small, big = handles
+        if small:
+            _send_message_w(hwnd, WM_SETICON, ICON_SMALL, small)
+        if big:
+            _send_message_w(hwnd, WM_SETICON, ICON_BIG, big)
 
     def _apply_rounded_corners(self, hwnd: int) -> None:
         try:
@@ -1803,3 +1862,35 @@ def _load_icon_if_exists(icon_path: Path, icon_applier: Callable[[QIcon], None])
         return False
     icon_applier(QIcon(str(icon_path)))
     return True
+
+
+def _send_message_w(hwnd: int, msg: int, wparam: int, lparam: int) -> int:
+    prototype = ctypes.WINFUNCTYPE(
+        ctypes.c_ssize_t,
+        wintypes.HWND,
+        wintypes.UINT,
+        ctypes.c_size_t,
+        ctypes.c_ssize_t,
+    )
+    return int(prototype(("SendMessageW", ctypes.windll.user32))(hwnd, msg, wparam, lparam))
+
+
+def _load_native_icon(icon_path: Path, cx: int, cy: int) -> int:
+    prototype = ctypes.WINFUNCTYPE(
+        ctypes.c_void_p,
+        wintypes.HINSTANCE,
+        wintypes.LPCWSTR,
+        wintypes.UINT,
+        ctypes.c_int,
+        ctypes.c_int,
+        wintypes.UINT,
+    )
+    handle = prototype(("LoadImageW", ctypes.windll.user32))(
+        None,
+        str(icon_path),
+        IMAGE_ICON,
+        cx,
+        cy,
+        LR_LOADFROMFILE,
+    )
+    return int(handle) if handle else 0
