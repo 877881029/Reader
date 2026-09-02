@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QFrame, QWidget
 
 
 def test_markdown_text_view_opens_readonly_then_click_enables_edit(qtbot, tmp_path: Path):
@@ -55,3 +55,18 @@ def test_markdown_text_view_save_overwrites(qtbot, tmp_path: Path):
     assert view.save() is True
     assert path.read_text(encoding="utf-8") == "new"
     assert view.dirty is False
+
+
+def test_markdown_editor_is_frameless_white(qtbot):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    view = MarkdownTextView()
+    qtbot.addWidget(view)
+    view.show()
+    qtbot.waitExposed(view)
+    editor = view._editor
+    assert editor.frameShape() == QFrame.Shape.NoFrame
+    sheet = editor.styleSheet().replace(" ", "").lower()
+    assert "background:#ffffff" in sheet or editor.palette().color(
+        editor.backgroundRole()
+    ).name().lower() == "#ffffff"

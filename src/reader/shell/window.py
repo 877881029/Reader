@@ -504,6 +504,16 @@ class MainWindow(QMainWindow):
         self._tabs.tabCloseRequested.connect(self.close_tab)
         self._tabs.setDocumentMode(True)
         self._tabs.setAcceptDrops(True)
+        self._tabs.setStyleSheet(
+            """
+            QTabWidget::pane {
+                border: none;
+                margin: 0px;
+                padding: 0px;
+                background: #ffffff;
+            }
+            """
+        )
 
         self._title_chrome = TitleChrome(self)
         self._title_chrome.set_window_icon(self.windowIcon())
@@ -524,18 +534,26 @@ class MainWindow(QMainWindow):
 
         self._content_stack = QStackedWidget()
         self._content_stack.setAcceptDrops(True)
+        self._content_stack.setStyleSheet("background: #ffffff;")
         self._content_stack.addWidget(empty_page)
         self._content_stack.addWidget(self._tabs)
 
         container = QWidget(self)
         container.setAcceptDrops(True)
+        container.setStyleSheet("background: #ffffff;")
         root = QVBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(self._title_chrome)
         root.addWidget(self._content_stack, 1)
         self.setCentralWidget(container)
-        self.setStatusBar(QStatusBar())
+        status = QStatusBar()
+        status.setObjectName("readerStatusBar")
+        status.setSizeGripEnabled(False)
+        status.setMaximumHeight(0)
+        status.hide()
+        self.setStatusBar(status)
+        self._hide_status_bar()
 
         self.actionOpen = QAction("打开", self)
         self.actionOpen.setObjectName("actionOpen")
@@ -590,6 +608,13 @@ class MainWindow(QMainWindow):
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
         super().showEvent(event)
         self._ensure_win32_frame_styles()
+        self._hide_status_bar()
+
+    def _hide_status_bar(self) -> None:
+        bar = self.statusBar()
+        bar.setSizeGripEnabled(False)
+        bar.setMaximumHeight(0)
+        bar.hide()
 
     def _ensure_win32_frame_styles(self) -> None:
         if os.name != "nt":
@@ -650,6 +675,11 @@ class MainWindow(QMainWindow):
             if msg.message == WM_NCHITTEST:
                 x = ctypes.c_int16(msg.lParam & 0xFFFF).value
                 y = ctypes.c_int16((msg.lParam >> 16) & 0xFFFF).value
+                handle = self.windowHandle()
+                dpr = float(handle.devicePixelRatio()) if handle is not None else 1.0
+                if dpr and dpr != 1.0:
+                    x = round(x / dpr)
+                    y = round(y / dpr)
                 return True, hit_test_for_window(self, QPoint(x, y))
             if msg.message == WM_NCCALCSIZE and msg.wParam:
                 return True, 0

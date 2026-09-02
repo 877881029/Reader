@@ -2162,6 +2162,35 @@ def test_empty_window_shows_drop_hint_and_accepts_drops(qtbot):
     assert window._tabs.acceptDrops()
 
 
+def test_status_bar_is_hidden_but_status_text_still_updates(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+
+    bar = window.statusBar()
+    assert bar.isVisible() is False
+    assert bar.maximumHeight() == 0
+    window.show_status("文本编辑")
+    assert window.status_text() == "文本编辑"
+    assert bar.isVisible() is False
+
+
+def test_caption_press_on_main_window_starts_system_move(qtbot, monkeypatch):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    handle = window.windowHandle()
+    assert handle is not None
+    calls: list[str] = []
+    monkeypatch.setattr(handle, "startSystemMove", lambda: calls.append("move") or True)
+    caption = window.findChild(QWidget, "titleCaption")
+    assert caption is not None
+    qtbot.mousePress(caption, Qt.MouseButton.LeftButton)
+    assert calls == ["move"]
+
+
 def test_hit_test_regions(qtbot):
     from reader.shell.title_chrome import (
         HTCAPTION,

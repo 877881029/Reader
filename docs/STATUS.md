@@ -14,9 +14,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 **记事本式无缝表头：真正可拖动 + 标签/编辑区同色无分隔 + 隐藏状态栏**
 
 - 规格：`docs/superpowers/specs/2026-09-02-notepad-seamless-chrome-design.md`
-- 计划：`docs/superpowers/plans/2026-09-02-notepad-seamless-chrome.md`（3 个 TDD 任务）
-- 根因：`WM_NCHITTEST` 在无边框 + 补回 `WS_CAPTION` 时被 Qt 吞掉，空 caption 未调用 `startSystemMove`
-- 不做：File/Edit/View 与格式工具栏（第三张截图那条栏）
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-seamless-chrome.md`
+- Task 1–2 已实现；Task 3（全量回归 / 冻结构建）进行中
+- 拖动改走 `QWindow.startSystemMove()`（无边框窗口的 `WM_NCHITTEST` 会被 Qt 吞掉）
 
 ## 上一目标（已完成）
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
-from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QPlainTextEdit, QVBoxLayout, QWidget
 
 
 class MarkdownTextView(QWidget):
@@ -23,6 +23,10 @@ class MarkdownTextView(QWidget):
 
         self._editor = QPlainTextEdit(self)
         self._editor.setObjectName("markdownTextEditor")
+        self._editor.setFrameShape(QFrame.Shape.NoFrame)
+        self._editor.setStyleSheet(
+            "QPlainTextEdit#markdownTextEditor { background: #ffffff; border: none; }"
+        )
         self._editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self._editor.viewport().installEventFilter(self)
         self._editor.installEventFilter(self)

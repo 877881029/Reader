@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ctypes
+import os
 from collections.abc import Callable
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt, Signal
+from PySide6.QtGui import QIcon, QMouseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -28,6 +30,32 @@ HTBOTTOMRIGHT = 17
 HTCLOSE = 20
 
 BORDER_PX = 8
+WM_NCLBUTTONDOWN = 0x00A1
+_INTERACTIVE_CHROME = {
+    "tabNewButton",
+    "titleMinButton",
+    "titleMaxButton",
+    "titleCloseButton",
+}
+
+
+def begin_window_move(widget: QWidget) -> bool:
+    """Start a native move. WM_NCHITTEST alone is swallowed on frameless Qt windows."""
+    window = widget.window()
+    handle = window.windowHandle()
+    if handle is not None:
+        try:
+            if handle.startSystemMove():
+                return True
+        except Exception:
+            pass
+    if os.name == "nt":
+        hwnd = int(window.winId())
+        if hwnd:
+            ctypes.windll.user32.ReleaseCapture()
+            ctypes.windll.user32.SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0)
+            return True
+    return False
 
 
 def _contains_global(widget: QWidget | None, global_pos: QPoint) -> bool:
@@ -106,6 +134,7 @@ class TitleChrome(QWidget):
         super().__init__(parent)
         self.setObjectName("titleChrome")
         self.setFixedHeight(36)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         row = QHBoxLayout(self)
         row.setContentsMargins(8, 0, 0, 0)
@@ -135,6 +164,8 @@ class TitleChrome(QWidget):
         self._caption.setObjectName("titleCaption")
         self._caption.setMinimumWidth(24)
         row.addWidget(self._caption, 1)
+        self._icon.installEventFilter(self)
+        self._caption.installEventFilter(self)
 
         self._min_button = QToolButton(self)
         self._min_button.setObjectName("titleMinButton")
@@ -166,11 +197,11 @@ class TitleChrome(QWidget):
         self.setStyleSheet(
             """
             QWidget#titleChrome {
-                background: #f3f3f3;
-                border-bottom: 1px solid #e0e0e0;
+                background: #ffffff;
+                border-bottom: none;
             }
             QTabBar::tab {
-                background: transparent;
+                background: #f3f3f3;
                 border: none;
                 padding: 6px 12px;
                 margin: 4px 2px;
@@ -181,7 +212,7 @@ class TitleChrome(QWidget):
                 background: #ffffff;
             }
             QTabBar::tab:hover:!selected {
-                background: #e8e8e8;
+                background: #ececec;
             }
             QToolButton#tabNewButton {
                 padding: 2px 8px;
@@ -227,6 +258,62 @@ class TitleChrome(QWidget):
 
     def set_plus_handler(self, callback: Callable[[], None]) -> None:
         self._plus.clicked.connect(callback)
+
+    def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802
+        if watched in {self._icon, self._caption}:
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and isinstance(event, QMouseEvent)
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                begin_window_move(self.window())
+                return True
+            if (
+                event.type() == QEvent.Type.MouseButtonDblClick
+                and isinstance(event, QMouseEvent)
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                self._toggle_parent_maximize()
+                return True
+        return super().eventFilter(watched, event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            child = self.childAt(event.position().toPoint())
+            if self._is_caption_handle(child):
+                begin_window_move(self.window())
+                return
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            child = self.childAt(event.position().toPoint())
+            if self._is_caption_handle(child):
+                self._toggle_parent_maximize()
+                return
+        super().mouseDoubleClickEvent(event)
+
+    def _is_caption_handle(self, child: QWidget | None) -> bool:
+        widget: QWidget | None = child
+        if widget is None:
+            return True
+        while widget is not None:
+            name = widget.objectName()
+            if name in _INTERACTIVE_CHROME:
+                return False
+            if isinstance(widget, QTabBar):
+                return False
+            if name in {"titleAppIcon", "titleCaption"} or widget is self:
+                return True
+            widget = widget.parentWidget()
+        return True
+
+    def _toggle_parent_maximize(self) -> None:
+        window = self.window()
+        if window.isMaximized():
+            window.showNormal()
+        else:
+            window.showMaximized()
 
     def update_maximize_state(self, is_maximized: bool) -> None:
         if is_maximized:

@@ -31,9 +31,9 @@
 
 **Files:** `title_chrome.py`, `tests/test_title_chrome.py`, `window.py`
 
-- [ ] Failing tests: caption/icon press calls `startSystemMove`; `+` does not
-- [ ] Implement move handles + Win32 fallback; DPI-correct NCHITTEST
-- [ ] GREEN + commit/push
+- [x] Failing tests: caption/icon press calls `startSystemMove`; `+` does not
+- [x] Implement move handles + Win32 fallback; DPI-correct NCHITTEST
+- [x] GREEN + commit/push
 
 ---
 
@@ -41,9 +41,9 @@
 
 **Files:** `title_chrome.py`, `window.py`, `md_text_view.py`, tests
 
-- [ ] Failing tests: status bar hidden; chrome/editor same `#ffffff`; no chrome bottom border; editor `NoFrame`
-- [ ] Implement styles + hide status bar
-- [ ] GREEN + commit/push
+- [x] Failing tests: status bar hidden; chrome/editor same `#ffffff`; no chrome bottom border; editor `NoFrame`
+- [x] Implement styles + hide status bar
+- [x] GREEN + commit/push
 
 ---
 

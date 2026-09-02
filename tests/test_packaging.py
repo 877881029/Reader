@@ -299,7 +299,7 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "Stop-VisualProcesses" in visual_phase
     assert "Remove-VisualIsolation" in visual_phase
     assert "-LocalAppDataRoot $hostLocalAppData" in visual_phase
-    assert ": frozen markdown rendering in its own process and namespace." in markdown_phase
+    assert "frozen markdown visual rendering" in markdown_phase
     assert '$record.kind -eq "markdown"' in script
     assert '$record.status -eq "ready"' in script
     assert "Frozen markdown Reader did not report format-explicit ready within 60 seconds" in (
