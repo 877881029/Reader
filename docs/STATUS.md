@@ -9,14 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **记事本间距与表面：+ 贴标签、柔和页色、窗口圆角、编辑区贴标题栏**
 
 - 规格：`docs/superpowers/specs/2026-09-02-notepad-spacing-surface-design.md`
-- 计划：`docs/superpowers/plans/2026-09-02-notepad-spacing-surface.md`
-- Task 1 已实现；Task 2 冻结构建进行中
-- 不改拖动 / 窗控命中测试
+- 计划：`docs/superpowers/plans/2026-09-02-notepad-spacing-surface.md`（2 个任务均已完成）
+- 未改拖动 / 窗控命中测试
+- 验证：全量 `329 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5919448 bytes`，SHA256 `43db18c096d3ad841dd1998c353878cc577c15dadff734dde4f4a8be6cb72769`
 
 ## 上一目标（已完成）
 
