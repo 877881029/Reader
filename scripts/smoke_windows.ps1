@@ -406,7 +406,7 @@ try {
     Remove-VisualIsolation
     $visualProcess = $null
 
-    # Phase B: frozen markdown visual rendering (explicit smoke override; product default is text edit).
+    # Phase B: frozen markdown visual rendering (product default is visual preview).
     Set-SmokeEnvironment `
         -Namespace $markdownNamespace `
         -ProfileRoot $markdownProfileRoot `

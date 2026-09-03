@@ -27,7 +27,7 @@
 - Consumes: existing visual `_start_preview` for `.pptx` / `.md` pipeline
 - Produces: existing `.md` tabs start with `mode="visual"`; `_open_markdown_text_tab` unused for Open/drop/argv
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Change `test_markdown_default_visual_mode_starts_without_pptx_telemetry` so open already uses visual:
 
@@ -51,23 +51,23 @@ Keep untitled tests that look for `MarkdownTextView` after `add_untitled_markdow
 
 Wikilink / close-tab markdown tests: after `open_paths`, `waitUntil(visual.start_calls == 1)` without requiring `switch_current_tab_to_visual()` first.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_window.py::test_markdown_default_visual_mode_starts_without_pptx_telemetry tests/test_window.py::test_markdown_visual_skips_cache_get_and_put tests/test_window.py::test_office_action_is_disabled_for_non_office_suffix -v`
 
 Expected: FAIL (`mode == "text"` or `MarkdownTextView` still used / `modes == []`).
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 In `_start_preview`, delete the `.md` branch that calls `_open_markdown_text_tab`. Existing `.md` files use `initial_mode = "visual"` like PPTX.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_window.py::test_markdown_default_visual_mode_starts_without_pptx_telemetry tests/test_window.py::test_markdown_visual_skips_cache_get_and_put tests/test_window.py::test_office_action_is_disabled_for_non_office_suffix tests/test_window.py::test_markdown_wikilink_open_path_opens_tab_and_dedupes_focus tests/test_window.py::test_untitled_editor_starts_flush_under_title_chrome -v`
 
 Expected: PASS. Untitled still uses the editor.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 fix: open existing markdown files in read-only visual preview
@@ -86,7 +86,7 @@ fix: open existing markdown files in read-only visual preview
 - Consumes: `save_current_tab()`, `_restore_markdown_text`, `_restart_preview`
 - Produces: `actionMarkdownEdit` (`Ctrl+I`), `actionMarkdownPreview` (`Ctrl+T`), `_ensure_markdown_saved() -> bool`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_ctrl_i_switches_markdown_visual_to_editable_text(qtbot, tmp_path: Path):
@@ -171,13 +171,13 @@ def test_ctrl_i_and_ctrl_t_do_not_toggle_pptx(qtbot, tmp_path: Path):
     assert visual.start_calls == 1
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_window.py::test_ctrl_i_switches_markdown_visual_to_editable_text tests/test_window.py::test_ctrl_t_force_saves_dirty_markdown_then_shows_visual tests/test_window.py::test_ctrl_t_cancelled_save_as_keeps_untitled_editor tests/test_window.py::test_ctrl_i_and_ctrl_t_do_not_toggle_pptx -v`
 
 Expected: FAIL (`actionMarkdownEdit` missing or restore still read-only / dirty switch aborts).
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 Add `actionMarkdownEdit` / `actionMarkdownPreview` with `QKeySequence("Ctrl+I")` / `QKeySequence("Ctrl+T")` and `Qt.ShortcutContext.ApplicationShortcut`. Enable only when the current document suffix is `.md`.
 
@@ -206,13 +206,13 @@ def _ensure_markdown_saved(self) -> bool:
 
 Ctrl+I handler: if current `.md` and not text, `_restore_markdown_text`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_window.py::test_ctrl_i_switches_markdown_visual_to_editable_text tests/test_window.py::test_ctrl_t_force_saves_dirty_markdown_then_shows_visual tests/test_window.py::test_ctrl_t_cancelled_save_as_keeps_untitled_editor tests/test_window.py::test_ctrl_i_and_ctrl_t_do_not_toggle_pptx tests/test_window.py::test_caption_press_on_main_window_starts_system_move tests/test_window.py::test_window_buttons_are_client_hits_and_clickable tests/test_title_chrome.py -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 feat: toggle markdown preview and editor with Ctrl+I and Ctrl+T
@@ -224,8 +224,8 @@ feat: toggle markdown preview and editor with Ctrl+I and Ctrl+T
 
 **Files:** `docs/STATUS.md`; `scripts/smoke_windows.ps1` (comment that product default is now visual)
 
-- [ ] Full `python -m pytest`
-- [ ] `scripts/build_windows.ps1` then `scripts/smoke_windows.ps1`
-- [ ] Refresh desktop `Reader.lnk` with `overwrite=True`
-- [ ] Update STATUS (goal completed; next step = open `.md` is preview, `+` is edit, Ctrl+I/T)
-- [ ] Commit + push `origin/main`
+- [x] Full `python -m pytest`
+- [x] `scripts/build_windows.ps1` then `scripts/smoke_windows.ps1`
+- [x] Refresh desktop `Reader.lnk` with `overwrite=True`
+- [x] Update STATUS (goal completed; next step = open `.md` is preview, `+` is edit, Ctrl+I/T)
+- [x] Commit + push `origin/main`

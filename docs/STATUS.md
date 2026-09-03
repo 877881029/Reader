@@ -9,14 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **Markdown 默认展示 + Ctrl+I/T 切换编辑**
 
 - 规格：`docs/superpowers/specs/2026-09-03-markdown-visual-default-design.md`
-- 计划：`docs/superpowers/plans/2026-09-03-markdown-visual-default.md`
+- 计划：`docs/superpowers/plans/2026-09-03-markdown-visual-default.md`（3 个任务均已完成）
 - 用户确认：打开已有 `.md` 只读渲染；新建可编辑；Ctrl+I 进入编辑；Ctrl+T 回渲染（未保存则先强制保存）；不改拖动/窗控
-- 待做：Task 1 默认视觉打开 → Task 2 快捷键 → Task 3 冻结构建
+- 修复：去掉 `.md` 文本短路径；`Ctrl+I` / `Ctrl+T` 为 Markdown 专用 `ApplicationShortcut`；Ctrl+T 先强制保存
+- 验证：全量 `334 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5921624 bytes`，SHA256 `d2794cec1186ce3e67fae1d88054abe86360a2cb22906b1acacc8bbba87aa31d`
 
 ## 上一目标（已完成）
 
@@ -266,13 +268,14 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 实现默认视觉打开与 Ctrl+I/T（计划 Task 1–2）
-2. 冻结构建、smoke、刷新桌面快捷方式
-3. 打开已有 `.md` 应为渲染；`+` 仍可编辑；Ctrl+I / Ctrl+S / Ctrl+T 按规格工作
-4. 若还要 File / Edit / View 菜单行，再开规格
+1. 关掉旧 Reader，从桌面快捷方式打开：已有 `.md` 应为渲染；`+` 仍可编辑；Ctrl+I / Ctrl+S / Ctrl+T 按规格工作
+2. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- Markdown Visual-Default Task 1：已有 `.md` 默认视觉打开；未命名仍可编辑
+- Markdown Visual-Default Task 2：Ctrl+I 进编辑，Ctrl+T 回渲染并强制保存
+- Markdown Visual-Default Task 3：冻结构建 + smoke PPTX/MD/IPC + 桌面快捷方式刷新
 - Notepad Cold-Open Icon Task 1：frame restore/`LayoutRequest` 后 stretch 编辑区；HWND `WM_SETICON` 重设 `reader.ico`；flush/icon 测试覆盖冷启动回归
 - Notepad Cold-Open Icon Task 2：冻结构建 + smoke PPTX/MD/IPC + 桌面快捷方式刷新
 - Notepad Seamless Chrome Task 1：caption/图标按下调用 `startSystemMove`；`+`/窗控不拖窗；DPI 校正 `WM_NCHITTEST`
