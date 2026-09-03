@@ -26,7 +26,7 @@
 - Consumes: existing `ChromeTabWidget._stretch_pane()`, `_ensure_win32_frame_styles()`, `_window_icon_path()`
 - Produces: layout-driven pane stretch; `_apply_native_window_icons(hwnd: int) -> None`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Change the flush test so it does **not** call `_stretch_pane()`. After show, wait until the editor is flush (or time out):
 
@@ -73,25 +73,25 @@ def test_win32_frame_styles_restore_hwnd_icons(qtbot):
     assert user32.SendMessageW(hwnd, wm_geticon, 1, 0) != 0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_window.py::test_untitled_editor_starts_flush_under_title_chrome tests/test_window.py::test_win32_frame_styles_restore_hwnd_icons -v`
 
 Expected: flush test times out or asserts gap > 12 (stack still at `y≈30`); icon test asserts GETICON still 0 after `_ensure_win32_frame_styles()`.
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 `ChromeTabWidget`: stretch on `LayoutRequest` / resize / show / `tabInserted`; `QTimer.singleShot(0, self._stretch_pane)` from `showEvent`; skip `setGeometry` when already matching `self.rect()`.
 
 `MainWindow`: store `_icon_path`; after `_ensure_win32_frame_styles()` stretch the pane; `_apply_native_window_icons` uses `LoadImageW` + `SendMessageW(WM_SETICON)` with proper 64-bit `WPARAM`/`LPARAM` ctypes types.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_window.py::test_untitled_editor_starts_flush_under_title_chrome tests/test_window.py::test_win32_frame_styles_restore_hwnd_icons tests/test_window.py::test_window_buttons_are_client_hits_and_clickable tests/test_title_chrome.py -v`
 
 Expected: PASS. Drag/button tests still green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 fix: stretch editor pane after Win32 frame restore and reapply taskbar icons
@@ -103,8 +103,8 @@ fix: stretch editor pane after Win32 frame restore and reapply taskbar icons
 
 **Files:** `docs/STATUS.md`; `dist/Reader/Reader.exe` (build output)
 
-- [ ] Full `python -m pytest`
-- [ ] `scripts/build_windows.ps1` then `scripts/smoke_windows.ps1`
-- [ ] Refresh desktop `Reader.lnk` with `overwrite=True`
-- [ ] Update STATUS (current goal completed, next step = cold-open + taskbar icon manual check)
-- [ ] Commit + push `origin/main`
+- [x] Full `python -m pytest`
+- [x] `scripts/build_windows.ps1` then `scripts/smoke_windows.ps1`
+- [x] Refresh desktop `Reader.lnk` with `overwrite=True`
+- [x] Update STATUS (current goal completed, next step = cold-open + taskbar icon manual check)
+- [x] Commit + push `origin/main`
