@@ -9,7 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**Markdown 默认展示 + Ctrl+I/T 切换编辑**
+
+- 规格：`docs/superpowers/specs/2026-09-03-markdown-visual-default-design.md`
+- 计划：`docs/superpowers/plans/2026-09-03-markdown-visual-default.md`
+- 用户确认：打开已有 `.md` 只读渲染；新建可编辑；Ctrl+I 进入编辑；Ctrl+T 回渲染（未保存则先强制保存）；不改拖动/窗控
+- 待做：Task 1 默认视觉打开 → Task 2 快捷键 → Task 3 冻结构建
+
+## 上一目标（已完成）
 
 **冷启动首行空隙 + 任务栏图标**
 
@@ -257,8 +266,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 关掉旧 Reader，从桌面快捷方式打开：第一行应紧贴标题栏；任务栏应是蓝色 R，不是窗口缩略图
-2. 若还要 File / Edit / View 菜单行，再开规格
+1. 实现默认视觉打开与 Ctrl+I/T（计划 Task 1–2）
+2. 冻结构建、smoke、刷新桌面快捷方式
+3. 打开已有 `.md` 应为渲染；`+` 仍可编辑；Ctrl+I / Ctrl+S / Ctrl+T 按规格工作
+4. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
