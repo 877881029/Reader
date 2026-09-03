@@ -648,6 +648,20 @@ class MainWindow(QMainWindow):
         self.actionVisualPreview.triggered.connect(self.switch_current_tab_to_visual)
         self.addAction(self.actionVisualPreview)
 
+        self.actionMarkdownEdit = QAction("Markdown 编辑", self)
+        self.actionMarkdownEdit.setObjectName("actionMarkdownEdit")
+        self.actionMarkdownEdit.setShortcut(QKeySequence("Ctrl+I"))
+        self.actionMarkdownEdit.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionMarkdownEdit.triggered.connect(self._shortcut_markdown_edit)
+        self.addAction(self.actionMarkdownEdit)
+
+        self.actionMarkdownPreview = QAction("Markdown 渲染", self)
+        self.actionMarkdownPreview.setObjectName("actionMarkdownPreview")
+        self.actionMarkdownPreview.setShortcut(QKeySequence("Ctrl+T"))
+        self.actionMarkdownPreview.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionMarkdownPreview.triggered.connect(self._shortcut_markdown_preview)
+        self.addAction(self.actionMarkdownPreview)
+
         self.actionSave = QAction("保存", self)
         self.actionSave.setObjectName("actionSave")
         self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
@@ -884,6 +898,12 @@ class MainWindow(QMainWindow):
             document is not None
             and is_md
             and document.mode == "text"
+        )
+        self.actionMarkdownEdit.setEnabled(
+            is_md and document is not None and document.mode != "text"
+        )
+        self.actionMarkdownPreview.setEnabled(
+            is_md and document is not None and document.mode != "visual"
         )
         self.statusBar().showMessage(document.status_label if document is not None else "")
 
@@ -1226,6 +1246,41 @@ class MainWindow(QMainWindow):
             return
         self._restart_preview(document_id, "text")
 
+    def _shortcut_markdown_edit(self) -> None:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        if document.path.suffix.lower() != ".md" or document.mode == "text":
+            return
+        self._restore_markdown_text(document_id, document, editable=True)
+
+    def _shortcut_markdown_preview(self) -> None:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return
+        document = self._documents[document_id]
+        if document.path.suffix.lower() != ".md" or document.mode == "visual":
+            return
+        self.switch_current_tab_to_visual()
+
+    def _ensure_markdown_saved(self) -> bool:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        document_id = self._current_document_id()
+        if document_id is None:
+            return False
+        document = self._documents[document_id]
+        view = document.page.findChild(MarkdownTextView)
+        if view is None:
+            return document.path.exists()
+        if view.path is None or view.dirty:
+            self.save_current_tab()
+            view = document.page.findChild(MarkdownTextView)
+            if view is None or view.path is None or view.dirty:
+                return False
+        return True
+
     def switch_current_tab_to_visual(self) -> None:
         document_id = self._current_document_id()
         if document_id is None:
@@ -1235,21 +1290,21 @@ class MainWindow(QMainWindow):
         if document.mode == "visual":
             return
         if suffix == ".md":
-            from reader.preview.md_text_view import MarkdownTextView
-
-            view = document.page.findChild(MarkdownTextView)
-            if view is not None and view.dirty:
-                if view.path is None:
-                    self.statusBar().showMessage("请先保存后再切换视觉预览")
-                    return
-                view.save()
+            if not self._ensure_markdown_saved():
+                return
             self._restart_preview(document_id, "visual")
             return
         if suffix != ".pptx":
             return
         self._restart_preview(document_id, "visual")
 
-    def _restore_markdown_text(self, document_id: str, document: _Document) -> None:
+    def _restore_markdown_text(
+        self,
+        document_id: str,
+        document: _Document,
+        *,
+        editable: bool = True,
+    ) -> None:
         from reader.preview.md_text_view import MarkdownTextView
 
         self._cancel_availability_probe(document)
@@ -1262,7 +1317,7 @@ class MainWindow(QMainWindow):
         self._disconnect_visual_events(document)
         view = MarkdownTextView(document.page)
         if document.path.exists():
-            view.load_path(document.path, editable=False)
+            view.load_path(document.path, editable=editable)
         else:
             view.load_untitled()
         if not self._install_document_content(

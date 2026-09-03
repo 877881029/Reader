@@ -1445,6 +1445,94 @@ def test_markdown_visual_skips_cache_get_and_put(qtbot, tmp_path: Path):
     assert cache.calls == []
 
 
+def test_ctrl_i_switches_markdown_visual_to_editable_text(qtbot, tmp_path: Path):
+    from PySide6.QtGui import QKeySequence
+    from reader.preview.md_text_view import MarkdownTextView
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "note.md"
+    path.write_text("hello", encoding="utf-8")
+    visual = FakeMarkdownVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    assert window.actionMarkdownEdit.shortcut() == QKeySequence("Ctrl+I")
+    window.actionMarkdownEdit.trigger()
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    view = window.findChild(MarkdownTextView)
+    assert view is not None
+    assert view.is_editable() is True
+    assert view.text() == "hello"
+
+
+def test_ctrl_t_force_saves_dirty_markdown_then_shows_visual(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "note.md"
+    path.write_text("hello", encoding="utf-8")
+    visuals = iter((FakeMarkdownVisual(), FakeMarkdownVisual()))
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: next(visuals),
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    window.actionMarkdownEdit.trigger()
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    view = window.findChild(MarkdownTextView)
+    view._editor.setPlainText("changed")
+    window.actionMarkdownPreview.trigger()
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
+    assert path.read_text(encoding="utf-8") == "changed"
+    document = next(iter(window._documents.values()))
+    assert document.mode == "visual"
+
+
+def test_ctrl_t_cancelled_save_as_keeps_untitled_editor(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window = make_window(lambda *_args, **_kwargs: markdown_visual_result())
+    qtbot.addWidget(window)
+    window.add_untitled_markdown_tab()
+    view = window.findChild(MarkdownTextView)
+    view._editor.setPlainText("draft")
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_args, **_kwargs: ("", "")
+    )
+    window.actionMarkdownPreview.trigger()
+    assert window.findChild(MarkdownTextView) is view
+    assert view.text() == "draft"
+
+
+def test_ctrl_i_and_ctrl_t_do_not_toggle_pptx(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    window.actionMarkdownEdit.trigger()
+    window.actionMarkdownPreview.trigger()
+    document = next(iter(window._documents.values()))
+    assert document.mode == "visual"
+    assert visual.start_calls == 1
+
+
 def test_office_action_disabled_when_office_missing(qtbot, tmp_path: Path):
     path = tmp_path / "doc.docx"
     path.write_bytes(b"x")
