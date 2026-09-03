@@ -274,16 +274,10 @@ def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
     qtbot.addWidget(window)
 
     window.open_paths([str(path)])
-    qtbot.waitUntil(lambda: window.tab_count() == 1)
-    document = next(iter(window._documents.values()))
-    assert document.mode == "text"
-    assert modes == []
-
-    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: visual.start_calls == 1)
     document = next(iter(window._documents.values()))
-    assert modes == ["visual"]
     assert document.mode == "visual"
+    assert modes == ["visual"]
 
     visual.ready.emit(1)
     qtbot.wait(20)
@@ -1446,10 +1440,6 @@ def test_markdown_visual_skips_cache_get_and_put(qtbot, tmp_path: Path):
 
     window.open_paths([str(path)])
     qtbot.waitUntil(lambda: window.tab_count() == 1)
-    assert modes == []
-    assert cache.calls == []
-
-    window.switch_current_tab_to_visual()
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
     assert modes == ["visual"]
     assert cache.calls == []
@@ -1495,7 +1485,6 @@ def test_office_action_is_disabled_for_non_office_suffix(qtbot, tmp_path: Path):
     path.write_text("# notes", encoding="utf-8")
     office = FakeOfficeAvailability(True)
 
-    from reader.preview.md_text_view import MarkdownTextView
     from reader.shell.window import MainWindow
 
     window = MainWindow(
@@ -1507,7 +1496,7 @@ def test_office_action_is_disabled_for_non_office_suffix(qtbot, tmp_path: Path):
     qtbot.addWidget(window)
     window.open_paths([str(path)])
 
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    qtbot.waitUntil(lambda: window.tab_count() == 1)
     assert window.actionOfficePreview.isEnabled() is False
     assert (
         window.actionOfficePreview.toolTip()

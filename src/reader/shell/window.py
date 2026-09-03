@@ -1105,16 +1105,6 @@ class MainWindow(QMainWindow):
     def _start_preview(self, path: Path, *, replace_tab_index: int | None = None) -> None:
         if self._closing:
             return
-        if path.suffix.lower() == ".md":
-            force_visual = os.environ.get("READER_SMOKE_MD_VISUAL", "").strip().lower() in {
-                "1",
-                "true",
-                "yes",
-                "on",
-            }
-            if not force_visual:
-                self._open_markdown_text_tab(path, replace_tab_index=replace_tab_index)
-                return
         initial_mode: Literal["builtin", "visual"] = (
             "visual"
             if path.suffix.lower() in {".pptx", ".md"}
