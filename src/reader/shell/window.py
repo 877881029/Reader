@@ -461,10 +461,14 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
 
         return MarkdownVisualView(result, source_path)
 
+    from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
 
     web = QWebEngineView()
     if result.kind == "pdf" and result.pdf_path is not None:
+        settings = web.settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.PdfViewerEnabled, True)
         web.load(QUrl.fromLocalFile(str(result.pdf_path)))
     else:
         web.setHtml(result.html, _html_base_url(result, source_path))

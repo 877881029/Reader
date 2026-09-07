@@ -11,6 +11,18 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（已完成）
 
+**修复：原生 PDF 标签空白**
+
+- 规格仍为：`docs/superpowers/specs/2026-09-07-pdf-reading-design.md`
+- 现象：打开 `.pdf` 后标签有文件名，内容区全白
+- 根因：默认 `QWebEngineView` 的 `PluginsEnabled=False`；Chromium 把 `application/pdf` 当成下载，页面留空
+- 修复：仅 PDF 视图打开 `PluginsEnabled` + `PdfViewerEnabled`；HTML 预览保持插件关闭
+- 验证：全量 `343 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；用用户 PDF 复现 `loadFinished=True` 且出现内置 `<embed type="application/pdf">`
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 最终 `dist/Reader/Reader.exe`：`5922601 bytes`，SHA256 `933df5ba9236eb0b1621efc09643e070a2288d250704c8e783af5723c8cab70c`
+
+## 上一目标（已完成）
+
 **原生 PDF 阅读（Chrome 式 WebEngine）**
 
 - 规格：`docs/superpowers/specs/2026-09-07-pdf-reading-design.md`
@@ -284,11 +296,12 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 ## 下一步
 
 1. 关掉旧 Reader，从桌面快捷方式打开新 exe
-2. 拖入 / Ctrl+O / 打开方式阅读一份真实 `.pdf`（加密 PDF 用 Chromium 密码框）
+2. 再打开刚才那份 `.pdf`，应看到 Chromium 内置阅读器（深灰底 + 页面）
 3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- Native PDF 空白修复：PDF 标签启用 Chromium PDF 插件；HTML 预览不启用插件
 - Native PDF Task 1：`.pdf` 进入 sniff / pipeline / Open With；`to_preview` 指向源文件且 `asset_dir is None`
 - Native PDF Task 2：源路径相同时不 pin、不进预览缓存；Office 缓存 PDF 仍 pin；打开对话框含 `*.pdf`
 - Native PDF Task 3：全量 `341 passed, 1 skipped`；`build_windows.ps1` + smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已覆盖刷新

@@ -242,6 +242,44 @@ def test_default_viewer_factory_uses_markdown_visual_view(monkeypatch, tmp_path:
     assert calls == [(markdown_visual_result(), source)]
 
 
+def test_default_viewer_enables_pdf_plugin_for_native_pdf(qtbot, tmp_path: Path):
+    from PySide6.QtWebEngineCore import QWebEngineSettings
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "doc.pdf"
+    source.write_bytes(b"%PDF-1.4\n")
+    result = PreviewResult(
+        html="",
+        status_label="内置预览",
+        kind="pdf",
+        pdf_path=source.resolve(),
+    )
+    widget = _default_viewer(result, source)
+    qtbot.addWidget(widget)
+    assert isinstance(widget, QWebEngineView)
+    settings = widget.settings()
+    assert settings.testAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled)
+    assert settings.testAttribute(QWebEngineSettings.WebAttribute.PdfViewerEnabled)
+
+
+def test_default_viewer_html_keeps_plugins_disabled(qtbot, tmp_path: Path):
+    from PySide6.QtWebEngineCore import QWebEngineSettings
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "note.docx"
+    source.write_bytes(b"x")
+    widget = _default_viewer(builtin_result("<p>hello</p>"), source)
+    qtbot.addWidget(widget)
+    assert isinstance(widget, QWebEngineView)
+    assert not widget.settings().testAttribute(
+        QWebEngineSettings.WebAttribute.PluginsEnabled
+    )
+
+
 def test_markdown_default_visual_mode_starts_without_pptx_telemetry(
     qtbot, tmp_path: Path, monkeypatch
 ):
