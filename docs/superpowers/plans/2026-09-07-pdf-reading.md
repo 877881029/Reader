@@ -27,7 +27,7 @@
 **Interfaces:**
 - Produces: `to_preview(path: Path) -> PreviewResult`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_formats_pdf.py
@@ -52,13 +52,13 @@ Update sniff supported set to include `.pdf`; parametrize `("e.PDF", ".pdf")`; r
 
 Associate: `EXTENSIONS == (".docx", ".pptx", ".xlsx", ".md", ".pdf")`.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_formats_pdf.py tests/test_sniff.py tests/test_open.py tests/test_pipeline.py::test_unsupported_raises tests/test_pipeline.py::test_pdf_preview_uses_source_path tests/test_associate.py::test_register_open_with_hkcu_classes_only_and_close_keys -v`
 
 Expected: FAIL (`.pdf` still unsupported / module missing).
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 `to_preview` as above. Pipeline:
 
@@ -72,11 +72,11 @@ from reader.formats import pdf as fmt_pdf
 
 Add `.pdf` to `SUPPORTED_EXTENSIONS` and `EXTENSIONS`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Same pytest command. Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 feat: accept native PDF files in sniff, preview, and Open With
@@ -94,7 +94,7 @@ feat: accept native PDF files in sniff, preview, and Open With
 - Consumes: `to_preview` / `kind="pdf"` with `asset_dir is None`
 - Produces: native PDF tabs load source path; `artifact_dir is None`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Change `test_unsupported_is_nonblocking_and_does_not_add_tab` and `test_unsupported_drop_keeps_blank_tab` to use `bad.exe`.
 
@@ -153,13 +153,13 @@ def test_open_dialog_filter_includes_pdf(qtbot, monkeypatch):
 
 (Adjust to however Qt passes the filter positional arg: parent, caption, dir, filter.)
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_window.py::test_native_pdf_opens_source_without_pinning tests/test_window.py::test_unsupported_is_nonblocking_and_does_not_add_tab tests/test_window.py::test_open_dialog_filter_includes_pdf -v`
 
 Expected: FAIL (PDF still pinned to temp or filter missing). After Task 1, unsupported `.pdf` tests would open a tab — they must already be switched to `.exe` in this step’s test edits before implementation, so they stay green.
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 `_pin_pdf`: if `kind=="pdf"` and `asset_dir is None`, `return _WorkerOutput(result)`.
 
@@ -167,13 +167,13 @@ Worker: skip cache when `self.path.suffix.lower() == ".pdf"`.
 
 Open filter: `Documents (*.docx *.pptx *.xlsx *.md *.pdf)`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_window.py::test_native_pdf_opens_source_without_pinning tests/test_window.py::test_pdf_is_pinned_until_tab_closes tests/test_window.py::test_unsupported_drop_keeps_blank_tab tests/test_window.py::test_caption_press_on_main_window_starts_system_move tests/test_window.py::test_window_buttons_are_client_hits_and_clickable tests/test_title_chrome.py -v`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 feat: open native PDFs in Chromium viewer without copying
@@ -183,7 +183,7 @@ feat: open native PDFs in Chromium viewer without copying
 
 ### Task 3: Frozen certify
 
-- [ ] Full `python -m pytest`
-- [ ] `scripts/build_windows.ps1` then `scripts/smoke_windows.ps1`
-- [ ] Refresh desktop `Reader.lnk` with `overwrite=True`
-- [ ] Update STATUS; commit + push `origin/main`
+- [x] Full `python -m pytest`
+- [x] `scripts/build_windows.ps1` then `scripts/smoke_windows.ps1`
+- [x] Refresh desktop `Reader.lnk` with `overwrite=True`
+- [x] Update STATUS; commit + push `origin/main`

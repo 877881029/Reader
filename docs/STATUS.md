@@ -5,18 +5,24 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
 
-Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
+Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **原生 PDF 阅读（Chrome 式 WebEngine）**
 
 - 规格：`docs/superpowers/specs/2026-09-07-pdf-reading-design.md`
-- 计划：`docs/superpowers/plans/2026-09-07-pdf-reading.md`
-- 用户确认：`.pdf` 只读标签；Chromium 内置查看器；不拷贝原文件；不改拖动/窗控
-- 待做：Task 1 sniff/pipeline → Task 2 原地打开 → Task 3 冻结构建
+- 计划：`docs/superpowers/plans/2026-09-07-pdf-reading.md`（3 个任务均已完成）
+- 用户确认：`.pdf` 只读标签；Chromium 内置查看器；不拷贝用户原文件；Office 导出 PDF 仍 pin；不绑 Ctrl+I/T；不改拖动/窗控
+- Task 1：`.pdf` 进入 sniff / pipeline / Open With；`formats.pdf.to_preview` 指向源路径
+- Task 2：仅当 `pdf_path` 就是打开的源文件时跳过 pin/cache；打开对话框含 `*.pdf`
+- Task 3：全量 `341 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 附带：`.gitattributes` 将 hashed bundle 文本固定为 LF，构建脚本以 LF 写 `manifest.sha256`，避免 Windows `core.autocrlf` 把 NOTICE 转成 CRLF 后 SHA256 对不上
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 最终 `dist/Reader/Reader.exe`：`5922423 bytes`，SHA256 `b684a34266263df1b8501eaa3a9426075229c5a7486fc34746e7295b1b258b4e`
+- source/frozen md-viewer manifest SHA256 均为 `1a24cacca58fbeca8d002919080c2b1a23d065abfea6e51354cce385b10c30c3`；pptx 均为 `857bf20210931b26208edf4b639480c2c46c49821ad8269880c30913086834db`
 
 ## 上一目标（已完成）
 
@@ -277,13 +283,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 实现原生 PDF 打开（计划 Task 1–2）
-2. 冻结构建、smoke、刷新桌面快捷方式
-3. 拖入 / Ctrl+O / 打开方式应能阅读 `.pdf`
-4. 若还要 File / Edit / View 菜单行，再开规格
+1. 关掉旧 Reader，从桌面快捷方式打开新 exe
+2. 拖入 / Ctrl+O / 打开方式阅读一份真实 `.pdf`（加密 PDF 用 Chromium 密码框）
+3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- Native PDF Task 1：`.pdf` 进入 sniff / pipeline / Open With；`to_preview` 指向源文件且 `asset_dir is None`
+- Native PDF Task 2：源路径相同时不 pin、不进预览缓存；Office 缓存 PDF 仍 pin；打开对话框含 `*.pdf`
+- Native PDF Task 3：全量 `341 passed, 1 skipped`；`build_windows.ps1` + smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已覆盖刷新
+- Windows hashed-bundle LF：`.gitattributes` `eol=lf`；构建脚本 `WriteAllBytes` 写 LF manifest
 - Markdown Visual-Default Task 1：已有 `.md` 默认视觉打开；未命名仍可编辑
 - Markdown Visual-Default Task 2：Ctrl+I 进编辑，Ctrl+T 回渲染并强制保存
 - Markdown Visual-Default Task 3：冻结构建 + smoke PPTX/MD/IPC + 桌面快捷方式刷新
