@@ -240,7 +240,19 @@ def test_markdown_visual_renderer_error_propagates(tmp_path: Path, monkeypatch):
 
 
 def test_unsupported_raises(tmp_path: Path):
-    p = tmp_path / "x.pdf"
-    p.write_bytes(b"%PDF")
+    p = tmp_path / "x.exe"
+    p.write_bytes(b"MZ")
     with pytest.raises(SniffError):
         preview(p)
+
+
+def test_pdf_preview_uses_source_path(tmp_path: Path):
+    p = tmp_path / "doc.pdf"
+    p.write_bytes(b"%PDF-1.4\n")
+    builtin = preview(p)
+    visual = preview(p, mode="visual")
+    assert builtin.kind == "pdf"
+    assert builtin.pdf_path == p.resolve()
+    assert builtin.asset_dir is None
+    assert visual.kind == "pdf"
+    assert visual.pdf_path == p.resolve()

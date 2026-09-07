@@ -4,6 +4,7 @@ from typing import Literal, Protocol
 
 from reader.formats import docx as fmt_docx
 from reader.formats import md as fmt_md
+from reader.formats import pdf as fmt_pdf
 from reader.formats import pptx as fmt_pptx
 from reader.formats import xlsx as fmt_xlsx
 from reader.preview.result import PreviewResult
@@ -34,6 +35,8 @@ def preview(
 ) -> PreviewResult:
     path = Path(path)
     suffix = sniff(path)
+    if suffix == ".pdf":
+        return fmt_pdf.to_preview(path)
     if mode == "visual" and suffix not in {".pptx", ".md"}:
         raise ValueError("visual mode supports only .pptx/.md")
 

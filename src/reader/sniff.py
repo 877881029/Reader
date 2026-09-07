@@ -1,6 +1,6 @@
 from pathlib import Path
 
-SUPPORTED_EXTENSIONS = frozenset({".docx", ".pptx", ".xlsx", ".md"})
+SUPPORTED_EXTENSIONS = frozenset({".docx", ".pptx", ".xlsx", ".md", ".pdf"})
 
 
 class SniffError(Exception):

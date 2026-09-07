@@ -41,14 +41,25 @@ def test_opens_new_files_in_order_and_focuses_duplicate(tmp_path: Path):
 
 def test_rejected_items_keep_reason_and_order(tmp_path: Path):
     missing = tmp_path / "missing.md"
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"x")
+    exe = tmp_path / "a.exe"
+    exe.write_bytes(b"x")
 
-    d = decide_open([], [missing, pdf])
+    d = decide_open([], [missing, exe])
 
     assert d.to_open == ()
     assert d.to_focus is None
     assert d.rejected == (
         (missing, "not_found"),
-        (pdf, "unsupported_extension"),
+        (exe, "unsupported_extension"),
     )
+
+
+def test_opens_pdf(tmp_path: Path):
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+
+    d = decide_open([], [pdf])
+
+    assert d.to_open == (pdf.resolve(),)
+    assert d.to_focus is None
+    assert d.rejected == ()
