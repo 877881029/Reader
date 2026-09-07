@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-03
+最后更新：2026-09-07
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -9,7 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**原生 PDF 阅读（Chrome 式 WebEngine）**
+
+- 规格：`docs/superpowers/specs/2026-09-07-pdf-reading-design.md`
+- 计划：`docs/superpowers/plans/2026-09-07-pdf-reading.md`
+- 用户确认：`.pdf` 只读标签；Chromium 内置查看器；不拷贝原文件；不改拖动/窗控
+- 待做：Task 1 sniff/pipeline → Task 2 原地打开 → Task 3 冻结构建
+
+## 上一目标（已完成）
 
 **Markdown 默认展示 + Ctrl+I/T 切换编辑**
 
@@ -268,8 +277,10 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 关掉旧 Reader，从桌面快捷方式打开：已有 `.md` 应为渲染；`+` 仍可编辑；Ctrl+I / Ctrl+S / Ctrl+T 按规格工作
-2. 若还要 File / Edit / View 菜单行，再开规格
+1. 实现原生 PDF 打开（计划 Task 1–2）
+2. 冻结构建、smoke、刷新桌面快捷方式
+3. 拖入 / Ctrl+O / 打开方式应能阅读 `.pdf`
+4. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
