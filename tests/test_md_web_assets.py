@@ -109,6 +109,22 @@ def test_notices_cover_every_production_dependency_tree_entry():
             assert path_value.startswith("node_modules/")
 
 
+def test_hashed_bundle_text_is_forced_lf():
+    attrs = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+    assert ".gitattributes text eol=lf" in attrs
+    assert "assets/**/THIRD_PARTY_NOTICES.txt text eol=lf" in attrs
+    assert "assets/**/manifest.sha256 text eol=lf" in attrs
+    assert "web/**/THIRD_PARTY_NOTICES.txt text eol=lf" in attrs
+    hashed = [
+        ROOT / "assets" / "md-viewer" / "THIRD_PARTY_NOTICES.txt",
+        ROOT / "assets" / "pptx-viewer" / "THIRD_PARTY_NOTICES.txt",
+        ROOT / "assets" / "md-viewer" / "manifest.sha256",
+        ROOT / "assets" / "pptx-viewer" / "manifest.sha256",
+    ]
+    for path in hashed:
+        assert b"\r" not in path.read_bytes(), path
+
+
 def test_committed_md_bundle_manifest_matches_bytes():
     bundle = ROOT / "assets" / "md-viewer"
     manifest = bundle / "manifest.sha256"

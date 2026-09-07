@@ -1,0 +1,6 @@
+# SHA256 manifests hash working-tree bytes. Keep these files LF even when
+# core.autocrlf=true so Windows checkouts match committed hashes.
+.gitattributes text eol=lf
+assets/**/THIRD_PARTY_NOTICES.txt text eol=lf
+assets/**/manifest.sha256 text eol=lf
+web/**/THIRD_PARTY_NOTICES.txt text eol=lf
