@@ -72,7 +72,11 @@ function Write-WebBundleManifest([string]$BundlePath) {
         "$((Get-FileHash $path -Algorithm SHA256).Hash.ToLower())  $relative"
     }
     $manifestPath = Join-Path $BundlePath "manifest.sha256"
-    $lines | Set-Content $manifestPath -Encoding ascii
+    $content = (($lines -join "`n") + "`n")
+    [System.IO.File]::WriteAllBytes(
+        $manifestPath,
+        [System.Text.Encoding]::ASCII.GetBytes($content)
+    )
     return $manifestPath
 }
 

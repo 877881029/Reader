@@ -115,6 +115,9 @@ def test_manifest_paths_support_windows_powershell() -> None:
 
     assert "[IO.Path]::GetRelativePath" not in script
     assert ".Substring($bundleRoot.Length + 1)" in script
+    assert "Set-Content $manifestPath" not in script
+    assert "[System.IO.File]::WriteAllBytes" in script
+    assert '[System.Text.Encoding]::ASCII.GetBytes($content)' in script
 
 
 def test_build_verifies_frozen_web_runtimes_and_webchannel() -> None:
