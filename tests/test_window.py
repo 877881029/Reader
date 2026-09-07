@@ -2152,8 +2152,8 @@ def test_cache_failure_does_not_block_preview(qtbot, tmp_path: Path):
 
 
 def test_unsupported_is_nonblocking_and_does_not_add_tab(qtbot, tmp_path: Path):
-    path = tmp_path / "x.pdf"
-    path.write_bytes(b"%PDF")
+    path = tmp_path / "x.exe"
+    path.write_bytes(b"MZ")
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
 
@@ -2161,7 +2161,64 @@ def test_unsupported_is_nonblocking_and_does_not_add_tab(qtbot, tmp_path: Path):
 
     assert window.tab_count() == 0
     assert "无法打开" in window.status_text()
-    assert "x.pdf" in window.status_text()
+    assert "x.exe" in window.status_text()
+
+
+def test_native_pdf_opens_source_without_pinning(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "doc.pdf"
+    path.write_bytes(b"%PDF-1.4\n")
+    viewed: list[Path] = []
+
+    def preview_fn(source: Path, office=None, mode="builtin") -> PreviewResult:
+        return PreviewResult(
+            html="",
+            status_label="内置预览",
+            kind="pdf",
+            pdf_path=source.resolve(),
+        )
+
+    def viewer(result: PreviewResult, _source: Path) -> QLabel:
+        assert result.pdf_path is not None
+        viewed.append(result.pdf_path)
+        label = QLabel(result.pdf_path.name)
+        label.setObjectName("previewContent")
+        return label
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=viewer,
+    )
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: window.tab_count() == 1)
+    qtbot.waitUntil(lambda: viewed != [])
+    assert viewed[0] == path.resolve()
+    document = next(iter(window._documents.values()))
+    assert document.artifact_dir is None
+    assert "doc.pdf" in window.tab_title(0)
+
+
+def test_open_dialog_filter_includes_pdf(qtbot, monkeypatch):
+    captured: list[str] = []
+    window = make_window(lambda *_args, **_kwargs: builtin_result())
+    qtbot.addWidget(window)
+
+    def fake_dialog(*args, **kwargs):
+        filt = kwargs.get("filter")
+        if not filt and len(args) >= 4:
+            filt = args[3]
+        captured.append(str(filt or ""))
+        return [], ""
+
+    monkeypatch.setattr(
+        "reader.shell.window.QFileDialog.getOpenFileNames",
+        fake_dialog,
+    )
+    window._open_dialog()
+    assert captured and "*.pdf" in captured[0]
 
 
 def test_chrome_hides_menu_and_open_button(qtbot):
@@ -3588,8 +3645,8 @@ def test_drop_on_current_second_blank_replaces_current_not_first(qtbot, tmp_path
 
 
 def test_unsupported_drop_keeps_blank_tab(qtbot, tmp_path: Path):
-    unsupported = tmp_path / "bad.pdf"
-    unsupported.write_bytes(b"%PDF")
+    unsupported = tmp_path / "bad.exe"
+    unsupported.write_bytes(b"MZ")
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
     window.add_blank_tab()

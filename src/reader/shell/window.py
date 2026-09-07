@@ -136,10 +136,12 @@ def _source_owns_pdf(result: PreviewResult) -> bool:
     return True
 
 
-def _pin_pdf(result: PreviewResult) -> _WorkerOutput:
+def _pin_pdf(result: PreviewResult, source_path: Path | None = None) -> _WorkerOutput:
     if result.kind == "html" and result.asset_dir is not None:
         return _WorkerOutput(result, result.asset_dir)
     if result.kind != "pdf" or result.pdf_path is None:
+        return _WorkerOutput(result)
+    if source_path is not None and result.pdf_path.resolve() == Path(source_path).resolve():
         return _WorkerOutput(result)
 
     source_asset_dir = result.asset_dir if _source_owns_pdf(result) else None
@@ -235,7 +237,7 @@ class _PreviewWorker(QRunnable):
             )
             cache: PreviewCache | None
             cache = None
-            if strategy != "visual":
+            if strategy != "visual" and suffix != ".pdf":
                 try:
                     cache = self.cache_factory()
                     result = cache.get(self.path, strategy)
@@ -245,14 +247,19 @@ class _PreviewWorker(QRunnable):
             if result is None:
                 result = self.preview_fn(self.path, office=self.office, mode=self.mode)
                 cacheable = not (
-                    result.kind == "html" and result.asset_dir is not None
+                    (result.kind == "html" and result.asset_dir is not None)
+                    or (
+                        result.kind == "pdf"
+                        and result.pdf_path is not None
+                        and result.pdf_path.resolve() == self.path.resolve()
+                    )
                 )
                 if cache is not None and cacheable:
                     try:
                         cache.put(self.path, strategy, result)
                     except Exception:
                         pass
-            output = _pin_pdf(result)
+            output = _pin_pdf(result, self.path)
         except Exception as exc:
             self.signals.completed.emit(self.document_id, None, exc)
             return
@@ -1084,7 +1091,7 @@ class MainWindow(QMainWindow):
             self,
             "打开",
             "",
-            "Documents (*.docx *.pptx *.xlsx *.md)",
+            "Documents (*.docx *.pptx *.xlsx *.md *.pdf)",
         )
         if paths:
             self.open_paths([str(path) for path in paths])
