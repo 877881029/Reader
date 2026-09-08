@@ -14,8 +14,9 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 **源码一键启动 + 0.1.0 说明（git 不含 exe）**
 
 - 规格：`docs/superpowers/specs/2026-09-08-source-setup-release-design.md`
+- 计划：`docs/superpowers/plans/2026-09-08-source-setup-release.md`
 - 用户确认：版本 `0.1.0`；git 只进脚本和文档；clone 后 `scripts/setup.ps1` 装依赖并启动；不提交 zip/bin/exe
-- 待做：用户审阅规格 → 计划 → setup.ps1 / VERSION / README / release 说明
+- 待做：Task 1 VERSION/setup.ps1 → Task 2 README/release 说明
 
 ## 上一目标（已完成）
 
