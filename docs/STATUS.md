@@ -9,7 +9,15 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 当前目标（进行中）
+
+**源码一键启动 + 0.1.0 说明（git 不含 exe）**
+
+- 规格：`docs/superpowers/specs/2026-09-08-source-setup-release-design.md`
+- 用户确认：版本 `0.1.0`；git 只进脚本和文档；clone 后 `scripts/setup.ps1` 装依赖并启动；不提交 zip/bin/exe
+- 待做：用户审阅规格 → 计划 → setup.ps1 / VERSION / README / release 说明
+
+## 上一目标（已完成）
 
 **修复：原生 PDF 标签空白**
 
@@ -295,8 +303,8 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 关掉旧 Reader，从桌面快捷方式打开新 exe
-2. 再打开刚才那份 `.pdf`，应看到 Chromium 内置阅读器（深灰底 + 页面）
+1. 审阅 `docs/superpowers/specs/2026-09-08-source-setup-release-design.md`
+2. 通过后写实施计划并落地 `setup.ps1` / `VERSION` / README
 3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
