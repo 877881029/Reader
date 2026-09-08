@@ -40,3 +40,8 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 - Opening a real file prepends it to recents; missing paths omitted from the list.
 - After clearing HWND icons, show + processEvents restores non-zero `WM_GETICON`.
 - Caption-move and min/max click tests stay green.
+
+## 6. Follow-up (2026-09-08, user screenshot)
+
+Keep the two-column layout. Polish the welcome surface (paper field, filled primary action, recent rows as slips). Taskbar still showed a live DWM snapshot of the white page even though `WM_GETICON` was non-zero — set `DWMWA_FORCE_ICONIC_REPRESENTATION` and HWND `AppUserModelID` / `RelaunchIconResource`. Do not change `nativeEvent`.
+

@@ -2367,6 +2367,24 @@ def test_empty_window_shows_welcome_version_and_recent(qtbot, tmp_path: Path, mo
     assert hint is not None and "Ctrl+O" in hint.text()
 
 
+def test_welcome_keeps_actions_left_of_recents_with_filled_open(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+
+    page = window.findChild(QWidget, "welcomePage")
+    open_btn = window.findChild(QWidget, "welcomeOpenButton")
+    recent = window.findChild(QListWidget, "welcomeRecentList")
+    assert page is not None and open_btn is not None and recent is not None
+    compact = page.styleSheet().replace(" ", "").replace("\n", "").lower()
+    assert "background:#2563eb" in compact
+    assert "qpushbutton#welcomeopenbutton" in compact
+    assert open_btn.mapTo(page, open_btn.rect().topLeft()).x() < recent.mapTo(
+        page, recent.rect().topLeft()
+    ).x()
+
+
 def test_welcome_new_button_creates_untitled_markdown(qtbot):
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
@@ -2520,6 +2538,23 @@ def test_win32_frame_styles_restore_hwnd_icons(qtbot):
     QTimer.singleShot(0, window._reapply_native_window_icons)
     qtbot.waitUntil(lambda: user32.SendMessageW(hwnd, wm_geticon, 0, 0) != 0, timeout=1000)
     assert user32.SendMessageW(hwnd, wm_geticon, 1, 0) != 0
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Win32 taskbar identity")
+def test_shown_window_uses_iconic_taskbar_and_reader_app_id(qtbot):
+    from win32com.propsys import propsys, pscon
+
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    hwnd = int(window.winId())
+    store = propsys.SHGetPropertyStoreForWindow(hwnd)
+    app_id = store.GetValue(pscon.PKEY_AppUserModel_ID).GetValue()
+    icon_res = store.GetValue(pscon.PKEY_AppUserModel_RelaunchIconResource).GetValue()
+    assert app_id == "Reader.Desktop"
+    assert "reader.ico" in str(icon_res).replace("\\", "/").lower() or str(icon_res).lower().endswith(",0")
+    assert window._taskbar_iconic_forced is True
 
 
 def test_hit_test_regions(qtbot):

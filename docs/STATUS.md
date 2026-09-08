@@ -11,6 +11,21 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（已完成）
 
+**欢迎页视觉 + 任务栏改用蓝色 R（不再用窗口快照）**
+
+- 规格补记：`docs/superpowers/specs/2026-09-08-welcome-empty-launch-design.md` §6
+- 用户确认：左右分栏保留；欢迎页要更有产品感；任务栏小图标仍是窗口缩略图
+- 根因：HWND 已 `WM_SETICON`，Explorer/DWM 仍用空白欢迎页 live snapshot 当任务栏按钮
+- 修复：`DWMWA_FORCE_ICONIC_REPRESENTATION` + 窗口 `AppUserModelID` / `RelaunchIconResource`；欢迎页纸感背景、实心「打开文件」、最近文件卡片；未改拖动/窗控
+- 验证：全量 `359 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5955143 bytes`，SHA256 `a963180c703718808b03c94690fe7d39355944c46959f20ba0b03f24a4ec1c89`
+
+## 下一步
+
+用户再试桌面图标：欢迎页质感与任务栏蓝色 R
+
+## 上一目标（已完成）
+
 **空启动欢迎页 + 任务栏蓝色 R**
 
 - 规格：`docs/superpowers/specs/2026-09-08-welcome-empty-launch-design.md`

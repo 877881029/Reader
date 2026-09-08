@@ -42,6 +42,7 @@ from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
 from reader.shell.recent import remember_recent
+from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
 from reader.shell.welcome import WelcomePage
 from reader.smoke import append_markdown_ready, append_visual_ready
@@ -523,6 +524,7 @@ class MainWindow(QMainWindow):
         )
         self._icon_path = icon_path
         self._native_icon_handles: tuple[int, int] | None = None
+        self._taskbar_iconic_forced = False
         _load_icon_if_exists(icon_path, icon_applier or self.setWindowIcon)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setAcceptDrops(True)
@@ -764,6 +766,8 @@ class MainWindow(QMainWindow):
             _send_message_w(hwnd, WM_SETICON, ICON_SMALL, small)
         if big:
             _send_message_w(hwnd, WM_SETICON, ICON_BIG, big)
+        self._taskbar_iconic_forced = force_iconic_representation(hwnd)
+        apply_hwnd_app_user_model(hwnd, Path(icon_path))
 
     def _apply_rounded_corners(self, hwnd: int) -> None:
         try:
