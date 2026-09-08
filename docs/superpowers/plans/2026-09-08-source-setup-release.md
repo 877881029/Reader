@@ -28,7 +28,7 @@
 **Interfaces:**
 - Produces: `VERSION` one line `0.1.0`; `scripts/setup.ps1` with `-SkipLaunch` and `-Dev`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_packaging.py`:
 
@@ -69,13 +69,13 @@ def test_gitignore_keeps_dist_and_release_binaries_out_of_git() -> None:
     assert "release/*.exe" in ignore
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_packaging.py::test_version_file_matches_pyproject_and_win32_resource tests/test_packaging.py::test_setup_script_installs_runtime_venv_and_launches_reader tests/test_packaging.py::test_gitignore_keeps_dist_and_release_binaries_out_of_git -v`
 
 Expected: FAIL (`VERSION` / `setup.ps1` missing).
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 `VERSION` file contents:
 
@@ -153,11 +153,11 @@ if (-not $SkipLaunch) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Same pytest command. Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 feat: add VERSION and Windows setup.ps1 for source launches
@@ -176,7 +176,7 @@ feat: add VERSION and Windows setup.ps1 for source launches
 - Consumes: `scripts/setup.ps1`, `VERSION`
 - Produces: Chinese README capability list + source-only 0.1.0 notes
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 def test_readme_documents_formats_and_setup_command() -> None:
@@ -195,13 +195,13 @@ def test_release_notes_state_source_snapshot_without_binaries() -> None:
     assert "git" in notes.lower()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_packaging.py::test_readme_documents_formats_and_setup_command tests/test_packaging.py::test_release_notes_state_source_snapshot_without_binaries -v`
 
 Expected: FAIL.
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 `README.md` (Chinese): name, 0.1.0, supported formats and behavior, not-in-scope, Windows-only, `setup.ps1` command, `-SkipLaunch` / `-Dev`, local freeze via `build_windows.ps1` without committing `dist/`.
 
@@ -209,13 +209,13 @@ Expected: FAIL.
 
 Update `docs/STATUS.md` current goal to completed after Task 2 tests pass (and a focused pytest of packaging + chrome smoke tests).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 `python -m pytest tests/test_packaging.py tests/test_window.py::test_caption_press_on_main_window_starts_system_move tests/test_window.py::test_window_buttons_are_client_hits_and_clickable -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit + push**
+- [x] **Step 5: Commit + push**
 
 ```text
 docs: describe 0.1.0 capabilities and source-only setup

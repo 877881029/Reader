@@ -433,3 +433,19 @@ def test_gitignore_keeps_dist_and_release_binaries_out_of_git() -> None:
     assert "dist/" in ignore
     assert "release/*.zip" in ignore
     assert "release/*.exe" in ignore
+
+
+def test_readme_documents_formats_and_setup_command() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for token in (".docx", ".pptx", ".xlsx", ".md", ".pdf", r"scripts\setup.ps1"):
+        assert token in readme
+    assert "0.1.0" in readme
+    assert "翻译" in readme or "左右" in readme
+
+
+def test_release_notes_state_source_snapshot_without_binaries() -> None:
+    notes = (ROOT / "release" / "README.md").read_text(encoding="utf-8")
+    assert "0.1.0" in notes
+    assert "setup.ps1" in notes
+    assert "exe" in notes.lower() or "zip" in notes.lower()
+    assert "git" in notes.lower()

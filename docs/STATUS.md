@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-07
+最后更新：2026-09-08
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -9,14 +9,16 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（进行中）
+## 当前目标（已完成）
 
 **源码一键启动 + 0.1.0 说明（git 不含 exe）**
 
 - 规格：`docs/superpowers/specs/2026-09-08-source-setup-release-design.md`
-- 计划：`docs/superpowers/plans/2026-09-08-source-setup-release.md`
+- 计划：`docs/superpowers/plans/2026-09-08-source-setup-release.md`（2 个任务均已完成）
 - 用户确认：版本 `0.1.0`；git 只进脚本和文档；clone 后 `scripts/setup.ps1` 装依赖并启动；不提交 zip/bin/exe
-- 待做：Task 1 VERSION/setup.ps1 → Task 2 README/release 说明
+- `VERSION` 为 `0.1.0`；`scripts/setup.ps1` 建 `.venv`、`pip install -e .`、启动 `-m reader`
+- README / `release/README.md` 写明能力和源码快照政策
+- 未改拖动 / 窗控
 
 ## 上一目标（已完成）
 
@@ -304,12 +306,12 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 审阅 `docs/superpowers/specs/2026-09-08-source-setup-release-design.md`
-2. 通过后写实施计划并落地 `setup.ps1` / `VERSION` / README
-3. 若还要 File / Edit / View 菜单行，再开规格
+1. 同事：clone 后执行 `scripts\setup.ps1` 启动 Reader
+2. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- 0.1.0 源码启动：`VERSION` + `scripts/setup.ps1` + 中文 README / `release/README.md`；git 不含 exe/zip
 - Native PDF 空白修复：PDF 标签启用 Chromium PDF 插件；HTML 预览不启用插件
 - Native PDF Task 1：`.pdf` 进入 sniff / pipeline / Open With；`to_preview` 指向源文件且 `asset_dir is None`
 - Native PDF Task 2：源路径相同时不 pin、不进预览缓存；Office 缓存 PDF 仍 pin；打开对话框含 `*.pdf`
