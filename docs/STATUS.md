@@ -11,6 +11,24 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（已完成）
 
+**空启动欢迎页 + 任务栏蓝色 R**
+
+- 规格：`docs/superpowers/specs/2026-09-08-welcome-empty-launch-design.md`
+- 计划：`docs/superpowers/plans/2026-09-08-welcome-empty-launch.md`（1 个任务已完成）
+- 用户确认：方案 A；先做出来再改细节
+- 空启动不再自动建 `未命名.md`；零标签显示欢迎页（Reader + `0.1.0`、打开/新建、最近文件）；`+` 仍建草稿
+- 最近文件：`%LOCALAPPDATA%\Reader\recent.json`（测试用 `READER_DATA_DIR`）；成功打开才记，最多 12 条，缺失路径会清掉
+- 显示后下一拍重设 `WM_SETICON`；快捷方式图标用 `reader.ico`，并写 `AppUserModelID`
+- 验证：全量 `357 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 最终 `dist/Reader/Reader.exe`：`5950863 bytes`，SHA256 `56bcdb7de5b0fe959ed2baddd7486540a5b6719078cb7d3676f224d091842580`
+
+## 下一步
+
+用户试用桌面图标后的欢迎页文案/布局；任务栏若仍不是蓝色 R 再补一拍
+
+## 上一目标（已完成）
+
 **源码一键启动 + 0.1.0 说明（git 不含 exe）**
 
 - 规格：`docs/superpowers/specs/2026-09-08-source-setup-release-design.md`

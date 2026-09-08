@@ -39,6 +39,50 @@ def test_shell_integration_not_disabled_for_other_values(monkeypatch, value):
     assert main_module._shell_integration_disabled() is False
 
 
+def test_empty_primary_launch_does_not_create_untitled(monkeypatch):
+    import reader.__main__ as main_module
+
+    events = []
+
+    class FakeQApplication:
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+        def exec(self):
+            events.append("exec")
+            return 0
+
+    class FakeWindow:
+        def add_untitled_markdown_tab(self):
+            events.append("untitled")
+
+        def open_paths(self, paths):
+            events.append(("open", paths))
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            events.append("server")
+
+        def is_primary_instance(self):
+            return True
+
+        def new_window(self):
+            return FakeWindow()
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(main_module, "append_smoke_batch", lambda paths: events.append(("log", paths)))
+    monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: True)
+
+    assert main_module.main(["Reader.exe"]) == 0
+    assert events == ["server", ("log", []), "exec"]
+    assert "untitled" not in events
+
+
 def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch):
     import reader.__main__ as main_module
 

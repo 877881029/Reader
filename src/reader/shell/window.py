@@ -41,7 +41,9 @@ from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
+from reader.shell.recent import remember_recent
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
+from reader.shell.welcome import WelcomePage
 from reader.smoke import append_markdown_ready, append_visual_ready
 
 WM_NCHITTEST = 0x0084
@@ -590,19 +592,16 @@ class MainWindow(QMainWindow):
         self._title_chrome.close_requested.connect(self.close)
         self._title_chrome.update_maximize_state(self.isMaximized())
 
-        empty_page = QWidget()
-        empty_page.setAcceptDrops(True)
-        empty_layout = QVBoxLayout(empty_page)
-        empty_hint = QLabel("拖入文件，或按 Ctrl+O 打开")
-        empty_hint.setObjectName("emptyWindowHint")
-        empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_hint)
+        self._welcome = WelcomePage()
+        self._welcome.open_requested.connect(self._open_dialog)
+        self._welcome.new_markdown_requested.connect(self.add_untitled_markdown_tab)
+        self._welcome.recent_opened.connect(lambda path: self.open_paths([path]))
 
         self._content_stack = QStackedWidget()
         self._content_stack.setObjectName("contentStack")
         self._content_stack.setAcceptDrops(True)
         self._content_stack.setStyleSheet(f"#contentStack {{ background: {PAGE_FILL}; }}")
-        self._content_stack.addWidget(empty_page)
+        self._content_stack.addWidget(self._welcome)
         self._content_stack.addWidget(self._tabs)
 
         container = QWidget(self)
@@ -693,6 +692,8 @@ class MainWindow(QMainWindow):
         self._hide_status_bar()
         self._tabs._stretch_pane()
         QTimer.singleShot(0, self._tabs, self._tabs._stretch_pane)
+        QTimer.singleShot(0, self, self._reapply_native_window_icons)
+        QTimer.singleShot(80, self, self._reapply_native_window_icons)
 
     def _hide_status_bar(self) -> None:
         bar = self.statusBar()
@@ -728,6 +729,12 @@ class MainWindow(QMainWindow):
         self._apply_rounded_corners(hwnd)
         self._apply_native_window_icons(hwnd)
         self._tabs._stretch_pane()
+
+    def _reapply_native_window_icons(self) -> None:
+        if os.name != "nt":
+            return
+        hwnd = int(self.winId())
+        self._apply_native_window_icons(hwnd)
 
     def _apply_native_window_icons(self, hwnd: int) -> None:
         if os.name != "nt" or hwnd == 0:
@@ -774,7 +781,10 @@ class MainWindow(QMainWindow):
         stack = getattr(self, "_content_stack", None)
         if stack is None:
             return
-        stack.setCurrentIndex(0 if self._tabs.count() == 0 else 1)
+        empty = self._tabs.count() == 0
+        stack.setCurrentIndex(0 if empty else 1)
+        if empty:
+            self._welcome.reload_recent()
 
     def event(self, event: QEvent) -> bool:
         if (
@@ -918,25 +928,31 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage(document.status_label if document is not None else "")
 
-    def close_tab(self, index: int) -> None:
-        page = self._tabs.widget(index)
+    def _forget_document_for_page(self, page: QWidget | None) -> None:
         if page is None:
             return
         document_id = next(
             (key for key, document in self._documents.items() if document.page is page),
             None,
         )
-        if document_id is not None:
-            document = self._documents.pop(document_id)
-            if document.request_id is not None:
-                self._requests.pop(document.request_id, None)
-                self._owned_request_ids.discard(document.request_id)
-                self._executor.cancel(document.request_id)
-            self._cancel_availability_probe(document)
-            self._dispose_document_content(document)
-            _cleanup_dir(document.artifact_dir)
-            if document.builtin_artifact_dir != document.artifact_dir:
-                _cleanup_dir(document.builtin_artifact_dir)
+        if document_id is None:
+            return
+        document = self._documents.pop(document_id)
+        if document.request_id is not None:
+            self._requests.pop(document.request_id, None)
+            self._owned_request_ids.discard(document.request_id)
+            self._executor.cancel(document.request_id)
+        self._cancel_availability_probe(document)
+        self._dispose_document_content(document)
+        _cleanup_dir(document.artifact_dir)
+        if document.builtin_artifact_dir != document.artifact_dir:
+            _cleanup_dir(document.builtin_artifact_dir)
+
+    def close_tab(self, index: int) -> None:
+        page = self._tabs.widget(index)
+        if page is None:
+            return
+        self._forget_document_for_page(page)
         self._tabs.removeTab(index)
         page.deleteLater()
         self._refresh_preview_actions()
@@ -1014,6 +1030,7 @@ class MainWindow(QMainWindow):
             return
         document.path = view.path
         document.page.setProperty("readerBlankTab", False)
+        remember_recent(document.path)
         self._sync_markdown_tab_title(document_id)
         self._refresh_preview_actions()
 
@@ -1077,6 +1094,7 @@ class MainWindow(QMainWindow):
         else:
             old_page = self._tabs.widget(replace_tab_index)
             self._tabs.removeTab(replace_tab_index)
+            self._forget_document_for_page(old_page)
             if old_page is not None:
                 old_page.deleteLater()
             self._tabs.insertTab(replace_tab_index, page, view.display_title())
@@ -1124,8 +1142,12 @@ class MainWindow(QMainWindow):
         for index, path in enumerate(decision.to_open):
             reuse_index = blank_index if index == 0 else None
             self._start_preview(path, replace_tab_index=reuse_index)
+            remember_recent(path)
         if decision.to_focus is not None:
             self._focus(decision.to_focus)
+            remember_recent(decision.to_focus)
+        if self._tabs.count() == 0:
+            self._welcome.reload_recent()
 
     def _focus(self, path: Path) -> None:
         for document in self._documents.values():
@@ -1169,6 +1191,7 @@ class MainWindow(QMainWindow):
         else:
             old_page = self._tabs.widget(replace_tab_index)
             self._tabs.removeTab(replace_tab_index)
+            self._forget_document_for_page(old_page)
             if old_page is not None:
                 old_page.deleteLater()
             self._tabs.insertTab(replace_tab_index, page, path.name)
@@ -1426,7 +1449,10 @@ class MainWindow(QMainWindow):
 
     def _dispose_document_content(self, document: _Document) -> None:
         self._disconnect_visual_events(document)
-        layout = document.page.layout()
+        try:
+            layout = document.page.layout()
+        except RuntimeError:
+            return
         if layout is None:
             return
         while layout.count():
@@ -1873,7 +1899,10 @@ class MainWindow(QMainWindow):
                 self._owned_request_ids.discard(document.request_id)
                 self._executor.cancel(document.request_id)
             self._cancel_availability_probe(document)
-            self._dispose_document_content(document)
+            try:
+                self._dispose_document_content(document)
+            except RuntimeError:
+                pass
             _cleanup_dir(document.artifact_dir)
             if document.builtin_artifact_dir != document.artifact_dir:
                 _cleanup_dir(document.builtin_artifact_dir)

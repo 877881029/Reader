@@ -30,6 +30,7 @@ a = Analysis(
         (str(ROOT / 'assets/icons/reader-r.svg'), 'assets/icons'),
         (str(ROOT / 'assets/pptx-viewer'), 'assets/pptx-viewer'),
         (str(ROOT / 'assets/md-viewer'), 'assets/md-viewer'),
+        (str(ROOT / 'VERSION'), '.'),
     ],
     hiddenimports=pyside6_hidden,
     hookspath=[],

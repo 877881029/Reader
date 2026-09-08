@@ -215,6 +215,23 @@ def test_create_desktop_shortcut_preserves_existing_user_shortcut(
     assert com.shell.shortcuts == []
 
 
+def test_create_desktop_shortcut_sets_app_user_model_id(monkeypatch, tmp_path: Path) -> None:
+    from reader.app import APP_USER_MODEL_ID
+
+    desktop = tmp_path / "KnownDesktop"
+    monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: desktop)
+    com = FakeComModule()
+    seen: list[tuple[Path, str]] = []
+
+    path = create_desktop_shortcut(
+        r"C:\Reader\Reader.exe",
+        winshell_or_com=com,
+        app_id_setter=lambda shortcut, app_id: seen.append((shortcut, app_id)),
+    )
+
+    assert seen == [(path, APP_USER_MODEL_ID)]
+
+
 def test_create_desktop_shortcut_explicit_overwrite_recreates_existing(
     monkeypatch, tmp_path: Path
 ) -> None:

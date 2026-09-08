@@ -23,6 +23,7 @@ def test_reader_spec_references_onedir_icon_version_and_webengine() -> None:
     assert "COLLECT(" in spec
     assert "(str(ROOT / 'assets/icons/reader.ico'), 'assets/icons')" in spec
     assert "(str(ROOT / 'assets/icons/reader-r.svg'), 'assets/icons')" in spec
+    assert "(str(ROOT / 'VERSION'), '.')" in spec
 
 
 def test_reader_spec_collects_complete_pptx_runtime_and_webchannel() -> None:
@@ -270,7 +271,9 @@ def test_packaging_smoke_can_disable_real_shell_integration() -> None:
 
     assert "if not _shell_integration_disabled():" in main
     assert "register_open_with(exe, args=args)" in main
-    assert "create_desktop_shortcut(exe, args=args, icon=exe)" in main
+    assert "create_desktop_shortcut(" in main
+    assert 'resource_path("assets", "icons", "reader.ico")' in main
+    assert "icon=exe" not in main
 
 
 def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> None:

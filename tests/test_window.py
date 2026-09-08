@@ -11,7 +11,14 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl, Qt, Signal
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QApplication, QDialog, QLabel, QStackedWidget, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QLabel,
+    QListWidget,
+    QStackedWidget,
+    QWidget,
+)
 
 from reader.preview.result import PreviewResult
 
@@ -2334,6 +2341,58 @@ def test_empty_window_shows_drop_hint_and_accepts_drops(qtbot):
     assert window._tabs.acceptDrops()
 
 
+def test_empty_window_shows_welcome_version_and_recent(qtbot, tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("READER_DATA_DIR", str(tmp_path / "data"))
+    recent = tmp_path / "notes.md"
+    recent.write_text("hello", encoding="utf-8")
+    from reader.shell.recent import remember_recent
+
+    remember_recent(recent)
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+
+    assert window.tab_count() == 0
+    version = window.findChild(QLabel, "welcomeVersion")
+    assert version is not None and version.isVisible()
+    assert "0.1.0" in version.text()
+    assert window.findChild(QWidget, "welcomeOpenButton") is not None
+    assert window.findChild(QWidget, "welcomeNewButton") is not None
+    recent_list = window.findChild(QListWidget, "welcomeRecentList")
+    assert recent_list is not None
+    assert recent_list.count() == 1
+    assert "notes.md" in recent_list.item(0).text()
+    hint = window.findChild(QLabel, "emptyWindowHint")
+    assert hint is not None and "Ctrl+O" in hint.text()
+
+
+def test_welcome_new_button_creates_untitled_markdown(qtbot):
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    button = window.findChild(QWidget, "welcomeNewButton")
+    assert button is not None
+    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+
+    assert window.tab_count() == 1
+    assert "未命名" in window.tab_title(0)
+
+
+def test_open_paths_records_recent_file(qtbot, tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("READER_DATA_DIR", str(tmp_path / "data"))
+    path = tmp_path / "memo.docx"
+    path.write_bytes(b"x")
+    window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
+    qtbot.addWidget(window)
+    window.open_paths([str(path)])
+
+    from reader.shell.recent import load_recent
+
+    assert load_recent()[0] == path.resolve()
+
+
 def test_status_bar_is_hidden_but_status_text_still_updates(qtbot):
     window = make_window(lambda _path, office=None, mode="builtin": builtin_result())
     qtbot.addWidget(window)
@@ -2452,6 +2511,14 @@ def test_win32_frame_styles_restore_hwnd_icons(qtbot):
     assert user32.SendMessageW(hwnd, wm_geticon, 0, 0) == 0
     window._ensure_win32_frame_styles()
     assert user32.SendMessageW(hwnd, wm_geticon, 0, 0) != 0
+    assert user32.SendMessageW(hwnd, wm_geticon, 1, 0) != 0
+    user32.SendMessageW(hwnd, wm_seticon, 0, 0)
+    user32.SendMessageW(hwnd, wm_seticon, 1, 0)
+    assert user32.SendMessageW(hwnd, wm_geticon, 0, 0) == 0
+    from PySide6.QtCore import QTimer
+
+    QTimer.singleShot(0, window._reapply_native_window_icons)
+    qtbot.waitUntil(lambda: user32.SendMessageW(hwnd, wm_geticon, 0, 0) != 0, timeout=1000)
     assert user32.SendMessageW(hwnd, wm_geticon, 1, 0) != 0
 
 

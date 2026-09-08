@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication
 
 from reader.app import ReaderApp, set_app_user_model_id
 from reader.ipc import SingleInstance
+from reader.resources import resource_path
 from reader.shell.associate import create_desktop_shortcut, register_open_with
 from reader.smoke import append_smoke_batch
 
@@ -45,10 +46,6 @@ def main(argv: list[str] | None = None) -> int:
     win = app.new_window()
     if files:
         win.open_paths(files)
-    else:
-        add_draft = getattr(win, "add_untitled_markdown_tab", None)
-        if callable(add_draft):
-            add_draft()
 
     if not _shell_integration_disabled():
         exe, args = _association_target()
@@ -57,7 +54,11 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             win.show_status("文件关联设置失败")
         try:
-            create_desktop_shortcut(exe, args=args, icon=exe)
+            create_desktop_shortcut(
+                exe,
+                args=args,
+                icon=str(resource_path("assets", "icons", "reader.ico")),
+            )
         except Exception:
             win.show_status("桌面快捷方式创建失败")
 

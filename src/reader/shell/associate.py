@@ -4,6 +4,7 @@ import ctypes
 import os
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID
 
@@ -93,6 +94,23 @@ def _desktop_path() -> Path:
     return Path.home() / "Desktop"
 
 
+def _set_shortcut_app_id(shortcut_path: Path, app_id: str) -> None:
+    if os.name != "nt" or not shortcut_path.exists():
+        return
+    try:
+        import pythoncom
+        from win32com.propsys import propsys, pscon
+    except ImportError:
+        return
+    try:
+        pythoncom.CoInitialize()
+        store = propsys.SHGetPropertyStoreFromParsingName(str(shortcut_path))
+        store.SetValue(pscon.PKEY_AppUserModel_ID, propsys.PROPVARIANTType(app_id))
+        store.Commit()
+    except Exception:
+        return
+
+
 def create_desktop_shortcut(
     exe: str,
     name: str = "Reader",
@@ -101,6 +119,7 @@ def create_desktop_shortcut(
     args: tuple[str, ...] = (),
     icon: str | None = None,
     overwrite: bool = False,
+    app_id_setter: Callable[[Path, str], None] | None = None,
 ) -> Path:
     desktop = _desktop_path()
     desktop.mkdir(parents=True, exist_ok=True)
@@ -120,4 +139,11 @@ def create_desktop_shortcut(
     shortcut.IconLocation = _icon_location(icon or exe)
     save = getattr(shortcut, "Save", None) or getattr(shortcut, "save")
     save()
+    setter = app_id_setter if app_id_setter is not None else _set_shortcut_app_id
+    try:
+        from reader.app import APP_USER_MODEL_ID
+
+        setter(shortcut_path, APP_USER_MODEL_ID)
+    except Exception:
+        pass
     return shortcut_path

@@ -8,6 +8,11 @@ from PySide6.QtWidgets import QApplication
 _app = QApplication.instance() or QApplication(sys.argv)
 
 
+@pytest.fixture(autouse=True)
+def isolate_reader_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("READER_DATA_DIR", str(tmp_path / "reader-data"))
+
+
 @pytest.fixture
 def tmp_file(tmp_path: Path):
     def _make(name: str, data: bytes = b"x") -> Path:
