@@ -21,3 +21,5 @@ preview-cache/
 !.env.example
 web/pptx-viewer/node_modules/
 web/md-viewer/node_modules/
+release/*.zip
+release/*.exe

@@ -397,3 +397,39 @@ throw $both
     assert "business-original" in output
     assert "cleanup-appended" in output
     assert output.index("business-original") < output.index("cleanup-appended")
+
+
+def test_version_file_matches_pyproject_and_win32_resource() -> None:
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    assert version == "0.1.0"
+    assert version.splitlines() == ["0.1.0"]
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'version = "0.1.0"' in pyproject
+    info = (ROOT / "version_info.txt").read_text(encoding="utf-8")
+    assert "filevers=(0, 1, 0, 0)" in info
+    assert "StringStruct('FileVersion', '0.1.0')" in info
+    assert "StringStruct('ProductVersion', '0.1.0')" in info
+
+
+def test_setup_script_installs_runtime_venv_and_launches_reader() -> None:
+    script = (ROOT / "scripts" / "setup.ps1").read_text(encoding="utf-8")
+    assert "param(" in script
+    assert "$SkipLaunch" in script
+    assert "$Dev" in script
+    assert "py -3.12" in script
+    assert "winget install Python.Python.3.12" in script
+    assert "-m venv" in script
+    assert r".venv\Scripts\python.exe" in script
+    assert "pip install -e ." in script
+    assert 'pip install -e ".[dev]"' in script
+    assert "-m reader" in script
+    assert "npm" not in script.lower()
+    assert "PyInstaller" not in script
+    assert "build_windows.ps1" not in script
+
+
+def test_gitignore_keeps_dist_and_release_binaries_out_of_git() -> None:
+    ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "dist/" in ignore
+    assert "release/*.zip" in ignore
+    assert "release/*.exe" in ignore
