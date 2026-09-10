@@ -5,6 +5,21 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
 
+**文档 Ctrl+F 查找（记事本式）**
+
+- 规格：`docs/superpowers/specs/2026-09-10-document-find-design.md`
+- 计划：`docs/superpowers/plans/2026-09-10-document-find.md`（2 个任务均已完成）
+- 用户确认：对文档类文件增加 Ctrl+F，像记事本一样。先做出来再改。
+- 实现：标题栏下查找条；`Ctrl+F` 打开，Enter / F3 下一个，Shift+Enter / Shift+F3 上一个，Esc 关闭；区分大小写；绕回；`未找到`。纯文本走 `QPlainTextEdit.find`，HTML/MD 视觉/PPTX/PDF 走 `QWebEnginePage.findText`。欢迎页不响应。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：`tests/test_find.py` 5 passed；全量 382 项中 WebEngine 抖动用例复跑通过（`381 passed, 1 skipped` + 复跑 1 passed）；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5977995 bytes`，SHA256 `5cb9d34a6b41fddb887ccda676f96264fca22e4062760b4c1e4c2251cf6d74bc`
+
+## 下一步
+
+用户打开 `.md` / `.docx` / `.pptx` / `.pdf` / `.json`，按 Ctrl+F 试查找；需要替换（Ctrl+H）再开规格
+
+## 上一目标（已完成）
+
 **代码文件阅读：JSON / YAML / XML + 行号**
 
 - 规格：`docs/superpowers/specs/2026-09-10-code-file-reading-design.md`
@@ -402,12 +417,13 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户从桌面图标打开 `.json` / `.yaml` / `.yml` / `.xml`，看行号与高亮
+1. 用户打开文档按 Ctrl+F 试查找
 2. 同事：clone 后执行 `scripts\setup.ps1` 启动 Reader
 3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- 文档 Ctrl+F：标题栏下查找条，Enter/F3 下一个，Esc 关闭；`tests/test_find.py` 5 passed；frozen smoke 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 代码文件阅读：`.json` / `.yaml` / `.yml` / `.xml` 只读行号视图 + `QSyntaxHighlighter`；全量 `377 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 0.1.0 源码启动：`VERSION` + `scripts/setup.ps1` + 中文 README / `release/README.md`；git 不含 exe/zip
 - Native PDF 空白修复：PDF 标签启用 Chromium PDF 插件；HTML 预览不启用插件

@@ -42,8 +42,10 @@ from reader.preview.cache import PreviewCache
 from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
+from reader.preview.find_support import clear_find_highlights, find_in_widget
 from reader.resources import resource_path
 from reader.theme import MUTED, PAPER as PAGE_FILL
+from reader.shell.find_bar import FindBar
 from reader.shell.recent import remember_recent
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
@@ -625,7 +627,13 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(container)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
+        self._find_bar = FindBar()
+        self._find_bar.next_requested.connect(lambda: self._find_step(True))
+        self._find_bar.previous_requested.connect(lambda: self._find_step(False))
+        self._find_bar.hide_requested.connect(self._hide_find_bar)
+
         root.addWidget(self._title_chrome)
+        root.addWidget(self._find_bar)
         root.addWidget(self._content_stack, 1)
         self.setCentralWidget(container)
         status = QStatusBar()
@@ -691,6 +699,35 @@ class MainWindow(QMainWindow):
         self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
         self.actionSave.triggered.connect(self.save_current_tab)
         self.addAction(self.actionSave)
+
+        self.actionFind = QAction("查找", self)
+        self.actionFind.setObjectName("actionFind")
+        self.actionFind.setShortcut(QKeySequence.StandardKey.Find)
+        self.actionFind.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionFind.triggered.connect(self._shortcut_find)
+        self.addAction(self.actionFind)
+
+        self.actionFindNext = QAction("查找下一个", self)
+        self.actionFindNext.setObjectName("actionFindNext")
+        self.actionFindNext.setShortcut(QKeySequence.StandardKey.FindNext)
+        self.actionFindNext.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionFindNext.triggered.connect(lambda: self._shortcut_find_step(True))
+        self.addAction(self.actionFindNext)
+
+        self.actionFindPrevious = QAction("查找上一个", self)
+        self.actionFindPrevious.setObjectName("actionFindPrevious")
+        self.actionFindPrevious.setShortcut(QKeySequence.StandardKey.FindPrevious)
+        self.actionFindPrevious.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionFindPrevious.triggered.connect(lambda: self._shortcut_find_step(False))
+        self.addAction(self.actionFindPrevious)
+
+        self.actionFindClose = QAction("关闭查找", self)
+        self.actionFindClose.setObjectName("actionFindClose")
+        self.actionFindClose.setShortcut(QKeySequence(Qt.Key.Key_Escape))
+        self.actionFindClose.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+        self.actionFindClose.triggered.connect(self._hide_find_bar)
+        self.actionFindClose.setEnabled(False)
+        self.addAction(self.actionFindClose)
 
         self.menuBar().clear()
         self.menuBar().setVisible(False)
@@ -817,6 +854,7 @@ class MainWindow(QMainWindow):
         stack.setCurrentIndex(1 if has_content else 0)
         if not has_content:
             self._welcome.reload_recent()
+            self._hide_find_bar()
 
     def event(self, event: QEvent) -> bool:
         if (
@@ -869,6 +907,63 @@ class MainWindow(QMainWindow):
 
     def tab_title(self, index: int) -> str:
         return self._tabs.tabText(index)
+
+    def find_bar(self) -> FindBar:
+        return self._find_bar
+
+    def _current_preview_widget(self) -> QWidget | None:
+        page = self._tabs.currentWidget()
+        if page is None:
+            return None
+        layout = page.layout()
+        if layout is None:
+            return None
+        for index in range(layout.count()):
+            widget = layout.itemAt(index).widget()
+            if widget is not None and widget.objectName() != "previewLoading":
+                return widget
+        return None
+
+    def _shortcut_find(self) -> None:
+        if self._current_preview_widget() is None:
+            return
+        self._find_bar.show()
+        self.actionFindClose.setEnabled(True)
+        self._find_bar.focus_query()
+
+    def _shortcut_find_step(self, forward: bool) -> None:
+        if self._current_preview_widget() is None:
+            return
+        if not self._find_bar.query():
+            self._shortcut_find()
+            return
+        self._find_bar.show()
+        self.actionFindClose.setEnabled(True)
+        self._find_step(forward)
+
+    def _find_step(self, forward: bool) -> None:
+        query = self._find_bar.query()
+        if not query:
+            self._find_bar.set_not_found(False)
+            return
+        find_in_widget(
+            self._current_preview_widget(),
+            query,
+            forward=forward,
+            case_sensitive=self._find_bar.match_case(),
+            on_result=lambda found: self._find_bar.set_not_found(not found),
+        )
+
+    def _hide_find_bar(self) -> None:
+        bar = getattr(self, "_find_bar", None)
+        if bar is None:
+            return
+        clear_find_highlights(self._current_preview_widget())
+        bar.set_not_found(False)
+        bar.hide()
+        close = getattr(self, "actionFindClose", None)
+        if close is not None:
+            close.setEnabled(False)
 
     def status_text(self) -> str:
         return self.statusBar().currentMessage()
