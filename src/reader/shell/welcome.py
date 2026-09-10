@@ -34,6 +34,34 @@ _BADGE_BY_SUFFIX = {
 }
 
 
+class _ElideLabel(QLabel):
+    def __init__(self, full_text: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full_text = full_text
+        self.setToolTip(full_text)
+        self.setText(full_text)
+        self.setWordWrap(False)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(32)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._elide()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._elide()
+
+    def _elide(self) -> None:
+        self.setText(
+            self.fontMetrics().elidedText(
+                self._full_text,
+                Qt.TextElideMode.ElideMiddle,
+                max(self.width(), 32),
+            )
+        )
+
+
 class _RecentRow(QWidget):
     def __init__(self, path: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -55,7 +83,10 @@ class _RecentRow(QWidget):
         copy.setSpacing(2)
         name = QLabel(path.name)
         name.setObjectName("welcomeRecentName")
-        location = QLabel(str(path))
+        name.setToolTip(path.name)
+        name.setWordWrap(False)
+        name.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        location = _ElideLabel(str(path))
         location.setObjectName("welcomeRecentPath")
         location.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         copy.addWidget(name)
@@ -163,6 +194,7 @@ class WelcomePage(QWidget):
                 background: #fffaf2;
                 border: 1px solid #e4d9c7;
                 border-radius: 10px;
+                color: transparent;
                 margin-bottom: 8px;
             }
             QListWidget#welcomeRecentList::item:hover {
@@ -296,7 +328,7 @@ class WelcomePage(QWidget):
         self._recent_empty.setVisible(not paths)
         self._recent.setVisible(bool(paths))
         for path in paths:
-            item = QListWidgetItem(path.name)
+            item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, str(path))
             item.setToolTip(str(path))
             row = _RecentRow(path)

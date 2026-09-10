@@ -11,6 +11,21 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 当前目标（已完成）
 
+**欢迎页最近文件卡片叠字**
+
+- 用户截图：徽章/文件名/路径互相覆盖（`visual-document.md` 的 `vi` 露在 MD 徽章旁）
+- 根因：`QListWidgetItem` 仍写入文件名，列表会再画一遍 item 文本，叠在自定义行控件上
+- 修复：item 不再设文本，文件名只画在行控件里；长路径中间省略
+- 验证：全量 `359 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 最终 `dist/Reader/Reader.exe`：`5955800 bytes`，SHA256 `24222257bddd0d7e349ab05fb4e94cb76a334a4e16de4d9d8339fbc4ab339b19`
+
+## 下一步
+
+用户再看最近打开卡片是否还叠字
+
+## 上一目标（已完成）
+
 **欢迎页视觉 + 任务栏改用蓝色 R（不再用窗口快照）**
 
 - 规格补记：`docs/superpowers/specs/2026-09-08-welcome-empty-launch-design.md` §6

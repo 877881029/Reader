@@ -2362,7 +2362,15 @@ def test_empty_window_shows_welcome_version_and_recent(qtbot, tmp_path: Path, mo
     recent_list = window.findChild(QListWidget, "welcomeRecentList")
     assert recent_list is not None
     assert recent_list.count() == 1
-    assert "notes.md" in recent_list.item(0).text()
+    item = recent_list.item(0)
+    assert item.text() == ""
+    row = recent_list.itemWidget(item)
+    assert row is not None
+    name = row.findChild(QLabel, "welcomeRecentName")
+    path_label = row.findChild(QLabel, "welcomeRecentPath")
+    assert name is not None and name.text() == "notes.md"
+    assert path_label is not None
+    assert str(recent.resolve()) in path_label.toolTip()
     hint = window.findChild(QLabel, "emptyWindowHint")
     assert hint is not None and "Ctrl+O" in hint.text()
 
