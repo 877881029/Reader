@@ -75,7 +75,13 @@ def _notify_assoc_changed() -> None:
         return
 
 
-def register_open_with(exe: str, winreg_module=None, *, args: tuple[str, ...] = ()) -> None:
+def register_open_with(
+    exe: str,
+    winreg_module=None,
+    *,
+    args: tuple[str, ...] = (),
+    protected_claimer=None,
+) -> None:
     import winreg as default_winreg
 
     wr = winreg_module or default_winreg
@@ -111,6 +117,12 @@ def register_open_with(exe: str, winreg_module=None, *, args: tuple[str, ...] = 
         _clear_user_choice(wr, ext)
     if winreg_module is None:
         _notify_assoc_changed()
+        if protected_claimer is None:
+            from reader.shell.settings_claim import claim_protected_defaults
+
+            protected_claimer = claim_protected_defaults
+    if protected_claimer is not None:
+        protected_claimer()
 
 
 def _desktop_known_location() -> Path | None:

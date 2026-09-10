@@ -151,6 +151,19 @@ def test_register_open_with_propagates_errors() -> None:
         register_open_with(r"C:\Reader\reader.exe", winreg_module=wr)
 
 
+def test_register_open_with_runs_injected_protected_claimer() -> None:
+    wr = FakeWinreg()
+    called: list[int] = []
+
+    register_open_with(
+        r"C:\Reader\reader.exe",
+        winreg_module=wr,
+        protected_claimer=lambda: called.append(1),
+    )
+
+    assert called == [1]
+
+
 class FakeShortcut:
     def __init__(self) -> None:
         self.Targetpath = ""

@@ -5,19 +5,32 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
 
-**把文档默认打开方式切到 Reader**
+**`.pdf` 默认打开方式也改成 Reader**
 
 - 规格：`docs/superpowers/specs/2026-09-10-default-app-associations-design.md`
-- 计划：`docs/superpowers/plans/2026-09-10-default-app-associations.md`（2 个任务均已完成）
-- 用户确认：电脑里文档类文件现在默认用 Word，要改成 Reader。先做出来再改。
-- 实现：启动时 `register_open_with` 把 HKCU `Classes\<ext>` 设为 `Reader.Document`，写入 Default Apps Capabilities，清掉可删的 `UserChoice`，并把 `FileExts` 的 OpenWithList 指到 `Reader.exe`。本机已对 `dist\Reader\Reader.exe` 生效。`.pdf` 仍被 Windows UCPD 锁在 Acrobat，无法静默改。
+- 计划：`docs/superpowers/plans/2026-09-10-default-app-associations.md`（3 个任务均已完成）
+- 用户确认：不要停在「设置里手动改 PDF」。UCPD 锁死 `.pdf` 的 UserChoice，程序不能静默改注册表。
+- 实现：`register_open_with` 之后，若 AssocQueryString 显示 `.pdf` 还不是 Reader，则打开 `ms-settings:defaultapps?registeredAppUser=Reader`，Invoke `.pdf` 行，让 SystemSettings 写入带 Hash 的 UserChoice，然后关掉设置。已经是 Reader 则不弹窗。不伪造 Hash，不关 UCPD。
+- 本机当前：所有 Reader 后缀（含 `.pdf`）AssocQueryString 友好名都是 Reader；`.pdf` UserChoice `ProgId=Reader.Document`
 - 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
-- 验证：全量 `382 passed, 1 skipped`；AssocQueryString：docx/md/pptx/xlsx/json/yaml/yml/xml = Reader，pdf = Adobe Acrobat；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
-- 最终 `dist/Reader/Reader.exe`：`5978879 bytes`，SHA256 `19cc012cd1e70620c05be8724f2a40caf4fbd5cca5ef80d819db8485b186d59a`
+- 验证：全量 `386 passed, 1 skipped`；`tests/test_settings_claim.py` 3 passed；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5982568 bytes`，SHA256 `5ce54edd908fff4c9ab6dd5f9407e38b3de7f395f50057f465163dd6b67c8ed8`
 
 ## 下一步
 
-用户双击 `.docx` / `.md` / `.pptx` / `.xlsx` 确认是 Reader；`.pdf` 若仍要 Reader，在 Windows 设置里手动改
+用户双击 `.pdf` 确认进 Reader 而不是 Acrobat；其它文档类型继续用 Reader
+
+## 上一目标（已完成）
+
+**把文档默认打开方式切到 Reader**
+
+- 规格：`docs/superpowers/specs/2026-09-10-default-app-associations-design.md`
+- 计划：`docs/superpowers/plans/2026-09-10-default-app-associations.md`（Task 1–2 已完成）
+- 用户确认：电脑里文档类文件现在默认用 Word，要改成 Reader。先做出来再改。
+- 实现：启动时 `register_open_with` 把 HKCU `Classes\<ext>` 设为 `Reader.Document`，写入 Default Apps Capabilities，清掉可删的 `UserChoice`，并把 `FileExts` 的 OpenWithList 指到 `Reader.exe`。
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：当时全量 `382 passed, 1 skipped`；docx/md/pptx/xlsx/json/yaml/yml/xml = Reader；`.pdf` 当时仍被 UCPD 锁在 Acrobat（已由当前目标接手）
+- 最终 `dist/Reader/Reader.exe`：`5978879 bytes`，SHA256 `19cc012cd1e70620c05be8724f2a40caf4fbd5cca5ef80d819db8485b186d59a`
 
 ## 上一目标（已完成）
 
@@ -433,13 +446,13 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户双击 `.docx` / `.md` 确认不再进 Word；`.pdf` 若要 Reader 需在系统设置里改
+1. 用户双击 `.docx` / `.md` / `.pdf` 确认都进 Reader
 2. 同事：clone 后执行 `scripts\setup.ps1` 启动 Reader
 3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
-- 默认打开方式：当前用户把 Reader 支持的文档后缀指到 `Reader.Document`（`.pdf` 仍被 UCPD 锁在 Acrobat）；全量 `382 passed, 1 skipped`；桌面 `Reader.lnk` 已覆盖刷新
+- 默认打开方式：当前用户把 Reader 支持的文档后缀（含 `.pdf`）指到 `Reader.Document`；UCPD 锁住的 PDF 经 Settings UI 申索；全量 `386 passed, 1 skipped`；桌面 `Reader.lnk` 已覆盖刷新
 - 文档 Ctrl+F：标题栏下查找条，Enter/F3 下一个，Esc 关闭；`tests/test_find.py` 5 passed；frozen smoke 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 代码文件阅读：`.json` / `.yaml` / `.yml` / `.xml` 只读行号视图 + `QSyntaxHighlighter`；全量 `377 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 0.1.0 源码启动：`VERSION` + `scripts/setup.ps1` + 中文 README / `release/README.md`；git 不含 exe/zip

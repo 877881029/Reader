@@ -1,7 +1,7 @@
 # Default App Associations
 
 Date: 2026-09-10  
-Status: Implemented (HKCU Classes + Capabilities + OpenWithList; PDF UserChoice still UCPD-locked)  
+Status: Implemented (HKCU Classes + Capabilities + OpenWithList; UCPD-locked `.pdf` claimed via Settings UI)  
 Progress ledger: `docs/STATUS.md`
 
 ## 1. Goal
@@ -20,13 +20,13 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 | UserChoice | Best-effort **delete** existing `FileExts\<ext>\UserChoice` and `UserChoiceLatest` so Word’s `.md` override and similar keys stop winning. Do not forge hashes. |
 | Default Apps | Register `Software\RegisteredApplications` + `Software\Reader\Capabilities\FileAssociations` so Reader appears in Settings |
 | Notify | `SHChangeNotify(SHCNE_ASSOCCHANGED)` after real registry writes |
-| Settings UI | Do not pop Settings on every launch |
-
-Windows 11 may still protect some types (especially `.pdf`) via UCPD. Those stay best-effort; HKCU Classes + Capabilities still apply.
+| Settings UI | Do **not** pop Settings when AssocQueryString already reports Reader. For UCPD-protected `.pdf` (UserChoice delete is Access denied), open `ms-settings:defaultapps?registeredAppUser=Reader` once and Invoke the `.pdf` row so **SystemSettings.exe** writes the hashed UserChoice. Close Settings when finished. |
+| Not allowed | Disable UCPD, forge UserChoice Hash, HKLM, or require the user to walk Settings by hand |
 
 This supersedes the v1 “Open with only / never claim defaults” rule.
 
 ## 3. Testing
 
 - Fake registry: each suffix’s Classes default is `Reader.Document`; Capabilities lists every suffix; UserChoice keys are deleted; OpenWithProgids still written; no Settings process launched
+- Protected claim: skip Settings when `.pdf` already reports Reader; open the Reader defaults URI and invoke `.pdf` when it reports another app; close Settings even if invoke fails
 - README no longer lists “抢当系统默认打开方式” as out of scope
