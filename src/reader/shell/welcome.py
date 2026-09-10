@@ -32,6 +32,10 @@ _BADGE_BY_SUFFIX = {
     ".pptx": "PPT",
     ".docx": "DOC",
     ".xlsx": "XLS",
+    ".json": "JSON",
+    ".yaml": "YAML",
+    ".yml": "YAML",
+    ".xml": "XML",
 }
 
 

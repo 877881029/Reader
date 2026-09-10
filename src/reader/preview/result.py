@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-PreviewKind = Literal["html", "pdf", "pptx", "markdown", "error"]
+PreviewKind = Literal["html", "pdf", "pptx", "markdown", "code", "error"]
 
 
 @dataclass(frozen=True)

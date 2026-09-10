@@ -3,7 +3,9 @@ import pytest
 from reader.sniff import sniff, SniffError, SUPPORTED_EXTENSIONS
 
 def test_supported_extensions():
-    assert SUPPORTED_EXTENSIONS == frozenset({".docx", ".pptx", ".xlsx", ".md", ".pdf"})
+    assert SUPPORTED_EXTENSIONS == frozenset(
+        {".docx", ".pptx", ".xlsx", ".md", ".pdf", ".json", ".yaml", ".yml", ".xml"}
+    )
 
 @pytest.mark.parametrize("name,suffix", [
     ("a.DOCX", ".docx"),
@@ -11,6 +13,10 @@ def test_supported_extensions():
     ("c.Xlsx", ".xlsx"),
     ("d.MD", ".md"),
     ("e.PDF", ".pdf"),
+    ("f.JSON", ".json"),
+    ("g.yaml", ".yaml"),
+    ("h.YML", ".yml"),
+    ("i.xml", ".xml"),
 ])
 def test_sniff_accepts_supported(tmp_file, name, suffix):
     path = tmp_file(name)

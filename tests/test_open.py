@@ -54,12 +54,17 @@ def test_rejected_items_keep_reason_and_order(tmp_path: Path):
     )
 
 
-def test_opens_pdf(tmp_path: Path):
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"%PDF-1.4\n")
+def test_opens_json_yaml_xml(tmp_path: Path):
+    files = [
+        tmp_path / "a.json",
+        tmp_path / "b.yaml",
+        tmp_path / "c.yml",
+        tmp_path / "d.xml",
+    ]
+    for path in files:
+        path.write_text("x", encoding="utf-8")
 
-    d = decide_open([], [pdf])
+    d = decide_open([], files)
 
-    assert d.to_open == (pdf.resolve(),)
-    assert d.to_focus is None
+    assert d.to_open == tuple(path.resolve() for path in files)
     assert d.rejected == ()

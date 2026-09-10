@@ -5,6 +5,22 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
 
+**代码文件阅读：JSON / YAML / XML + 行号**
+
+- 规格：`docs/superpowers/specs/2026-09-10-code-file-reading-design.md`
+- 计划：`docs/superpowers/plans/2026-09-10-code-file-reading.md`（2 个任务均已完成）
+- 用户确认：先支持 yaml/json/xml/yml；左侧 VS Code 式行号；有语法高亮更好。只读阅读。
+- 实现：`.json` / `.yaml` / `.yml` / `.xml` 走 `kind="code"`；`CodeTextView` 只读、左侧行号、不折行；`QSyntaxHighlighter` 轻量上色；不走预览缓存；Office/视觉模式不适用
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `377 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5969940 bytes`，SHA256 `01af84aa7e571e97d12b1415d47c8517a9869e761ed3a0b77662d08a3c48bcbb`
+
+## 下一步
+
+用户从桌面图标打开 `.json` / `.yaml` / `.yml` / `.xml`，看行号与高亮是否够用；需要更多语言再开规格
+
+## 上一目标（已完成）
+
 **启动空白等待 + 开文件闪一下 / 偶发卡住**
 
 - 规格：`docs/superpowers/specs/2026-09-10-startup-open-snappiness-design.md`
@@ -21,7 +37,7 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
 
-Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
+Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
@@ -386,11 +402,13 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 同事：clone 后执行 `scripts\setup.ps1` 启动 Reader
-2. 若还要 File / Edit / View 菜单行，再开规格
+1. 用户从桌面图标打开 `.json` / `.yaml` / `.yml` / `.xml`，看行号与高亮
+2. 同事：clone 后执行 `scripts\setup.ps1` 启动 Reader
+3. 若还要 File / Edit / View 菜单行，再开规格
 
 ## 已完成（本增量）
 
+- 代码文件阅读：`.json` / `.yaml` / `.yml` / `.xml` 只读行号视图 + `QSyntaxHighlighter`；全量 `377 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 0.1.0 源码启动：`VERSION` + `scripts/setup.ps1` + 中文 README / `release/README.md`；git 不含 exe/zip
 - Native PDF 空白修复：PDF 标签启用 Chromium PDF 插件；HTML 预览不启用插件
 - Native PDF Task 1：`.pdf` 进入 sniff / pipeline / Open With；`to_preview` 指向源文件且 `asset_dir is None`

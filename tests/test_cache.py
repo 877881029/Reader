@@ -265,6 +265,25 @@ def test_put_rejects_pptx_visual_kind(tmp_path: Path):
         )
 
 
+def test_put_rejects_code_kind(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "config.json"
+    src.write_text('{"a": 1}', encoding="utf-8")
+    cache = PreviewCache(tmp_path / "c")
+
+    with pytest.raises(ValueError, match="unsupported preview kind: code"):
+        cache.put(
+            src,
+            "builtin",
+            PreviewResult(
+                html='{"a": 1}',
+                status_label="代码预览",
+                kind="code",
+            ),
+        )
+
+
 def test_put_rejects_markdown_visual_kind(tmp_path: Path):
     from reader.preview.cache import PreviewCache
 

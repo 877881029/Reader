@@ -9,7 +9,17 @@ from pathlib import Path
 from uuid import UUID
 
 PROGID = "Reader.Document"
-EXTENSIONS = (".docx", ".pptx", ".xlsx", ".md", ".pdf")
+EXTENSIONS = (
+    ".docx",
+    ".pptx",
+    ".xlsx",
+    ".md",
+    ".pdf",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".xml",
+)
 _ICON_INDEX_RE = re.compile(r'^(?:"(?P<quoted>.*)"|(?P<plain>.*)),(?P<index>-?\d+)$')
 
 

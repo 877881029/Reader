@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from reader.formats.code import CODE_SUFFIXES
 from reader.open import decide_open
 from reader.preview.cache import PreviewCache
 from reader.preview.office import Win32OfficeBackend
@@ -240,7 +241,11 @@ class _PreviewWorker(QRunnable):
             )
             cache: PreviewCache | None
             cache = None
-            if strategy != "visual" and suffix != ".pdf":
+            if (
+                strategy != "visual"
+                and suffix != ".pdf"
+                and suffix not in CODE_SUFFIXES
+            ):
                 try:
                     cache = self.cache_factory()
                     result = cache.get(self.path, strategy)
@@ -463,6 +468,12 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
         from reader.preview.md_view import MarkdownVisualView
 
         return MarkdownVisualView(result, source_path)
+    if result.kind == "code":
+        from reader.preview.code_view import CodeTextView
+
+        view = CodeTextView()
+        view.load_text(result.html, source_path.suffix)
+        return view
 
     from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -1134,7 +1145,7 @@ class MainWindow(QMainWindow):
             self,
             "打开",
             "",
-            "Documents (*.docx *.pptx *.xlsx *.md *.pdf)",
+            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml)",
         )
         if paths:
             self.open_paths([str(path) for path in paths])

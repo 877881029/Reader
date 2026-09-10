@@ -50,7 +50,17 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
 
     command_path = r"Software\Classes\Reader.Document\shell\open\command"
     assert PROGID == "Reader.Document"
-    assert EXTENSIONS == (".docx", ".pptx", ".xlsx", ".md", ".pdf")
+    assert EXTENSIONS == (
+        ".docx",
+        ".pptx",
+        ".xlsx",
+        ".md",
+        ".pdf",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+    )
     assert all(path.startswith("Software\\Classes\\") for path in wr.created)
     assert all("UserChoice" not in path for path in wr.created)
     assert command_path in wr.created

@@ -256,3 +256,21 @@ def test_pdf_preview_uses_source_path(tmp_path: Path):
     assert builtin.asset_dir is None
     assert visual.kind == "pdf"
     assert visual.pdf_path == p.resolve()
+
+
+def test_json_yaml_xml_use_code_preview_without_office(tmp_path: Path):
+    office = FakeOffice(available=True)
+    samples = {
+        "a.json": '{"k": 1}',
+        "b.yaml": "k: 1\n",
+        "c.yml": "- item\n",
+        "d.xml": "<root/>\n",
+    }
+    for name, body in samples.items():
+        path = tmp_path / name
+        path.write_text(body, encoding="utf-8")
+        result = preview(path, office=office)
+        assert result.kind == "code"
+        assert result.status_label == "代码预览"
+        assert body in result.html
+    assert office.calls == []

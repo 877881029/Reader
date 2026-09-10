@@ -2,6 +2,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal, Protocol
 
+from reader.formats import code as fmt_code
 from reader.formats import docx as fmt_docx
 from reader.formats import md as fmt_md
 from reader.formats import pdf as fmt_pdf
@@ -15,6 +16,10 @@ _BUILTIN = {
     ".docx": fmt_docx.to_html,
     ".pptx": fmt_pptx.to_html,
     ".xlsx": fmt_xlsx.to_html,
+    ".json": fmt_code.to_preview,
+    ".yaml": fmt_code.to_preview,
+    ".yml": fmt_code.to_preview,
+    ".xml": fmt_code.to_preview,
 }
 
 
@@ -37,6 +42,8 @@ def preview(
     suffix = sniff(path)
     if suffix == ".pdf":
         return fmt_pdf.to_preview(path)
+    if suffix in fmt_code.CODE_SUFFIXES:
+        return fmt_code.to_preview(path)
     if mode == "visual" and suffix not in {".pptx", ".md"}:
         raise ValueError("visual mode supports only .pptx/.md")
 

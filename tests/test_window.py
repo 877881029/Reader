@@ -249,6 +249,23 @@ def test_default_viewer_factory_uses_markdown_visual_view(monkeypatch, tmp_path:
     assert calls == [(markdown_visual_result(), source)]
 
 
+def test_default_viewer_factory_uses_code_text_view(tmp_path: Path):
+    from reader.preview.code_view import CodeTextView
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "config.json"
+    source.write_text('{"a":1}', encoding="utf-8")
+    result = PreviewResult(
+        html='{"a":1}',
+        status_label="代码预览",
+        kind="code",
+    )
+    widget = _default_viewer(result, source)
+    assert isinstance(widget, CodeTextView)
+    assert widget.editor().toPlainText() == '{"a":1}'
+    assert widget.editor().isReadOnly() is True
+
+
 def test_default_viewer_enables_pdf_plugin_for_native_pdf(qtbot, tmp_path: Path):
     from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -1467,6 +1484,26 @@ def test_pptx_visual_skips_cache_and_text_mode_uses_text_cache_strategy(
     ]
 
 
+def test_code_files_skip_cache_get_and_put(qtbot, tmp_path: Path):
+    path = tmp_path / "config.json"
+    path.write_text('{"a": 1}', encoding="utf-8")
+    cache = FakeCache()
+    modes: list[str] = []
+
+    def preview_fn(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        modes.append(mode)
+        return PreviewResult(html='{"a": 1}', status_label="代码预览", kind="code")
+
+    window = make_window(preview_fn, cache)
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: window.tab_count() == 1)
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert modes == ["builtin"]
+    assert cache.calls == []
+
+
 def test_markdown_visual_skips_cache_get_and_put(qtbot, tmp_path: Path):
     path = tmp_path / "note.md"
     path.write_text("# Note", encoding="utf-8")
@@ -2266,6 +2303,10 @@ def test_open_dialog_filter_includes_pdf(qtbot, monkeypatch):
     )
     window._open_dialog()
     assert captured and "*.pdf" in captured[0]
+    assert "*.json" in captured[0]
+    assert "*.yaml" in captured[0]
+    assert "*.yml" in captured[0]
+    assert "*.xml" in captured[0]
 
 
 def test_chrome_hides_menu_and_open_button(qtbot):
