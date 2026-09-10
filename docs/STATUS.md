@@ -5,6 +5,22 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
 
+**把文档默认打开方式切到 Reader**
+
+- 规格：`docs/superpowers/specs/2026-09-10-default-app-associations-design.md`
+- 计划：`docs/superpowers/plans/2026-09-10-default-app-associations.md`（2 个任务均已完成）
+- 用户确认：电脑里文档类文件现在默认用 Word，要改成 Reader。先做出来再改。
+- 实现：启动时 `register_open_with` 把 HKCU `Classes\<ext>` 设为 `Reader.Document`，写入 Default Apps Capabilities，清掉可删的 `UserChoice`，并把 `FileExts` 的 OpenWithList 指到 `Reader.exe`。本机已对 `dist\Reader\Reader.exe` 生效。`.pdf` 仍被 Windows UCPD 锁在 Acrobat，无法静默改。
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `382 passed, 1 skipped`；AssocQueryString：docx/md/pptx/xlsx/json/yaml/yml/xml = Reader，pdf = Adobe Acrobat；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5978879 bytes`，SHA256 `19cc012cd1e70620c05be8724f2a40caf4fbd5cca5ef80d819db8485b186d59a`
+
+## 下一步
+
+用户双击 `.docx` / `.md` / `.pptx` / `.xlsx` 确认是 Reader；`.pdf` 若仍要 Reader，在 Windows 设置里手动改
+
+## 上一目标（已完成）
+
 **文档 Ctrl+F 查找（记事本式）**
 
 - 规格：`docs/superpowers/specs/2026-09-10-document-find-design.md`
@@ -417,7 +433,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 下一步
 
-1. 用户打开文档按 Ctrl+F 试查找
+1. 用户双击 `.docx` / `.md` 确认不再进 Word；`.pdf` 若要 Reader 需在系统设置里改
 2. 同事：clone 后执行 `scripts\setup.ps1` 启动 Reader
 3. 若还要 File / Edit / View 菜单行，再开规格
 

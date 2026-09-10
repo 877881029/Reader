@@ -49,15 +49,68 @@ def _set_reg_sz(wr, path: str, name: str | None, value: str) -> None:
                 exit_fn(None, None, None)
 
 
+def _try_delete_key(wr, path: str) -> None:
+    delete = getattr(wr, "DeleteKey", None)
+    if not callable(delete):
+        return
+    try:
+        delete(wr.HKEY_CURRENT_USER, path)
+    except FileNotFoundError:
+        return
+    except OSError:
+        return
+
+
+def _clear_user_choice(wr, ext: str) -> None:
+    base = rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}"
+    _try_delete_key(wr, rf"{base}\UserChoice")
+    _try_delete_key(wr, rf"{base}\UserChoiceLatest\ProgId")
+    _try_delete_key(wr, rf"{base}\UserChoiceLatest")
+
+
+def _notify_assoc_changed() -> None:
+    try:
+        ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
+    except Exception:
+        return
+
+
 def register_open_with(exe: str, winreg_module=None, *, args: tuple[str, ...] = ()) -> None:
     import winreg as default_winreg
 
     wr = winreg_module or default_winreg
     command = subprocess.list2cmdline([exe, *args]) + ' "%1"'
+    _set_reg_sz(wr, r"Software\Classes\Reader.Document", None, "Reader 文档")
     _set_reg_sz(wr, r"Software\Classes\Reader.Document\DefaultIcon", None, _icon_location(exe))
     _set_reg_sz(wr, r"Software\Classes\Reader.Document\shell\open\command", None, command)
+    _set_reg_sz(wr, r"Software\Reader\Capabilities", "ApplicationName", "Reader")
+    _set_reg_sz(wr, r"Software\Reader\Capabilities", "ApplicationDescription", "Reader")
+    _set_reg_sz(wr, r"Software\RegisteredApplications", "Reader", r"Software\Reader\Capabilities")
     for ext in EXTENSIONS:
+        _set_reg_sz(wr, rf"Software\Classes\{ext}", None, PROGID)
         _set_reg_sz(wr, rf"Software\Classes\{ext}\OpenWithProgids", PROGID, "")
+        _set_reg_sz(
+            wr,
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\OpenWithProgids",
+            PROGID,
+            "",
+        )
+        _set_reg_sz(
+            wr,
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\OpenWithList",
+            "a",
+            "Reader.exe",
+        )
+        _set_reg_sz(
+            wr,
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\OpenWithList",
+            "MRUList",
+            "a",
+        )
+        _set_reg_sz(wr, r"Software\Reader\Capabilities\FileAssociations", ext, PROGID)
+        _clear_user_choice(wr, ext)
+    if winreg_module is None:
+        _notify_assoc_changed()
 
 
 def _desktop_known_location() -> Path | None:

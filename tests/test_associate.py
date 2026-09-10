@@ -30,13 +30,19 @@ class FakeWinreg:
     def __init__(self, *, fail_on_name: str | None = None) -> None:
         self.fail_on_name = fail_on_name
         self.created: list[str] = []
+        self.deleted: list[str] = []
         self.keys: dict[str, FakeKey] = {}
 
     def CreateKey(self, _root, path: str) -> FakeKey:
-        key = FakeKey()
         self.created.append(path)
-        self.keys[path] = key
+        key = self.keys.get(path)
+        if key is None:
+            key = FakeKey()
+            self.keys[path] = key
         return key
+
+    def DeleteKey(self, _root, path: str) -> None:
+        self.deleted.append(path)
 
     def SetValueEx(self, key: FakeKey, name, _reserved: int, _typ: int, value: str) -> None:
         if self.fail_on_name is not None and name == self.fail_on_name:
@@ -61,11 +67,27 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
         ".yml",
         ".xml",
     )
-    assert all(path.startswith("Software\\Classes\\") for path in wr.created)
-    assert all("UserChoice" not in path for path in wr.created)
     assert command_path in wr.created
     for ext in EXTENSIONS:
         assert rf"Software\Classes\{ext}\OpenWithProgids" in wr.created
+        assert wr.keys[rf"Software\Classes\{ext}"].values[None] == PROGID
+        assert wr.keys[r"Software\Reader\Capabilities\FileAssociations"].values[ext] == PROGID
+        assert wr.keys[
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\OpenWithList"
+        ].values["a"] == "Reader.exe"
+        assert wr.keys[
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\OpenWithList"
+        ].values["MRUList"] == "a"
+        assert wr.keys[
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\OpenWithProgids"
+        ].values[PROGID] == ""
+        assert (
+            rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\UserChoice"
+            in wr.deleted
+        )
+    assert wr.keys[r"Software\RegisteredApplications"].values["Reader"] == (
+        r"Software\Reader\Capabilities"
+    )
     assert wr.keys[command_path].values[None] == subprocess.list2cmdline([r"C:\Reader\reader.exe"]) + ' "%1"'
     assert all(key.closed for key in wr.keys.values())
 
@@ -120,7 +142,7 @@ def test_packaged_exe_registration_keeps_icons_and_commands_on_reader_exe() -> N
         for value in key.values.values()
     ]
     assert all("reader.cmd" not in value.lower() for value in values)
-    assert all("UserChoice" not in path for path in wr.created)
+    assert wr.keys[rf"Software\Classes\.docx"].values[None] == PROGID
 
 
 def test_register_open_with_propagates_errors() -> None:
