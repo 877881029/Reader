@@ -270,6 +270,8 @@ def test_packaging_smoke_can_disable_real_shell_integration() -> None:
     main = (ROOT / "src" / "reader" / "__main__.py").read_text(encoding="utf-8")
 
     assert "if not _shell_integration_disabled():" in main
+    assert "QTimer.singleShot(0, lambda: _install_shell_integration(win))" in main
+    assert "AA_ShareOpenGLContexts" in main
     assert "register_open_with(exe, args=args)" in main
     assert "create_desktop_shortcut(" in main
     assert 'resource_path("assets", "icons", "reader.ico")' in main

@@ -688,6 +688,7 @@ class MainWindow(QMainWindow):
         self._tabs.currentChanged.connect(self._refresh_preview_actions)
         self._refresh_preview_actions()
         self._refresh_content_stack()
+        self._ensure_win32_frame_styles()
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
         super().showEvent(event)
@@ -782,13 +783,28 @@ class MainWindow(QMainWindow):
         except Exception:
             return
 
+    def _tab_has_preview_content(self, page: QWidget | None) -> bool:
+        if page is None:
+            return False
+        layout = page.layout()
+        if layout is None:
+            return False
+        for index in range(layout.count()):
+            widget = layout.itemAt(index).widget()
+            if widget is not None and widget.objectName() != "previewLoading":
+                return True
+        return False
+
     def _refresh_content_stack(self) -> None:
         stack = getattr(self, "_content_stack", None)
         if stack is None:
             return
-        empty = self._tabs.count() == 0
-        stack.setCurrentIndex(0 if empty else 1)
-        if empty:
+        has_content = any(
+            self._tab_has_preview_content(self._tabs.widget(index))
+            for index in range(self._tabs.count())
+        )
+        stack.setCurrentIndex(1 if has_content else 0)
+        if not has_content:
             self._welcome.reload_recent()
 
     def event(self, event: QEvent) -> bool:
@@ -1487,8 +1503,13 @@ class MainWindow(QMainWindow):
         if layout is None:
             _dispose_widget(content)
             return False
-        self._dispose_document_content(document)
         layout.addWidget(content)
+        for index in range(layout.count() - 1, -1, -1):
+            widget = layout.itemAt(index).widget()
+            if widget is None or widget is content:
+                continue
+            layout.takeAt(index)
+            _dispose_widget(widget)
         self._bind_visual_events(document_id, generation, content)
         start = getattr(content, "start", None)
         if callable(start):
@@ -1505,6 +1526,7 @@ class MainWindow(QMainWindow):
                 layout.removeWidget(content)
                 _dispose_widget(content)
             return False
+        self._refresh_content_stack()
         return True
 
     def _disconnect_visual_events(self, document: _Document) -> None:

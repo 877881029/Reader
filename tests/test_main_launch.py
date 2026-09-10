@@ -45,6 +45,10 @@ def test_empty_primary_launch_does_not_create_untitled(monkeypatch):
     events = []
 
     class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
         @classmethod
         def instance(cls):
             return None
@@ -89,6 +93,10 @@ def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch
     events = []
 
     class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
         @classmethod
         def instance(cls):
             return None
@@ -139,6 +147,10 @@ def test_secondary_uses_instance_ownership_without_empty_server_probe(monkeypatc
     sent = []
 
     class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
         @classmethod
         def instance(cls):
             return None
@@ -175,6 +187,10 @@ def test_secondary_returns_nonzero_and_reports_failed_delivery(monkeypatch, caps
     import reader.__main__ as main_module
 
     class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
         @classmethod
         def instance(cls):
             return None
@@ -203,6 +219,10 @@ def _run_primary_with_shell_failure(monkeypatch, *, association_error=False, sho
     events = []
 
     class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
         @classmethod
         def instance(cls):
             return None
@@ -247,31 +267,41 @@ def _run_primary_with_shell_failure(monkeypatch, *, association_error=False, sho
     monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: False)
     monkeypatch.setattr(main_module, "register_open_with", register)
     monkeypatch.setattr(main_module, "create_desktop_shortcut", shortcut)
+    deferred: list = []
+    monkeypatch.setattr(
+        main_module.QTimer,
+        "singleShot",
+        lambda _ms, fn: deferred.append(fn),
+    )
 
     result = main_module.main(["Reader.exe"])
-    return result, events
+    return result, events, deferred
 
 
 def test_association_failure_shows_hint_and_still_attempts_shortcut(monkeypatch):
-    result, events = _run_primary_with_shell_failure(
+    result, events, deferred = _run_primary_with_shell_failure(
         monkeypatch,
         association_error=True,
     )
 
     assert result == 17
-    assert events[0:2] == ["association", ("status", "文件关联设置失败")]
+    assert events == ["exec"]
+    assert deferred
+    deferred[0]()
+    assert events[1:3] == ["association", ("status", "文件关联设置失败")]
     assert "shortcut" in events
-    assert events[-1] == "exec"
 
 
 def test_shortcut_failure_shows_hint_and_app_continues(monkeypatch):
-    result, events = _run_primary_with_shell_failure(
+    result, events, deferred = _run_primary_with_shell_failure(
         monkeypatch,
         shortcut_error=True,
     )
 
     assert result == 17
+    assert events == ["exec"]
+    assert deferred
+    deferred[0]()
     assert "association" in events
     assert "shortcut" in events
     assert ("status", "桌面快捷方式创建失败") in events
-    assert events[-1] == "exec"

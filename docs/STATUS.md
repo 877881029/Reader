@@ -3,13 +3,29 @@
 最后更新：2026-09-10
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
+## 当前目标（已完成）
+
+**启动空白等待 + 开文件闪一下 / 偶发卡住**
+
+- 规格：`docs/superpowers/specs/2026-09-10-startup-open-snappiness-design.md`
+- 计划：`docs/superpowers/plans/2026-09-10-startup-open-snappiness.md`
+- 用户确认：桌面图标 3–4s 才出界面；开新文件像窗口关了再开；偶发渲染很久。先做出来再改。
+- 根因：`show()` 之后、`exec()` 之前同步写注册表/快捷方式，首帧无法绘制；WebEngine 预热立刻 `processEvents` 且预热完就拆掉 Chromium；开文件时欢迎页被换成空的「正在加载…」，再创建第一个 `QWebEngineView` 会闪原生 HWND
+- 修复：壳集成延后到事件循环；`AA_ShareOpenGLContexts`；构造时 `winId()` 就设图标；隐藏的 WebEngine 视图保活；欢迎页等到真正预览内容再切走。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `364 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5958790 bytes`，SHA256 `02e12690097591f7483e81bb8880485e5a8f576376eb3f4998f7db449f08ea29`
+
+## 下一步
+
+用户从桌面图标冷启动，再从欢迎页打开 `.md` / `.pptx` 看空白等待和闪一下是否还在
+
 ## 背景
 
 Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
-## 当前目标（已完成）
+## 上一目标（已完成）
 
 **纸色主题从欢迎页铺到打开的文件**
 

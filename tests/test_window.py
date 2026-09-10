@@ -1322,6 +1322,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
         assert window.tab_count() == 1
         assert window.tab_title(0) == "slow.docx"
         assert "正在加载" in page_text(window, 0)
+        assert window._content_stack.currentWidget() is window._welcome
         assert window._executor.active_count() == 1
         qtbot.waitUntil(started.is_set, timeout=10_000)
         assert release.is_set() is False
@@ -1335,6 +1336,7 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     qtbot.waitUntil(lambda: "ready" in page_text(window, 0))
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
     gc.collect()
+    assert window._content_stack.currentWidget() is window._tabs
     assert viewer_thread_ids == [window.thread()]
     assert "内置预览" in window.status_text()
 

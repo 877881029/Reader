@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QApplication
 
 from reader.app import ReaderApp, set_app_user_model_id
@@ -23,10 +24,27 @@ def _shell_integration_disabled() -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _install_shell_integration(window) -> None:
+    exe, args = _association_target()
+    try:
+        register_open_with(exe, args=args)
+    except Exception:
+        window.show_status("文件关联设置失败")
+    try:
+        create_desktop_shortcut(
+            exe,
+            args=args,
+            icon=str(resource_path("assets", "icons", "reader.ico")),
+        )
+    except Exception:
+        window.show_status("桌面快捷方式创建失败")
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     files = [arg for arg in argv[1:] if not arg.startswith("-")]
     set_app_user_model_id()
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
 
     qapp = QApplication.instance() or QApplication(argv)
     app = ReaderApp(qapp)
@@ -48,19 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         win.open_paths(files)
 
     if not _shell_integration_disabled():
-        exe, args = _association_target()
-        try:
-            register_open_with(exe, args=args)
-        except Exception:
-            win.show_status("文件关联设置失败")
-        try:
-            create_desktop_shortcut(
-                exe,
-                args=args,
-                icon=str(resource_path("assets", "icons", "reader.ico")),
-            )
-        except Exception:
-            win.show_status("桌面快捷方式创建失败")
+        QTimer.singleShot(0, lambda: _install_shell_integration(win))
 
     return qapp.exec()
 
