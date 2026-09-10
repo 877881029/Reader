@@ -15,6 +15,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
+from PySide6.QtGui import QColor
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import (
     QWebEnginePage,
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
+from reader.theme import PAPER
 
 _ALLOWED_NON_FILE_SCHEMES = frozenset({"qrc", "data", "blob"})
 _SAFE_FALLBACK_HTML = (
@@ -273,6 +275,7 @@ class PptxVisualView(QWebEngineView):
         )
         self.channel.registerObject("bridge", self.bridge)
         page.setWebChannel(self.channel)
+        page.setBackgroundColor(QColor(PAPER))
         self.setPage(page)
         resources.profile = self.profile
         resources.page = page

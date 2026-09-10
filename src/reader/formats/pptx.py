@@ -4,6 +4,7 @@ from pathlib import Path
 from pptx import Presentation
 
 from reader.preview.result import PreviewResult
+from reader.theme import wrap_document_html
 
 
 def to_html(path: Path) -> PreviewResult:
@@ -34,11 +35,7 @@ def to_html(path: Path) -> PreviewResult:
             f'<section class="slide" id="slide-{index}"><h2>Slide {index}</h2>{"".join(texts)}</section>'
         )
     body = "\n".join(sections)
-    html = (
-        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
-        "<style>.slide{border:1px solid #ddd;margin:12px;padding:12px}</style>"
-        f"</head><body>{body}</body></html>"
-    )
+    html = wrap_document_html(body)
     return PreviewResult(html=html, status_label="内置预览", kind="html")
 
 

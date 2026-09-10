@@ -67,7 +67,7 @@ def test_markdown_editor_is_frameless_white(qtbot):
     editor = view._editor
     assert editor.frameShape() == QFrame.Shape.NoFrame
     sheet = editor.styleSheet().replace(" ", "").lower()
-    assert "background:#f9f9f9" in sheet or editor.palette().color(
+    assert "background:#f4efe6" in sheet or editor.palette().color(
         editor.backgroundRole()
-    ).name().lower() == "#f9f9f9"
+    ).name().lower() == "#f4efe6"
     assert editor.document().documentMargin() == 8

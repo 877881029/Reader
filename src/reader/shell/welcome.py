@@ -17,9 +17,10 @@ from PySide6.QtWidgets import (
 )
 
 from reader.shell.recent import visible_recent
+from reader.theme import PAPER as PAPER_HEX
 from reader.version import product_version
 
-PAPER = QColor("#f4efe6")
+PAPER = QColor(PAPER_HEX)
 INK = QColor("#1c1915")
 COBALT = QColor("#2563eb")
 RULE = QColor(37, 99, 235, 36)

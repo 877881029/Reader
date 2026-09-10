@@ -6,6 +6,7 @@ from pathlib import Path
 
 import PySide6.QtWebChannel  # noqa: F401 - registers :/qtwebchannel/qwebchannel.js
 from PySide6.QtCore import QFile, QIODevice, QObject, Property, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QColor
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import (
     QWebEnginePage,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
+from reader.theme import PAPER
 
 _ALLOWED_NON_FILE_SCHEMES = frozenset({"qrc", "data", "blob"})
 _SET_HTML_SAFE_BYTES = 1_900_000
@@ -282,6 +284,7 @@ class MarkdownVisualView(QWebEngineView):
         self.bridge: MarkdownBridge | None = MarkdownBridge(self._source, self.channel)
         self.channel.registerObject("bridge", self.bridge)
         page.setWebChannel(self.channel)
+        page.setBackgroundColor(QColor(PAPER))
         self.setPage(page)
         resources.profile = self.profile
         resources.page = page

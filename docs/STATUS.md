@@ -1,6 +1,6 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-08
+最后更新：2026-09-10
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
@@ -10,6 +10,22 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 
 ## 当前目标（已完成）
+
+**纸色主题从欢迎页铺到打开的文件**
+
+- 规格：`docs/superpowers/specs/2026-09-10-paper-theme-documents-design.md`
+- 计划：`docs/superpowers/plans/2026-09-10-paper-theme-documents.md`
+- 用户确认：欢迎页主题色拓展到打开后的各类文件；不要冷白/记事本灰跳变
+- Token：`src/reader/theme.py`（PAPER `#f4efe6`、CHROME `#ebe4d8`、COBALT `#2563eb`）接到窗口根、标题栏、MD 编辑器、HTML 回退、md/pptx 视觉壳；幻灯片画布与 PDF 页内容保持原稿
+- 未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `363 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5957381 bytes`，SHA256 `59f010fc5284da8d1da8ed0ba8b140de3b1140addd811d5f7a32b52dc8183590`
+
+## 下一步
+
+用户打开 `.md` / `.docx` / `.pptx` / `.xlsx` / `.pdf`，看是否还从欢迎页跳到冷白或深色壳
+
+## 上一目标（已完成）
 
 **欢迎页最近文件卡片叠字**
 

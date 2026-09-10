@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from reader.theme import CHROME, CLOSE_HOVER, HOVER, INK, PAPER, PRESSED
+
 HTCLIENT = 1
 HTCAPTION = 2
 HTMINBUTTON = 8
@@ -197,22 +199,22 @@ class TitleChrome(QWidget):
         row.addWidget(self._close_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.setStyleSheet(
-            """
-            QWidget#titleChrome {
-                background: #f3f3f3;
+            f"""
+            QWidget#titleChrome {{
+                background: {CHROME};
                 border-bottom: none;
-            }
+            }}
             QWidget#titleCaption,
             QWidget#titleTabHost,
             QWidget#titleTabCluster,
-            QLabel#titleAppIcon {
+            QLabel#titleAppIcon {{
                 background: transparent;
-            }
-            QTabBar {
+            }}
+            QTabBar {{
                 background: transparent;
                 border: none;
-            }
-            QTabBar::tab {
+            }}
+            QTabBar::tab {{
                 background: transparent;
                 border: none;
                 padding: 6px 10px;
@@ -221,47 +223,47 @@ class TitleChrome(QWidget):
                 border-top-right-radius: 8px;
                 border-bottom-left-radius: 0;
                 border-bottom-right-radius: 0;
-                color: #222;
-            }
-            QTabBar::tab:selected {
-                background: #f9f9f9;
-            }
-            QTabBar::tab:hover:!selected {
-                background: #e8e8e8;
-            }
-            QToolButton#tabNewButton {
+                color: {INK};
+            }}
+            QTabBar::tab:selected {{
+                background: {PAPER};
+            }}
+            QTabBar::tab:hover:!selected {{
+                background: {HOVER};
+            }}
+            QToolButton#tabNewButton {{
                 background: transparent;
                 padding: 2px 6px;
                 border: none;
                 border-radius: 4px;
                 font-size: 16px;
-                color: #222;
-            }
-            QToolButton#tabNewButton:hover {
-                background: #e5e5e5;
-            }
+                color: {INK};
+            }}
+            QToolButton#tabNewButton:hover {{
+                background: {HOVER};
+            }}
             QToolButton#titleMinButton,
             QToolButton#titleMaxButton,
-            QToolButton#titleCloseButton {
-                background: #f3f3f3;
+            QToolButton#titleCloseButton {{
+                background: {CHROME};
                 border: none;
                 border-radius: 0;
                 padding: 0;
                 font-size: 12px;
-                color: #222;
-            }
+                color: {INK};
+            }}
             QToolButton#titleMinButton:hover,
-            QToolButton#titleMaxButton:hover {
-                background: #e5e5e5;
-            }
+            QToolButton#titleMaxButton:hover {{
+                background: {HOVER};
+            }}
             QToolButton#titleMinButton:pressed,
-            QToolButton#titleMaxButton:pressed {
-                background: #dcdcdc;
-            }
-            QToolButton#titleCloseButton:hover {
-                background: #e81123;
+            QToolButton#titleMaxButton:pressed {{
+                background: {PRESSED};
+            }}
+            QToolButton#titleCloseButton:hover {{
+                background: {CLOSE_HOVER};
                 color: #ffffff;
-            }
+            }}
             """
         )
 

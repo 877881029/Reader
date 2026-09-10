@@ -16,6 +16,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, QRunnable, QThreadPool, QTim
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
+    QColor,
     QDragEnterEvent,
     QDropEvent,
     QIcon,
@@ -41,6 +42,7 @@ from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
 from reader.resources import resource_path
+from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.recent import remember_recent
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
@@ -70,8 +72,6 @@ SM_CXSMICON = 49
 SM_CYSMICON = 50
 DWMWA_WINDOW_CORNER_PREFERENCE = 33
 DWMWCP_ROUND = 2
-
-PAGE_FILL = "#f9f9f9"
 
 
 class ChromeTabWidget(QTabWidget):
@@ -468,6 +468,7 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
     from PySide6.QtWebEngineWidgets import QWebEngineView
 
     web = QWebEngineView()
+    web.page().setBackgroundColor(QColor(PAGE_FILL))
     if result.kind == "pdf" and result.pdf_path is not None:
         settings = web.settings()
         settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
@@ -1173,6 +1174,7 @@ class MainWindow(QMainWindow):
         loading = QLabel("正在加载…")
         loading.setObjectName("previewLoading")
         loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        loading.setStyleSheet(f"color: {MUTED}; background: {PAGE_FILL};")
         layout.addWidget(loading)
         document = _Document(
             path=path,

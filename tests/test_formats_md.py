@@ -15,6 +15,7 @@ def test_markdown_renders_heading_and_table(tmp_path: Path):
     assert result.status_label == "内置预览"
     assert result.error is None
     assert "Hello" in result.html
+    assert "#f4efe6" in result.html
     assert "<table" in result.html.lower()
     assert "<pre" in result.html.lower() or "print(1)" in result.html
 

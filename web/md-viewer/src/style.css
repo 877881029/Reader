@@ -1,10 +1,10 @@
 :root {
-  --paper: #fbfbfa;
-  --ink: #202124;
-  --muted: #62666d;
-  --line: #d9dde3;
-  --accent: #287f8c;
-  --code: #f3f5f7;
+  --paper: #f4efe6;
+  --ink: #1c1915;
+  --muted: #8a8176;
+  --line: #e4d9c7;
+  --accent: #2563eb;
+  --code: #fffaf2;
 }
 
 * {
@@ -32,7 +32,7 @@ body {
 .markdown-document h6 {
   line-height: 1.32;
   margin: 1.45em 0 0.6em;
-  color: #17191c;
+  color: var(--ink);
 }
 
 .markdown-document h1 {
@@ -73,7 +73,7 @@ td {
 }
 
 th {
-  background: #f0f3f5;
+  background: var(--code);
   font-weight: 650;
 }
 
@@ -100,7 +100,7 @@ blockquote code {
 }
 
 blockquote {
-  border-left: 4px solid var(--line);
+  border-left: 4px solid #2563eb;
   color: var(--muted);
   padding: 0.3rem 0 0.3rem 0.85rem;
 }
@@ -158,7 +158,7 @@ img {
 }
 
 ::selection {
-  background: #bfdde3;
+  background: rgba(37, 99, 235, 0.22);
 }
 
 @media print {

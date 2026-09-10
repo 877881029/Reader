@@ -4,6 +4,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from reader.preview.result import PreviewResult
+from reader.theme import wrap_document_html
 
 
 def to_html(path: Path, max_rows: int = 1000) -> PreviewResult:
@@ -32,10 +33,5 @@ def to_html(path: Path, max_rows: int = 1000) -> PreviewResult:
         bodies.append("".join(rows_out))
     nav.append("</nav>")
     wb.close()
-    html = (
-        "<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>"
-        + "".join(nav)
-        + "".join(bodies)
-        + "</body></html>"
-    )
+    html = wrap_document_html("".join(nav) + "".join(bodies))
     return PreviewResult(html=html, status_label="内置预览", kind="html")

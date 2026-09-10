@@ -21,6 +21,8 @@ def test_xlsx_renders_sheets_and_header(tmp_path: Path):
     assert "Name" in result.html
     assert "npu" in result.html
     assert 'id="sheet-Main"' in result.html
+    assert "#f4efe6" in result.html
+    assert "#2563eb" in result.html
 
 
 def test_xlsx_escapes_sheet_names_and_cell_values(tmp_path: Path):

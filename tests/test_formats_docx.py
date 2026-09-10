@@ -18,6 +18,8 @@ def test_docx_includes_heading_paragraph_and_table(tmp_path: Path):
     doc.save(path)
     result = to_html(path)
     assert result.status_label == "内置预览"
+    assert "#f4efe6" in result.html
+    assert "#2563eb" in result.html
     assert "Spec Title" in result.html
     assert "Body sentence." in result.html
     assert "H1" in result.html

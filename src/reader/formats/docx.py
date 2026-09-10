@@ -4,6 +4,7 @@ from pathlib import Path
 from docx import Document
 
 from reader.preview.result import PreviewResult
+from reader.theme import wrap_document_html
 
 
 def to_html(path: Path) -> PreviewResult:
@@ -27,5 +28,5 @@ def to_html(path: Path) -> PreviewResult:
         rows.append("</table>")
         parts.append("".join(rows))
     body = "\n".join(parts)
-    html = f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{body}</body></html>"
+    html = wrap_document_html(body)
     return PreviewResult(html=html, status_label="内置预览", kind="html")

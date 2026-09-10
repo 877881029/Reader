@@ -27,6 +27,8 @@ def test_pptx_emits_one_section_per_slide(tmp_path: Path):
     assert result.status_label == "内置预览"
     assert result.kind == "html"
     assert result.error is None
+    assert "#f4efe6" in result.html
+    assert "#2563eb" in result.html
 
 
 def test_pptx_renders_table_on_slide(tmp_path: Path):

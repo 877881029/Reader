@@ -6,6 +6,8 @@ from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QFrame, QPlainTextEdit, QVBoxLayout, QWidget
 
+from reader.theme import INK, PAPER
+
 
 class MarkdownTextView(QWidget):
     """Fast plain-text Markdown view: read-only until interaction, then editable."""
@@ -25,7 +27,7 @@ class MarkdownTextView(QWidget):
         self._editor.setObjectName("markdownTextEditor")
         self._editor.setFrameShape(QFrame.Shape.NoFrame)
         self._editor.setStyleSheet(
-            "QPlainTextEdit#markdownTextEditor { background: #f9f9f9; border: none; }"
+            f"QPlainTextEdit#markdownTextEditor {{ background: {PAPER}; border: none; color: {INK}; }}"
         )
         self._editor.document().setDocumentMargin(8)
         self._editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)

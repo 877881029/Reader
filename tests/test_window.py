@@ -2481,11 +2481,11 @@ def test_root_white_fill_does_not_leak_onto_title_chrome(qtbot):
     assert root.objectName() == "readerRoot"
     sheet = root.styleSheet().replace(" ", "").lower()
     assert "#readerroot" in sheet
-    assert sheet.strip() == "#readerroot{background:#f9f9f9;}"
+    assert sheet.strip() == "#readerroot{background:#f4efe6;}"
     chrome_sheet = window._title_chrome.styleSheet().replace(" ", "").lower()
     assert "qwidget#titlechrome" in chrome_sheet
-    assert "background:#f3f3f3" in chrome_sheet
-    assert "qtabbar::tab:selected{background:#f9f9f9;}" in chrome_sheet.replace("\n", "")
+    assert "background:#ebe4d8" in chrome_sheet
+    assert "qtabbar::tab:selected{background:#f4efe6;}" in chrome_sheet.replace("\n", "")
 
 
 def test_untitled_editor_starts_flush_under_title_chrome(qtbot):

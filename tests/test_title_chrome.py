@@ -76,16 +76,16 @@ def test_title_chrome_is_notepad_gray(qtbot):
     qtbot.waitExposed(chrome)
     sheet = chrome.styleSheet().replace(" ", "").lower()
     assert "qwidget#titlechrome" in sheet
-    assert "background:#f3f3f3" in sheet
+    assert "background:#ebe4d8" in sheet
     assert "qtabbar::tab:selected" in sheet
-    assert "background:#f9f9f9" in sheet
+    assert "background:#f4efe6" in sheet
     assert "border-bottom:1px" not in sheet
     assert "titleminbutton:hover" in sheet
-    assert "background:#e5e5e5" in sheet
+    assert "background:#e4dccf" in sheet
     assert "titleclosebutton:hover" in sheet
     assert "#e81123" in sheet
     min_btn = chrome.findChild(QWidget, "titleMinButton")
     close_btn = chrome.findChild(QWidget, "titleCloseButton")
     assert min_btn is not None and close_btn is not None
     button_sheet = min_btn.styleSheet().replace(" ", "").lower() + sheet
-    assert "background:#f3f3f3" in button_sheet
+    assert "background:#ebe4d8" in button_sheet
