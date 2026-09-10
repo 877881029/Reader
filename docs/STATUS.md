@@ -439,6 +439,7 @@ Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `
 
 ## 已完成（本增量）
 
+- 默认打开方式：当前用户把 Reader 支持的文档后缀指到 `Reader.Document`（`.pdf` 仍被 UCPD 锁在 Acrobat）；全量 `382 passed, 1 skipped`；桌面 `Reader.lnk` 已覆盖刷新
 - 文档 Ctrl+F：标题栏下查找条，Enter/F3 下一个，Esc 关闭；`tests/test_find.py` 5 passed；frozen smoke 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 代码文件阅读：`.json` / `.yaml` / `.yml` / `.xml` 只读行号视图 + `QSyntaxHighlighter`；全量 `377 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面 `Reader.lnk` 已覆盖刷新
 - 0.1.0 源码启动：`VERSION` + `scripts/setup.ps1` + 中文 README / `release/README.md`；git 不含 exe/zip
