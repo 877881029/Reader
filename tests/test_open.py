@@ -79,3 +79,19 @@ def test_opens_svg(tmp_path: Path):
     d = decide_open([], [path])
     assert d.to_open == (path.resolve(),)
     assert d.rejected == ()
+
+
+def test_opens_raster_images(tmp_path: Path):
+    files = [
+        tmp_path / "a.png",
+        tmp_path / "b.jpg",
+        tmp_path / "c.jpeg",
+        tmp_path / "d.gif",
+        tmp_path / "e.webp",
+        tmp_path / "f.bmp",
+    ]
+    for path in files:
+        path.write_bytes(b"x")
+    d = decide_open([], files)
+    assert d.to_open == tuple(path.resolve() for path in files)
+    assert d.rejected == ()

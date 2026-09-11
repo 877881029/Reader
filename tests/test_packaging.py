@@ -453,6 +453,7 @@ def test_readme_documents_formats_and_setup_command() -> None:
         ".yaml",
         ".xml",
         ".svg",
+        ".png",
         r"scripts\setup.ps1",
     ):
         assert token in readme

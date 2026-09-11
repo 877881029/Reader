@@ -4,6 +4,7 @@ from typing import Literal, Protocol
 
 from reader.formats import code as fmt_code
 from reader.formats import docx as fmt_docx
+from reader.formats import image as fmt_image
 from reader.formats import md as fmt_md
 from reader.formats import pdf as fmt_pdf
 from reader.formats import pptx as fmt_pptx
@@ -45,6 +46,8 @@ def preview(
         return fmt_pdf.to_preview(path)
     if suffix == ".svg":
         return fmt_svg.to_preview(path)
+    if suffix in fmt_image.IMAGE_SUFFIXES:
+        return fmt_image.to_preview(path)
     if suffix in fmt_code.CODE_SUFFIXES:
         return fmt_code.to_preview(path)
     if mode == "visual" and suffix not in {".pptx", ".md"}:

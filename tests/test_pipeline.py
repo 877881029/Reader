@@ -293,3 +293,17 @@ def test_svg_uses_graphic_preview_without_office(tmp_path: Path):
     assert visual.kind == "svg"
     assert visual.svg_path == path.resolve()
     assert office.calls == []
+
+
+def test_png_uses_image_preview_without_office(tmp_path: Path):
+    office = FakeOffice(available=True)
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    builtin = preview(path, office=office)
+    visual = preview(path, mode="visual")
+    assert builtin.kind == "image"
+    assert builtin.status_label == "内置预览"
+    assert builtin.image_path == path.resolve()
+    assert builtin.asset_dir is None
+    assert visual.kind == "image"
+    assert office.calls == []

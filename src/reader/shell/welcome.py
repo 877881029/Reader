@@ -37,6 +37,12 @@ _BADGE_BY_SUFFIX = {
     ".yml": "YAML",
     ".xml": "XML",
     ".svg": "SVG",
+    ".png": "PNG",
+    ".jpg": "JPG",
+    ".jpeg": "JPG",
+    ".gif": "GIF",
+    ".webp": "WEBP",
+    ".bmp": "BMP",
 }
 
 

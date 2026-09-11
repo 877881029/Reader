@@ -1,7 +1,24 @@
 from pathlib import Path
 
 SUPPORTED_EXTENSIONS = frozenset(
-    {".docx", ".pptx", ".xlsx", ".md", ".pdf", ".json", ".yaml", ".yml", ".xml", ".svg"}
+    {
+        ".docx",
+        ".pptx",
+        ".xlsx",
+        ".md",
+        ".pdf",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".svg",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+    }
 )
 
 

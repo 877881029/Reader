@@ -19,7 +19,7 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 | Scope | `.svg` only (not `.png` / `.jpg` / `.webp` / `.html`) |
 | Renderer | `PySide6.QtSvg.QSvgRenderer` (no Chromium, no SVG scripts) |
 | Layout | Paper background; graphic kept aspect-ratio, letterboxed, padded |
-| Interaction | Read-only; no edit, no zoom chrome, no Office / visual / text modes |
+| Interaction | Read-only; no edit; **Ctrl+wheel zoom** (no on-screen zoom chrome); drag to pan when zoomed |
 | Invalid file | Still open a tab; show centered `无法渲染此 SVG` |
 | Cache | Skip preview cache (source file is already local) |
 | Find | `Ctrl+F` searches the UTF-8 source text (substring, no highlight) |
@@ -38,7 +38,7 @@ Office COM is never called. `mode="visual"` / `"text"` / `"office"` all return t
 
 ## 4. Non-goals
 
-- Raster images
+- Raster images (see `2026-09-11-graphic-zoom-images-design.md`)
 - SMIL / JavaScript animation
 - Inkscape-level editing
 - Changing PDF pin / hit-test / WebEngine warmup

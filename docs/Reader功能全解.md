@@ -11,9 +11,9 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 
 ## 1. 一句话能做什么
 
-打开并阅读：Word、PPT、Excel、Markdown、PDF、JSON / YAML / XML、SVG。  
+打开并阅读：Word、PPT、Excel、Markdown、PDF、JSON / YAML / XML、SVG、常见图片。  
 多文件用标签页；第二次再开 Reader 会把文件送到已经开着的窗口。  
-本机已把这些后缀的**当前用户默认程序**设成 Reader（含 `.pdf`、`.svg`）。
+本机已把这些后缀的**当前用户默认程序**设成 Reader（含 `.pdf`、`.svg`、图片）。
 
 ---
 
@@ -29,9 +29,9 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 | 欢迎页「最近打开」 | 点卡片再开 |
 | 已经打开过的同一路径 | 切到已有标签，不重复开 |
 
-打开对话框筛选：`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg`。
+打开对话框筛选：`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`。
 
-不支持的文件会拒绝（例如旧版 `.doc` / `.ppt` / `.xls`、光栅图 `.png` / `.jpg`、HTML、文件夹）。
+不支持的文件会拒绝（例如旧版 `.doc` / `.ppt` / `.xls`、HTML、文件夹、RAW / HEIC）。
 
 ---
 
@@ -136,7 +136,18 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 - 用 QtSvg 画静态图形；**不执行** SVG 里的脚本，也不播 SMIL 动画  
 - 损坏或不是合法 SVG 仍会开标签，中间提示「无法渲染此 SVG」  
 - `Ctrl+F` 搜源码文本（无高亮）  
-- 没有缩放按钮、没有 Office / 视觉 / 文本模式  
+- **缩放没有按钮、滑条或百分比**：`Ctrl+滚轮` 放大/缩小（对准鼠标位置）；放大后可按住左键拖动。普通滚轮不缩放  
+- 没有 Office / 视觉 / 文本模式  
+
+### 5.7 图片（`.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp`）
+
+只读图片预览，和 SVG 同一套纸色画布：
+
+- 按比例适窗  
+- `Ctrl+滚轮` 缩放，没有明面缩放控件  
+- 动画 GIF / 动画 WebP 只显示第一帧  
+- 损坏文件仍开标签，中间提示「无法打开此图片」  
+- `Ctrl+F` 没有可搜正文  
 
 ---
 
@@ -161,7 +172,7 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 搜到尽头会绕回开头。欢迎页上 `Ctrl+F` 无效。  
 **没有替换（Ctrl+H）。**
 
-纯文本（Markdown 源码、JSON 等）走文本查找；Markdown 渲染、PPTX 视觉、PDF、HTML 预览走页面内查找；SVG 搜源码字符串。
+纯文本（Markdown 源码、JSON 等）走文本查找；Markdown 渲染、PPTX 视觉、PDF、HTML 预览走页面内查找；SVG 搜源码字符串；图片没有正文。
 
 ---
 
@@ -177,6 +188,7 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 | `Ctrl+S` | 保存当前 Markdown 编辑页 |
 | `Ctrl+I` | Markdown：渲染 → 编辑 |
 | `Ctrl+T` | Markdown：编辑 → 渲染 |
+| `Ctrl+滚轮` | SVG / 图片：放大或缩小（无明面控件） |
 | PPTX 内 ← → / PageUp / PageDown / Home / End | 翻幻灯片 |
 
 标题栏 **`+`** 新建 Markdown。没有可见的「新建窗口」按钮；日常靠单实例把文件并进当前窗口。
@@ -187,7 +199,7 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 
 启动 Reader 时，会把当前用户下这些后缀指到 Reader：
 
-`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg`
+`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`
 
 - 不需要管理员。  
 - 不伪造 Windows 的 UserChoice 校验。  
@@ -229,7 +241,8 @@ PPT 幻灯片画布和 PDF 页面像素保持原稿（白底幻灯片仍是白�
 - 替换（Ctrl+H）、Markdown 以外的编辑  
 - PPT 动画 / 视频 / 宏  
 - Obsidian 仓库、标签、`![[嵌入]]`、Dataview  
-- 光栅图（`.png` / `.jpg` 等）  
+- RAW / TIFF / ICO / HEIC  
+- 图形页上的缩放按钮或百分比  
 - macOS / Linux  
 - 记住上次窗口大小  
 

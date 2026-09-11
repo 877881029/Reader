@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 )
 
 from reader.formats.code import CODE_SUFFIXES
+from reader.formats.image import IMAGE_SUFFIXES
 from reader.open import decide_open
 from reader.preview.cache import PreviewCache
 from reader.preview.office import Win32OfficeBackend
@@ -247,6 +248,7 @@ class _PreviewWorker(QRunnable):
                 strategy != "visual"
                 and suffix != ".pdf"
                 and suffix != ".svg"
+                and suffix not in IMAGE_SUFFIXES
                 and suffix not in CODE_SUFFIXES
             ):
                 try:
@@ -268,6 +270,11 @@ class _PreviewWorker(QRunnable):
                         result.kind == "svg"
                         and result.svg_path is not None
                         and result.svg_path.resolve() == self.path.resolve()
+                    )
+                    or (
+                        result.kind == "image"
+                        and result.image_path is not None
+                        and result.image_path.resolve() == self.path.resolve()
                     )
                 )
                 if cache is not None and cacheable:
@@ -487,6 +494,12 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
 
         view = SvgView()
         view.load_path(result.svg_path or source_path)
+        return view
+    if result.kind == "image":
+        from reader.preview.image_view import ImageView
+
+        view = ImageView()
+        view.load_path(result.image_path or source_path)
         return view
 
     from PySide6.QtWebEngineCore import QWebEngineSettings
@@ -1265,7 +1278,7 @@ class MainWindow(QMainWindow):
             self,
             "打开",
             "",
-            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.svg)",
+            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.svg *.png *.jpg *.jpeg *.gif *.webp *.bmp)",
         )
         if paths:
             self.open_paths([str(path) for path in paths])

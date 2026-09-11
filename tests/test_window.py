@@ -289,6 +289,28 @@ def test_default_viewer_factory_uses_svg_view(tmp_path: Path):
     assert "rect" in widget.text()
 
 
+def test_default_viewer_factory_uses_image_view(tmp_path: Path):
+    from PySide6.QtGui import QColor, QImage
+
+    from reader.preview.image_view import ImageView
+    from reader.preview.result import PreviewResult
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "shot.png"
+    image = QImage(8, 8, QImage.Format.Format_RGB32)
+    image.fill(QColor("#2563eb"))
+    assert image.save(str(source), "PNG")
+    result = PreviewResult(
+        html="",
+        status_label="内置预览",
+        kind="image",
+        image_path=source,
+    )
+    widget = _default_viewer(result, source)
+    assert isinstance(widget, ImageView)
+    assert widget.is_valid() is True
+
+
 def test_default_viewer_enables_pdf_plugin_for_native_pdf(qtbot, tmp_path: Path):
     from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -2373,6 +2395,12 @@ def test_open_dialog_filter_includes_pdf(qtbot, monkeypatch):
     assert "*.yml" in captured[0]
     assert "*.xml" in captured[0]
     assert "*.svg" in captured[0]
+    assert "*.png" in captured[0]
+    assert "*.jpg" in captured[0]
+    assert "*.jpeg" in captured[0]
+    assert "*.gif" in captured[0]
+    assert "*.webp" in captured[0]
+    assert "*.bmp" in captured[0]
 
 
 def test_chrome_hides_menu_and_open_button(qtbot):

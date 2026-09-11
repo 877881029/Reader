@@ -304,6 +304,26 @@ def test_put_rejects_svg_kind(tmp_path: Path):
         )
 
 
+def test_put_rejects_image_kind(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "shot.png"
+    src.write_bytes(b"\x89PNG\r\n\x1a\n")
+    cache = PreviewCache(tmp_path / "c")
+
+    with pytest.raises(ValueError, match="unsupported preview kind: image"):
+        cache.put(
+            src,
+            "builtin",
+            PreviewResult(
+                html="",
+                status_label="内置预览",
+                kind="image",
+                image_path=src,
+            ),
+        )
+
+
 def test_put_rejects_markdown_visual_kind(tmp_path: Path):
     from reader.preview.cache import PreviewCache
 

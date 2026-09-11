@@ -14,7 +14,7 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 
 | Topic | Choice |
 |---|---|
-| Scope | All current Reader suffixes: `.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg` |
+| Scope | All current Reader suffixes: `.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp` |
 | Hive | HKCU only (no HKLM, no admin) |
 | ProgID | Keep `Reader.Document`; also set `HKCU\Software\Classes\<ext>` default to that ProgID |
 | UserChoice | Best-effort **delete** existing `FileExts\<ext>\UserChoice` and `UserChoiceLatest` so Word’s `.md` override and similar keys stop winning. Do not forge hashes. |
