@@ -45,7 +45,7 @@ Committed `assets/pptx-viewer` and `assets/md-viewer` are enough for visual PPTX
 | `version_info.txt` `FileVersion` / `ProductVersion` / `filevers` | Must equal `0.1.0` / `(0, 1, 0, 0)`. |
 | `README.md` | Chinese: capabilities, limits, setup, run, local freeze. |
 | `release/README.md` | 0.1.0 notes: this is a source snapshot; how to run; how to freeze locally; no binaries. |
-| `scripts/setup.ps1` | One-shot venv + install + launch. |
+| `scripts/setup.ps1` | One-shot venv + install + freeze via `build_windows.ps1` + launch. |
 
 ### 3.3 What git must not contain
 
@@ -68,7 +68,7 @@ Not in 0.1.0: translation, dual pane, format conversion, becoming the system def
 - Creating a GitHub Release asset in this increment.
 - Bundling/installing Python or Node into the repo.
 - Changing preview/render behavior, hit-testing, or window chrome.
-- Making `setup.ps1` run npm or PyInstaller.
+- Making `setup.ps1` **inline** npm or PyInstaller (it now **calls** `build_windows.ps1` instead; see `2026-09-11-setup-includes-freeze-design.md`).
 
 ## 5. Error handling
 
@@ -83,7 +83,7 @@ Not in 0.1.0: translation, dual pane, format conversion, becoming the system def
 ## 6. Testing
 
 - `VERSION` text equals `pyproject.toml` version and `version_info.txt` FileVersion `0.1.0`.
-- `scripts/setup.ps1` creates/uses `.venv`, `pip install -e .`, launches `-m reader`; mentions Python 3.12; does **not** contain `npm`, `PyInstaller`, or `build_windows.ps1`.
+- `scripts/setup.ps1` creates/uses `.venv`, `pip install -e .`, then calls `build_windows.ps1`; `-SkipBuild` skips freeze; does **not** inline `npm` or `PyInstaller`.
 - `README.md` lists `.docx .pptx .xlsx .md .pdf` and the setup command.
 - `release/README.md` states no binaries are in git.
 - `.gitignore` still ignores `dist/`.

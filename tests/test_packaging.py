@@ -421,6 +421,7 @@ def test_setup_script_installs_runtime_venv_and_launches_reader() -> None:
     script = (ROOT / "scripts" / "setup.ps1").read_text(encoding="utf-8")
     assert "param(" in script
     assert "$SkipLaunch" in script
+    assert "$SkipBuild" in script
     assert "$Dev" in script
     assert "py -3.12" in script
     assert "winget install Python.Python.3.12" in script
@@ -429,9 +430,10 @@ def test_setup_script_installs_runtime_venv_and_launches_reader() -> None:
     assert "pip install -e ." in script
     assert 'pip install -e ".[dev]"' in script
     assert "-m reader" in script
+    assert "build_windows.ps1" in script
+    assert r"dist\Reader\Reader.exe" in script
     assert "npm" not in script.lower()
     assert "PyInstaller" not in script
-    assert "build_windows.ps1" not in script
 
 
 def test_gitignore_keeps_dist_and_release_binaries_out_of_git() -> None:
@@ -461,6 +463,8 @@ def test_readme_documents_formats_and_setup_command() -> None:
         assert token in readme
     assert "0.1.0" in readme
     assert "翻译" in readme or "左右" in readme
+    assert "SkipBuild" in readme
+    assert "build_windows.ps1" in readme
 
 
 def test_release_notes_state_source_snapshot_without_binaries() -> None:

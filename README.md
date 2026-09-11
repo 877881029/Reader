@@ -24,7 +24,7 @@ Windows 桌面文档查看器，当前版本 **0.1.0**（功能仍在迭代，�
 
 ## 快速运行（同事）
 
-需要 Windows 10/11 和 **Python 3.12+**。没有 Python 时先执行：
+需要 Windows 10/11、**Python 3.12+** 和 **Node.js 18+**（打冻结 exe 用）。没有 Python 时先执行：
 
 ```text
 winget install Python.Python.3.12
@@ -36,25 +36,21 @@ winget install Python.Python.3.12
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
 
-脚本会创建 `.venv`、安装依赖并启动 Reader。首次启动会写桌面快捷方式和「打开方式」。
+脚本会创建 `.venv`、安装依赖，并调用 `scripts\build_windows.ps1` 打出 `dist\Reader\Reader.exe`（约 600MB，含 Qt WebEngine），然后启动这份 exe。不要把 `dist/` 或 exe 提交进 git。
 
-只装依赖不启动：
+只装依赖、打 exe、不启动窗口：
 
 ```text
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 -SkipLaunch
 ```
 
-开发者还要测试/冻结构建时加上 `-Dev`。
-
-## 本地冻 exe（可选）
-
-不要把 `dist/` 或 exe 提交进 git。本机若要打安装目录：
+只要源码运行、不打 exe（不需要 Node）：
 
 ```text
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 -SkipBuild
 ```
 
-产物在 `dist\Reader\Reader.exe`（约 600MB 的 onedir，含 Qt WebEngine）。需要 Node 18+。
+开发者还要测试时加上 `-Dev`。也可以单独再跑 `scripts\build_windows.ps1`。
 
 ## 文档
 

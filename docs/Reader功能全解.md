@@ -252,16 +252,17 @@ PPT 幻灯片画布和 PDF 页面像素保持原稿（白底幻灯片仍是白�
 
 ## 12. 同事怎么跑源码
 
-需要 Windows 10/11、Python 3.12+。仓库根目录：
+需要 Windows 10/11、Python 3.12+、打 exe 时还要 Node 18+。仓库根目录：
 
 ```text
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
 
-会建 `.venv`、装依赖并启动。首次启动会写打开方式和桌面快捷方式。
+会建 `.venv`、装依赖、调用 `scripts\build_windows.ps1` 打出 `dist\Reader\Reader.exe`，然后启动这份 exe。`dist/` 不进 git。
 
-只装不启动：`scripts\setup.ps1 -SkipLaunch`。  
-本地再打一份安装目录：`scripts\build_windows.ps1`（产物 `dist\Reader\Reader.exe`，体积大约六百兆，含 Chromium）。`dist/` 不进 git。
+只装并构建、不启动：`scripts\setup.ps1 -SkipLaunch`。  
+只要源码运行、不打 exe：`scripts\setup.ps1 -SkipBuild`。  
+也可以单独再跑 `scripts\build_windows.ps1`。
 
 ---
 

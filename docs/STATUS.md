@@ -5,7 +5,21 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标
 
-**编程语言阅读：`.c` / `.h`**（已完成）
+**setup.ps1 一次装好并冻结构建**（已完成）
+
+- 规格：`docs/superpowers/specs/2026-09-11-setup-includes-freeze-design.md`
+- 计划：`docs/superpowers/plans/2026-09-11-setup-includes-freeze.md`（1 个任务已完成）
+- 用户确认：把 `scripts\build_windows.ps1` 的构建放进 `setup.ps1`，一次性构造好。
+- 实现：`setup.ps1` 在 pip 之后调用现有 `build_windows.ps1`；打出 exe 后启动 `dist\Reader\Reader.exe`；`-SkipBuild` 只跑源码；`-SkipLaunch` 仍不弹窗。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `419 passed, 1 skipped`；未重打 exe（产品二进制未改）
+
+## 下一步
+
+同事 clone 后跑 `scripts\setup.ps1`（需 Node 18+）一次得到冻结 exe；只要源码则加 `-SkipBuild`
+
+## 上一目标（已完成）
+
+**编程语言阅读：`.c` / `.h`**
 
 - 规格：`docs/superpowers/specs/2026-09-11-c-header-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-11-c-header-reading.md`（2 个任务均已完成）

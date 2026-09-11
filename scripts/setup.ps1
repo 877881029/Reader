@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$SkipLaunch,
+    [switch]$SkipBuild,
     [switch]$Dev
 )
 
@@ -49,8 +50,28 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to install Reader (exit $LASTEXITCODE)"
 }
 
+if (-not $SkipBuild) {
+    $builder = Join-Path $PSScriptRoot "build_windows.ps1"
+    $process = Start-Process -FilePath $env:ComSpec `
+        -ArgumentList @(
+            "/d",
+            "/s",
+            "/c",
+            "powershell -NoProfile -ExecutionPolicy Bypass -File `"$builder`""
+        ) `
+        -WorkingDirectory $Root -Wait -PassThru -NoNewWindow
+    if ($process.ExitCode -ne 0) {
+        throw "Frozen build failed (exit $($process.ExitCode))"
+    }
+}
+
 if (-not $SkipLaunch) {
-    & $venvPython -m reader
+    $frozen = Join-Path $Root "dist\Reader\Reader.exe"
+    if ((-not $SkipBuild) -and (Test-Path $frozen)) {
+        & $frozen
+    } else {
+        & $venvPython -m reader
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "Reader failed to start (exit $LASTEXITCODE)"
     }
