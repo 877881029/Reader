@@ -57,17 +57,35 @@ def openable_in_directory(path: Path) -> list[Path]:
     try:
         if not path.is_dir():
             return []
-        items: list[Path] = []
+        folders: list[Path] = []
+        files: list[Path] = []
         for child in path.iterdir():
             try:
-                if child.is_file() and child.suffix.lower() in SUPPORTED_EXTENSIONS:
-                    items.append(child)
+                if child.name.startswith("."):
+                    continue
+                if child.is_dir():
+                    folders.append(child)
+                elif child.is_file() and child.suffix.lower() in SUPPORTED_EXTENSIONS:
+                    files.append(child)
             except OSError:
                 continue
-        items.sort(key=lambda item: item.name.lower())
-        return items
+        folders.sort(key=lambda item: item.name.lower())
+        files.sort(key=lambda item: item.name.lower())
+        return folders + files
     except OSError:
         return []
+
+
+def _badge_text(path: Path) -> str:
+    try:
+        if path.is_dir():
+            return "DIR"
+    except OSError:
+        pass
+    return _BADGE_BY_SUFFIX.get(
+        path.suffix.lower(),
+        path.suffix.lstrip(".").upper()[:3] or "FILE",
+    )
 
 
 class _ElideLabel(QLabel):
@@ -107,7 +125,7 @@ class _RecentRow(QWidget):
         layout.setContentsMargins(12, 10, 14, 10)
         layout.setSpacing(12)
 
-        badge = QLabel(_BADGE_BY_SUFFIX.get(path.suffix.lower(), path.suffix.lstrip(".").upper()[:3] or "FILE"))
+        badge = QLabel(_badge_text(path))
         badge.setObjectName("welcomeRecentBadge")
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         badge.setFixedSize(40, 40)
@@ -402,9 +420,11 @@ class WelcomePage(QWidget):
         if resolved.is_file():
             self.recent_opened.emit(str(resolved))
             return
+        if resolved.is_dir():
+            self._enter_directory(resolved)
+            return
         self._listing_directory = True
-        listed = openable_in_directory(resolved) if resolved.is_dir() else []
-        self._fill_list(listed, empty_text="没有可打开的文件")
+        self._fill_list([], empty_text="没有可打开的文件")
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API
         painter = QPainter(self)
@@ -422,10 +442,30 @@ class WelcomePage(QWidget):
         painter.end()
         super().paintEvent(event)
 
+    def _enter_directory(self, path: Path) -> None:
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        self._listing_directory = True
+        self._lookup.show()
+        self._lookup.setText(str(resolved))
+        listed = openable_in_directory(resolved) if resolved.is_dir() else []
+        self._fill_list(listed, empty_text="没有可打开的文件")
+
     def _emit_recent(self, item: QListWidgetItem) -> None:
-        path = item.data(Qt.ItemDataRole.UserRole)
-        if path:
-            self.recent_opened.emit(str(path))
+        raw = item.data(Qt.ItemDataRole.UserRole)
+        if not raw:
+            return
+        path = Path(raw)
+        try:
+            is_dir = path.is_dir()
+        except OSError:
+            is_dir = False
+        if self._listing_directory and is_dir:
+            self._enter_directory(path)
+            return
+        self.recent_opened.emit(str(path))
 
     def reload_recent(self) -> None:
         self._listing_directory = False

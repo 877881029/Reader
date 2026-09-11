@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Hidden Ctrl+F path lookup on the welcome recent heading; directory lists files, file opens.
+**Goal:** Hidden Ctrl+F path lookup on the welcome recent heading; directory lists folders then files; clicking a folder walks one level down.
 
 **Architecture:** `WelcomePage` heading row hosts a hidden `QLineEdit`. Enter classifies path via `Path.is_dir` / `is_file`. Listing reuses `_RecentRow`. `MainWindow` Ctrl+F on welcome calls `show_lookup()` instead of the document FindBar.
 
@@ -24,4 +24,10 @@
 
 ### Task 2: Freeze
 
+- [x] Full pytest; freeze; smoke; desktop shortcut; STATUS; push `origin/main`
+
+### Task 3: Folder cards and click-to-enter
+
+- [x] Failing tests: `openable_in_directory` returns folders then files; click folder updates lookup and lists inside without opening a tab
+- [x] `openable_in_directory` includes non-hidden dirs; `_RecentRow` badge `DIR`; click folder updates lookup and relists one level
 - [x] Full pytest; freeze; smoke; desktop shortcut; STATUS; push `origin/main`

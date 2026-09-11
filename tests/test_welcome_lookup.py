@@ -18,7 +18,7 @@ def _window() -> MainWindow:
     )
 
 
-def test_openable_in_directory_lists_supported_files_only(tmp_path: Path):
+def test_openable_in_directory_lists_folders_then_supported_files(tmp_path: Path):
     from reader.shell.welcome import openable_in_directory
 
     (tmp_path / "keep.md").write_text("x", encoding="utf-8")
@@ -26,8 +26,9 @@ def test_openable_in_directory_lists_supported_files_only(tmp_path: Path):
     nested = tmp_path / "sub"
     nested.mkdir()
     (nested / "nested.md").write_text("x", encoding="utf-8")
+    (tmp_path / ".hidden").mkdir()
     names = [path.name for path in openable_in_directory(tmp_path)]
-    assert names == ["keep.md"]
+    assert names == ["sub", "keep.md"]
 
 
 def test_ctrl_f_shows_hidden_lookup_on_recent_row(qtbot):
@@ -87,6 +88,49 @@ def test_enter_directory_lists_files_like_recents(qtbot, tmp_path: Path):
     assert name is not None and name.text() == "note.md"
     assert path_label is not None
     assert "note.md" in path_label.toolTip()
+
+
+def test_clicking_directory_updates_lookup_and_lists_inside(qtbot, tmp_path: Path):
+    nested = tmp_path / "gop"
+    nested.mkdir()
+    (nested / "inner.md").write_text("inside", encoding="utf-8")
+    (tmp_path / "top.md").write_text("top", encoding="utf-8")
+    window = _window()
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    window.actionFind.trigger()
+    lookup = window.findChild(QLineEdit, "welcomeLookup")
+    recent_list = window.findChild(QListWidget, "welcomeRecentList")
+    assert lookup is not None and recent_list is not None
+    lookup.setText(str(tmp_path))
+    qtbot.keyClick(lookup, Qt.Key.Key_Return)
+
+    names = [
+        recent_list.itemWidget(recent_list.item(index)).findChild(
+            QLabel, "welcomeRecentName"
+        ).text()
+        for index in range(recent_list.count())
+    ]
+    assert names == ["gop", "top.md"]
+    badge = recent_list.itemWidget(recent_list.item(0)).findChild(
+        QLabel, "welcomeRecentBadge"
+    )
+    assert badge is not None and badge.text() == "DIR"
+
+    folder_item = recent_list.item(0)
+    qtbot.mouseClick(
+        recent_list.viewport(),
+        Qt.MouseButton.LeftButton,
+        pos=recent_list.visualItemRect(folder_item).center(),
+    )
+    assert Path(lookup.text()) == nested.resolve()
+    assert recent_list.count() == 1
+    inner = recent_list.itemWidget(recent_list.item(0)).findChild(
+        QLabel, "welcomeRecentName"
+    )
+    assert inner is not None and inner.text() == "inner.md"
+    assert window.tab_count() == 0
 
 
 def test_enter_file_opens_it(qtbot, tmp_path: Path):

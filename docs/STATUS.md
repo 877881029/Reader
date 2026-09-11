@@ -3,7 +3,22 @@
 最后更新：2026-09-11
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
-## 当前目标（已完成）
+## 当前目标
+
+**欢迎页路径查找可点进子目录**（已完成）
+
+- 规格：`docs/superpowers/specs/2026-09-11-welcome-path-lookup-design.md`
+- 计划：`docs/superpowers/plans/2026-09-11-welcome-path-lookup.md`（Task 3 已完成）
+- 用户确认：列表里也要有目录；点目录就把查找框路径递进一层，继续陈列新目录内容。
+- 实现：一层列出非隐藏子目录（徽章 `DIR`）再列出 `SUPPORTED_EXTENSIONS`；点击目录更新路径框并 relist，不打开标签。点文件仍打开。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `415 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5995093 bytes`，SHA256 `d4b90a1f6fae2de42a815d7ef0824db4facac1ef9e470441c341dccb18c133c1`
+
+## 下一步
+
+用户在欢迎页 Ctrl+F 进目录，点子目录确认路径框递进并列出下一层
+
+## 上一目标（已完成）
 
 **欢迎页右侧 Ctrl+F 路径查找（目录列出 / 文件打开）**
 
