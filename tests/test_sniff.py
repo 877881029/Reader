@@ -4,7 +4,7 @@ from reader.sniff import sniff, SniffError, SUPPORTED_EXTENSIONS
 
 def test_supported_extensions():
     assert SUPPORTED_EXTENSIONS == frozenset(
-        {".docx", ".pptx", ".xlsx", ".md", ".pdf", ".json", ".yaml", ".yml", ".xml"}
+        {".docx", ".pptx", ".xlsx", ".md", ".pdf", ".json", ".yaml", ".yml", ".xml", ".svg"}
     )
 
 @pytest.mark.parametrize("name,suffix", [
@@ -17,6 +17,7 @@ def test_supported_extensions():
     ("g.yaml", ".yaml"),
     ("h.YML", ".yml"),
     ("i.xml", ".xml"),
+    ("j.SVG", ".svg"),
 ])
 def test_sniff_accepts_supported(tmp_file, name, suffix):
     path = tmp_file(name)

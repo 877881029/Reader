@@ -7,6 +7,7 @@ from reader.formats import docx as fmt_docx
 from reader.formats import md as fmt_md
 from reader.formats import pdf as fmt_pdf
 from reader.formats import pptx as fmt_pptx
+from reader.formats import svg as fmt_svg
 from reader.formats import xlsx as fmt_xlsx
 from reader.preview.result import PreviewResult
 from reader.sniff import sniff
@@ -42,6 +43,8 @@ def preview(
     suffix = sniff(path)
     if suffix == ".pdf":
         return fmt_pdf.to_preview(path)
+    if suffix == ".svg":
+        return fmt_svg.to_preview(path)
     if suffix in fmt_code.CODE_SUFFIXES:
         return fmt_code.to_preview(path)
     if mode == "visual" and suffix not in {".pptx", ".md"}:

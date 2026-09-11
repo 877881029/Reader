@@ -14,7 +14,7 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 
 | Topic | Choice |
 |---|---|
-| Scope | All open document tabs: `.md` / `.docx` / `.pptx` / `.xlsx` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` |
+| Scope | All open document tabs: `.md` / `.docx` / `.pptx` / `.xlsx` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` / `.svg` |
 | UI | Window-level find bar under the title chrome (not a modal dialog; not inside tab page layout) |
 | Shortcut | `Ctrl+F` (`QKeySequence.StandardKey.Find`); `F3` / `Shift+F3` next/previous |
 | Enter | In the search box: Enter = next, Shift+Enter = previous |

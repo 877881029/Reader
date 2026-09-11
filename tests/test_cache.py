@@ -284,6 +284,26 @@ def test_put_rejects_code_kind(tmp_path: Path):
         )
 
 
+def test_put_rejects_svg_kind(tmp_path: Path):
+    from reader.preview.cache import PreviewCache
+
+    src = tmp_path / "icon.svg"
+    src.write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+    cache = PreviewCache(tmp_path / "c")
+
+    with pytest.raises(ValueError, match="unsupported preview kind: svg"):
+        cache.put(
+            src,
+            "builtin",
+            PreviewResult(
+                html="",
+                status_label="内置预览",
+                kind="svg",
+                svg_path=src,
+            ),
+        )
+
+
 def test_put_rejects_markdown_visual_kind(tmp_path: Path):
     from reader.preview.cache import PreviewCache
 

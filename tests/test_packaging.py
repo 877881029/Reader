@@ -30,6 +30,7 @@ def test_reader_spec_collects_complete_pptx_runtime_and_webchannel() -> None:
     spec = (ROOT / "reader.spec").read_text(encoding="utf-8")
     normalized = spec.replace("\\", "/")
 
+    assert "collect_submodules('PySide6.QtSvg')" in spec
     assert "collect_submodules('PySide6.QtWebChannel')" in spec
     assert (
         "(str(ROOT / 'assets/pptx-viewer'), 'assets/pptx-viewer')" in normalized
@@ -451,6 +452,7 @@ def test_readme_documents_formats_and_setup_command() -> None:
         ".json",
         ".yaml",
         ".xml",
+        ".svg",
         r"scripts\setup.ps1",
     ):
         assert token in readme

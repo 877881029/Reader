@@ -5,6 +5,21 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
 
+**打开 `.svg` 为图形预览，并把功能全解文档进 git**
+
+- 规格：`docs/superpowers/specs/2026-09-11-svg-reading-design.md`
+- 计划：`docs/superpowers/plans/2026-09-11-svg-reading.md`（2 个任务均已完成）
+- 用户确认：上一轮代码已在远端；把最新功能 md 同步到远端；增加支持 SVG。先做出来再改。
+- 实现：`.svg` 走 `QSvgRenderer` 纸色适窗图形页（不执行脚本）；`associate.EXTENSIONS` 含 `.svg`；功能说明写入 `docs/Reader功能全解.md`（桌面副本已覆盖）。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `396 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5985902 bytes`，SHA256 `095774d5793779fcb851d86b038fb44ee27bf0d887439652ba2d12330e5839ab`
+
+## 下一步
+
+用户双击 `.svg` 看图形预览是否够用；需要缩放按钮或其它图片格式再开规格
+
+## 上一目标（已完成）
+
 **双击文档不再先闪欢迎页再关掉**
 
 - 规格：`docs/superpowers/specs/2026-09-10-startup-open-snappiness-design.md`（补 argv 冷启动）
@@ -97,7 +112,7 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
 
-Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
+Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` / `.svg`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 

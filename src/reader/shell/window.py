@@ -246,6 +246,7 @@ class _PreviewWorker(QRunnable):
             if (
                 strategy != "visual"
                 and suffix != ".pdf"
+                and suffix != ".svg"
                 and suffix not in CODE_SUFFIXES
             ):
                 try:
@@ -262,6 +263,11 @@ class _PreviewWorker(QRunnable):
                         result.kind == "pdf"
                         and result.pdf_path is not None
                         and result.pdf_path.resolve() == self.path.resolve()
+                    )
+                    or (
+                        result.kind == "svg"
+                        and result.svg_path is not None
+                        and result.svg_path.resolve() == self.path.resolve()
                     )
                 )
                 if cache is not None and cacheable:
@@ -475,6 +481,12 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
 
         view = CodeTextView()
         view.load_text(result.html, source_path.suffix)
+        return view
+    if result.kind == "svg":
+        from reader.preview.svg_view import SvgView
+
+        view = SvgView()
+        view.load_path(result.svg_path or source_path)
         return view
 
     from PySide6.QtWebEngineCore import QWebEngineSettings
@@ -1253,7 +1265,7 @@ class MainWindow(QMainWindow):
             self,
             "打开",
             "",
-            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml)",
+            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.svg)",
         )
         if paths:
             self.open_paths([str(path) for path in paths])

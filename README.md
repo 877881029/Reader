@@ -12,6 +12,7 @@ Windows 桌面文档查看器，当前版本 **0.1.0**（功能仍在迭代，�
 | `.md` | 只读渲染（表格、代码、离线 Mermaid、`[[wikilink]]`）；`Ctrl+I` 编辑，`Ctrl+S` 保存，`Ctrl+T` 回渲染 |
 | `.pdf` | Chromium 内置阅读器（只读） |
 | `.json` / `.yaml` / `.yml` / `.xml` | 只读代码阅读（行号、语法高亮、可复制） |
+| `.svg` | 只读图形预览（纸色适窗，不执行脚本） |
 | `.docx` / `.xlsx` | 内置 HTML 预览；可选 Office 高保真 |
 
 窗口：记事本式标签、拖入文件、`Ctrl+O`、`Ctrl+F` 查找、设为当前用户默认打开方式、资源管理器「打开方式」、单实例、可新建窗口。
@@ -56,5 +57,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1
 
 ## 文档
 
+- 功能全解：`docs/Reader功能全解.md`
 - 规格与进度：`docs/STATUS.md`
 - 0.1.0 源码快照说明：`release/README.md`

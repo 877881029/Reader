@@ -68,3 +68,14 @@ def test_opens_json_yaml_xml(tmp_path: Path):
 
     assert d.to_open == tuple(path.resolve() for path in files)
     assert d.rejected == ()
+
+
+def test_opens_svg(tmp_path: Path):
+    path = tmp_path / "icon.svg"
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>',
+        encoding="utf-8",
+    )
+    d = decide_open([], [path])
+    assert d.to_open == (path.resolve(),)
+    assert d.rejected == ()

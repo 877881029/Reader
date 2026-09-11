@@ -274,3 +274,22 @@ def test_json_yaml_xml_use_code_preview_without_office(tmp_path: Path):
         assert result.status_label == "代码预览"
         assert body in result.html
     assert office.calls == []
+
+
+def test_svg_uses_graphic_preview_without_office(tmp_path: Path):
+    office = FakeOffice(available=True)
+    path = tmp_path / "icon.svg"
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">'
+        '<circle cx="4" cy="4" r="3" fill="#2563eb"/></svg>',
+        encoding="utf-8",
+    )
+    builtin = preview(path, office=office)
+    visual = preview(path, mode="visual")
+    assert builtin.kind == "svg"
+    assert builtin.status_label == "内置预览"
+    assert builtin.svg_path == path.resolve()
+    assert builtin.asset_dir is None
+    assert visual.kind == "svg"
+    assert visual.svg_path == path.resolve()
+    assert office.calls == []

@@ -36,6 +36,7 @@ _BADGE_BY_SUFFIX = {
     ".yaml": "YAML",
     ".yml": "YAML",
     ".xml": "XML",
+    ".svg": "SVG",
 }
 
 

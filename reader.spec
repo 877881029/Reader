@@ -18,6 +18,7 @@ pyside6_hidden = (
     collect_submodules('PySide6.QtWebEngineCore')
     + collect_submodules('PySide6.QtWebEngineWidgets')
     + collect_submodules('PySide6.QtWebChannel')
+    + collect_submodules('PySide6.QtSvg')
 )
 
 a = Analysis(

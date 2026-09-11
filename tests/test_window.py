@@ -266,6 +266,29 @@ def test_default_viewer_factory_uses_code_text_view(tmp_path: Path):
     assert widget.editor().isReadOnly() is True
 
 
+def test_default_viewer_factory_uses_svg_view(tmp_path: Path):
+    from reader.preview.svg_view import SvgView
+    from reader.preview.result import PreviewResult
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "icon.svg"
+    source.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">'
+        '<rect width="8" height="8" fill="#2563eb"/></svg>',
+        encoding="utf-8",
+    )
+    result = PreviewResult(
+        html="",
+        status_label="内置预览",
+        kind="svg",
+        svg_path=source,
+    )
+    widget = _default_viewer(result, source)
+    assert isinstance(widget, SvgView)
+    assert widget.is_valid() is True
+    assert "rect" in widget.text()
+
+
 def test_default_viewer_enables_pdf_plugin_for_native_pdf(qtbot, tmp_path: Path):
     from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -2349,6 +2372,7 @@ def test_open_dialog_filter_includes_pdf(qtbot, monkeypatch):
     assert "*.yaml" in captured[0]
     assert "*.yml" in captured[0]
     assert "*.xml" in captured[0]
+    assert "*.svg" in captured[0]
 
 
 def test_chrome_hides_menu_and_open_button(qtbot):

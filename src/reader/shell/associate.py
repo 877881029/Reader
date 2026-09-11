@@ -19,6 +19,7 @@ EXTENSIONS = (
     ".yaml",
     ".yml",
     ".xml",
+    ".svg",
 )
 _ICON_INDEX_RE = re.compile(r'^(?:"(?P<quoted>.*)"|(?P<plain>.*)),(?P<index>-?\d+)$')
 

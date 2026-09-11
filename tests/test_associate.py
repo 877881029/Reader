@@ -66,6 +66,7 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
         ".yaml",
         ".yml",
         ".xml",
+        ".svg",
     )
     assert command_path in wr.created
     for ext in EXTENSIONS:
