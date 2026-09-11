@@ -124,7 +124,7 @@ class ReaderApp:
             if item() is not None and item() is not dropped
         ]
 
-    def new_window(self) -> MainWindow:
+    def new_window(self, *, show: bool = True) -> MainWindow:
         window = MainWindow(
             on_new_window=self.new_window,
             on_closing=self._drop,
@@ -137,7 +137,8 @@ class ReaderApp:
         )
         self._windows.append(window)
         self._place_window(window)
-        window.show()
+        if show:
+            window.show()
         if len(self._windows) == 1:
             from reader.preview.webengine_warmup import schedule_webengine_warmup
 

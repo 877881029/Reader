@@ -580,6 +580,7 @@ class MainWindow(QMainWindow):
         self._availability_requests: dict[str, tuple[str, int]] = {}
         self._owned_request_ids: set[str] = set()
         self._closing = False
+        self._welcome_allowed = False
 
         self._tabs = ChromeTabWidget()
         self._tabs.setTabsClosable(True)
@@ -740,6 +741,8 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
         super().showEvent(event)
+        if self._tabs.count() == 0:
+            self._welcome_allowed = True
         self._ensure_win32_frame_styles()
         self._hide_status_bar()
         self._tabs._stretch_pane()
@@ -847,14 +850,24 @@ class MainWindow(QMainWindow):
         stack = getattr(self, "_content_stack", None)
         if stack is None:
             return
+        has_tabs = self._tabs.count() > 0
         has_content = any(
             self._tab_has_preview_content(self._tabs.widget(index))
             for index in range(self._tabs.count())
         )
-        stack.setCurrentIndex(1 if has_content else 0)
-        if not has_content:
+        if not has_tabs:
+            if self.isVisible():
+                self._welcome_allowed = True
+            stack.setCurrentIndex(0)
             self._welcome.reload_recent()
             self._hide_find_bar()
+            return
+        if has_content or not self._welcome_allowed:
+            stack.setCurrentIndex(1)
+            return
+        stack.setCurrentIndex(0)
+        self._welcome.reload_recent()
+        self._hide_find_bar()
 
     def event(self, event: QEvent) -> bool:
         if (

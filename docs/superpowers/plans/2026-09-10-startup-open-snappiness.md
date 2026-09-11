@@ -4,7 +4,7 @@
 
 **Goal:** First paint of the welcome window must not wait on registry/COM or Chromium; opening a file must not blank the window; Chromium must stay warm.
 
-**Architecture:** Defer shell integration until the event loop; keep a hidden WebEngine view alive after a delayed warmup; leave the welcome stack up until real preview content exists.
+**Architecture:** Defer shell integration until the event loop; keep a hidden WebEngine view alive after a delayed warmup; leave the welcome stack up until real preview content exists when the user already saw welcome. File argv launch shows the window only after `open_paths`.
 
 **Tech Stack:** PySide6, QWebEngine, pytest, frozen onedir smoke.
 
@@ -30,3 +30,9 @@
 ### Task 3: Freeze, smoke, shortcut
 
 - [x] Full pytest; `build_windows.ps1`; smoke; desktop `.lnk`; STATUS
+
+### Task 4: File argv launch must not flash welcome
+
+- [x] Hidden `open_paths` uses tabs stack while loading; visible welcome still waits for content
+- [x] `new_window(show=False)` then `open_paths` then `show()` when argv has files
+- [x] Full pytest; freeze; smoke; desktop shortcut; STATUS

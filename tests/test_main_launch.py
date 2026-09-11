@@ -74,7 +74,7 @@ def test_empty_primary_launch_does_not_create_untitled(monkeypatch):
         def is_primary_instance(self):
             return True
 
-        def new_window(self):
+        def new_window(self, *, show=True):
             return FakeWindow()
 
     monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
@@ -112,6 +112,9 @@ def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch
         def open_paths(self, paths):
             events.append(("open", paths))
 
+        def show(self):
+            events.append("show")
+
     class FakeReaderApp:
         def __init__(self, _qapp):
             events.append("server")
@@ -119,7 +122,7 @@ def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch
         def is_primary_instance(self):
             return True
 
-        def new_window(self):
+        def new_window(self, *, show=True):
             return FakeWindow()
 
     monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
@@ -137,6 +140,116 @@ def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch
         "server",
         ("log", ["one.md", "two.md"]),
         ("open", ["one.md", "two.md"]),
+        "show",
+        "exec",
+    ]
+
+
+def test_empty_primary_launch_shows_window_from_new_window(monkeypatch):
+    import reader.__main__ as main_module
+
+    events = []
+
+    class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+        def exec(self):
+            events.append("exec")
+            return 0
+
+    class FakeWindow:
+        def show(self):
+            events.append("show")
+
+        def open_paths(self, paths):
+            events.append(("open", paths))
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            events.append("server")
+
+        def is_primary_instance(self):
+            return True
+
+        def new_window(self, *, show=True):
+            events.append(("new_window", show))
+            window = FakeWindow()
+            if show:
+                window.show()
+            return window
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(main_module, "append_smoke_batch", lambda paths: events.append(("log", paths)))
+    monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: True)
+
+    assert main_module.main(["Reader.exe"]) == 0
+    assert events == ["server", ("log", []), ("new_window", True), "show", "exec"]
+
+
+def test_primary_file_launch_opens_paths_before_showing_window(monkeypatch):
+    import reader.__main__ as main_module
+
+    events = []
+
+    class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+        def exec(self):
+            events.append("exec")
+            return 0
+
+    class FakeWindow:
+        def show(self):
+            events.append("show")
+
+        def open_paths(self, paths):
+            events.append(("open", list(paths)))
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            events.append("server")
+
+        def is_primary_instance(self):
+            return True
+
+        def new_window(self, *, show=True):
+            events.append(("new_window", show))
+            window = FakeWindow()
+            if show:
+                window.show()
+            return window
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(main_module, "append_smoke_batch", lambda paths: events.append(("log", paths)))
+    monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: True)
+
+    assert main_module.main(["Reader.exe", r"C:\Desktop\note.md"]) == 0
+    assert events == [
+        "server",
+        ("log", [r"C:\Desktop\note.md"]),
+        ("new_window", False),
+        ("open", [r"C:\Desktop\note.md"]),
+        "show",
         "exec",
     ]
 
@@ -248,7 +361,7 @@ def _run_primary_with_shell_failure(monkeypatch, *, association_error=False, sho
         def is_primary_instance(self):
             return True
 
-        def new_window(self):
+        def new_window(self, *, show=True):
             return FakeWindow()
 
     def register(*_args, **_kwargs):

@@ -61,9 +61,10 @@ def main(argv: list[str] | None = None) -> int:
         app.close_all()
         return 2
 
-    win = app.new_window()
+    win = app.new_window(show=not bool(files))
     if files:
         win.open_paths(files)
+        win.show()
 
     if not _shell_integration_disabled():
         QTimer.singleShot(0, lambda: _install_shell_integration(win))

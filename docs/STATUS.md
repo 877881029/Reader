@@ -1,9 +1,25 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-10
+最后更新：2026-09-11
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
+
+**双击文档不再先闪欢迎页再关掉**
+
+- 规格：`docs/superpowers/specs/2026-09-10-startup-open-snappiness-design.md`（补 argv 冷启动）
+- 计划：`docs/superpowers/plans/2026-09-10-startup-open-snappiness.md`（Task 4 已完成）
+- 用户确认：双击桌面 `.md` 会先出 Reader 欢迎页，然后关掉，再出文件标签。要纠正。
+- 根因：`new_window()` 先 `show()` 欢迎页；`open_paths` 时标签只有「正在加载…」，内容栈故意留在欢迎页；Markdown 视觉预览好了才切到 tabs，看起来像关窗再开。
+- 实现：带文件启动时先隐藏创建窗口、`open_paths`、再 `show()`；尚未展示过欢迎页时 loading 也走 tabs 栈。从欢迎页打开文件仍等真实预览再切走。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `389 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5982837 bytes`，SHA256 `d529b24cd17641c0daaf41cd063c3a1933e5142e86bed878147bed3eb553bb28`
+
+## 下一步
+
+用户关掉 Reader 后双击桌面 `Reader功能全解.md`，确认不再先闪欢迎页
+
+## 上一目标（已完成）
 
 **`.pdf` 默认打开方式也改成 Reader**
 

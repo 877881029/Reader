@@ -1332,6 +1332,8 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
         viewer_factory=thread_checking_viewer,
     )
     qtbot.addWidget(window)
+    window.show()
+    qtbot.waitUntil(window.isVisible)
     window.open_paths([str(path)])
 
     try:
@@ -1356,6 +1358,46 @@ def test_open_paths_returns_while_preview_worker_is_blocked(qtbot, tmp_path: Pat
     assert window._content_stack.currentWidget() is window._tabs
     assert viewer_thread_ids == [window.thread()]
     assert "内置预览" in window.status_text()
+
+
+def test_open_paths_before_first_show_skips_welcome_while_loading(
+    qtbot, tmp_path: Path
+) -> None:
+    path = tmp_path / "from-desktop.md"
+    path.write_text("# hi\n", encoding="utf-8")
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocked_preview(_path: Path, office=None, mode="builtin") -> PreviewResult:
+        started.set()
+        assert release.wait(10)
+        return builtin_result()
+
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=blocked_preview,
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+    )
+    assert window.isVisible() is False
+    window.open_paths([str(path)])
+
+    try:
+        assert window.tab_count() == 1
+        assert window.tab_title(0) == "from-desktop.md"
+        assert "正在加载" in page_text(window, 0)
+        assert window._content_stack.currentWidget() is window._tabs
+        qtbot.addWidget(window)
+        window.show()
+        qtbot.waitUntil(window.isVisible)
+        assert window._content_stack.currentWidget() is window._tabs
+        qtbot.waitUntil(started.is_set, timeout=10_000)
+    finally:
+        release.set()
+
+    qtbot.waitUntil(lambda: window._content_stack.currentWidget() is window._tabs)
+    qtbot.waitUntil(lambda: window._executor.active_count() == 0)
 
 
 def test_office_probe_uses_pool_independent_from_blocked_preview(

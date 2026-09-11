@@ -24,8 +24,9 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 2. Enable `AA_ShareOpenGLContexts` before `QApplication`.
 3. Apply native icons / DWM frame styles from `MainWindow` construction (`winId()` before `show`) so the first visible frame already has the R icon.
 4. WebEngine warmup: delayed (~400ms) after first window, constructs a **hidden kept-alive** `QWebEngineView` (no `processEvents()`), skipped when `READER_SKIP_WEBENGINE_WARMUP` is truthy (pytest).
-5. Keep the welcome page as the stack current widget until a tab has real preview content (not only the loading label). Tab chrome can show the new tab immediately.
+5. Keep the welcome page as the stack current widget until a tab has real preview content (not only the loading label), **when the user already saw welcome** (empty launch, then Open / drop / recent). Tab chrome can show the new tab immediately.
 6. When installing preview content, add the viewer before disposing the loading label so the pane is never empty.
+7. Cold-start **with files** (Explorer double-click / argv): do **not** `show()` the welcome page first. Create the window hidden, `open_paths`, then `show()` on the tabs stack (loading label is OK). Welcome must not appear as a frame that then “closes”.
 
 ## 4. Non-goals
 
