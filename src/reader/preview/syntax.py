@@ -136,10 +136,145 @@ class XmlHighlighter(QSyntaxHighlighter):
             )
 
 
+_C_KEYWORDS = (
+    "auto",
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extern",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "inline",
+    "int",
+    "long",
+    "register",
+    "restrict",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "struct",
+    "switch",
+    "typedef",
+    "union",
+    "unsigned",
+    "void",
+    "volatile",
+    "while",
+    "_Bool",
+    "_Complex",
+    "_Imaginary",
+    "bool",
+    "true",
+    "false",
+    "NULL",
+)
+
+
+class CHighlighter(QSyntaxHighlighter):
+    StateNormal = 0
+    StateComment = 1
+
+    def __init__(self, parent: QTextDocument | None = None) -> None:
+        super().__init__(parent)
+        self._keyword = QRegularExpression(rf"\b(?:{'|'.join(_C_KEYWORDS)})\b")
+        self._number = QRegularExpression(
+            r"\b(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b"
+        )
+        self._string = QRegularExpression(r"(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')")
+        self._preproc = QRegularExpression(r"^\s*#\s*[A-Za-z_]\w*")
+        self._line_comment = QRegularExpression(r"//.*$")
+        self._comment_start = QRegularExpression(r"/\*")
+        self._comment_end = QRegularExpression(r"\*/")
+
+    def highlightBlock(self, text: str) -> None:  # noqa: N802
+        if self.previousBlockState() == self.StateComment:
+            end = self._comment_end.match(text)
+            if end.hasMatch():
+                close_at = end.capturedStart() + end.capturedLength()
+                self.setFormat(0, close_at, _format(MUTED, italic=True))
+                self.setCurrentBlockState(self.StateNormal)
+                self._highlight_code(text[close_at:], close_at)
+            else:
+                self.setFormat(0, len(text), _format(MUTED, italic=True))
+                self.setCurrentBlockState(self.StateComment)
+            return
+        self.setCurrentBlockState(self.StateNormal)
+        self._highlight_code(text, 0)
+
+    def _highlight_code(self, text: str, offset: int) -> None:
+        line = self._line_comment.match(text)
+        block = self._comment_start.match(text)
+        line_at = line.capturedStart() if line.hasMatch() else -1
+        block_at = block.capturedStart() if block.hasMatch() else -1
+        if line_at >= 0 and (block_at < 0 or line_at <= block_at):
+            self._apply_code(text[:line_at], offset)
+            self.setFormat(
+                offset + line_at,
+                len(text) - line_at,
+                _format(MUTED, italic=True),
+            )
+            return
+        if block_at >= 0:
+            self._apply_code(text[:block_at], offset)
+            end = self._comment_end.match(text, block_at + 2)
+            if end.hasMatch():
+                close_at = end.capturedStart() + end.capturedLength()
+                self.setFormat(
+                    offset + block_at,
+                    close_at - block_at,
+                    _format(MUTED, italic=True),
+                )
+                self._highlight_code(text[close_at:], offset + close_at)
+            else:
+                self.setFormat(
+                    offset + block_at,
+                    len(text) - block_at,
+                    _format(MUTED, italic=True),
+                )
+                self.setCurrentBlockState(self.StateComment)
+            return
+        self._apply_code(text, offset)
+
+    def _apply_code(self, text: str, offset: int) -> None:
+        self._apply(text, offset, self._keyword, _format(COBALT, bold=True))
+        self._apply(text, offset, self._number, _format(_NUMBER))
+        self._apply(text, offset, self._preproc, _format(COBALT, bold=True))
+        self._apply(text, offset, self._string, _format(_STRING))
+
+    def _apply(
+        self,
+        text: str,
+        offset: int,
+        pattern: QRegularExpression,
+        fmt: QTextCharFormat,
+    ) -> None:
+        match = pattern.globalMatch(text)
+        while match.hasNext():
+            captured = match.next()
+            self.setFormat(
+                offset + captured.capturedStart(),
+                captured.capturedLength(),
+                fmt,
+            )
+
+
 def highlighter_for(suffix: str, document: QTextDocument) -> QSyntaxHighlighter:
     language = suffix.lower()
     if language in {".yaml", ".yml"}:
         return YamlHighlighter(document)
     if language == ".xml":
         return XmlHighlighter(document)
+    if language in {".c", ".h"}:
+        return CHighlighter(document)
     return JsonHighlighter(document)

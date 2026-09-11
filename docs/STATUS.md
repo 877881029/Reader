@@ -5,7 +5,22 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标
 
-**欢迎页路径查找可点进子目录**（已完成）
+**编程语言阅读：`.c` / `.h`**（已完成）
+
+- 规格：`docs/superpowers/specs/2026-09-11-c-header-reading-design.md`
+- 计划：`docs/superpowers/plans/2026-09-11-c-header-reading.md`（2 个任务均已完成）
+- 用户确认：为 Reader 增加编程语言阅读支持，先加 `.h` 和 `.c`。
+- 实现：`.c` / `.h` 走现有 `kind="code"` 只读页；共享 `CHighlighter`；行号、可选中复制；加入 sniff / 打开对话框 / 默认打开方式。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `419 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5996580 bytes`，SHA256 `2f6e91a1aa11e31c29bd0eaeec197e33da24313ecf53c0dca69bfddceb6cd556`
+
+## 下一步
+
+用户双击 `.c` / `.h` 看行号与高亮是否够用；需要 `.cpp` 或其他语言再开规格
+
+## 上一目标（已完成）
+
+**欢迎页路径查找可点进子目录**
 
 - 规格：`docs/superpowers/specs/2026-09-11-welcome-path-lookup-design.md`
 - 计划：`docs/superpowers/plans/2026-09-11-welcome-path-lookup.md`（Task 3 已完成）
@@ -157,7 +172,7 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 背景
 
-Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` / `.svg` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
+Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h` / `.svg` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 

@@ -66,6 +66,8 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
         ".yaml",
         ".yml",
         ".xml",
+        ".c",
+        ".h",
         ".svg",
         ".png",
         ".jpg",

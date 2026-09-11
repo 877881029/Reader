@@ -54,6 +54,17 @@ def test_rejected_items_keep_reason_and_order(tmp_path: Path):
     )
 
 
+def test_opens_c_and_h(tmp_path: Path):
+    files = [tmp_path / "main.c", tmp_path / "main.h"]
+    for path in files:
+        path.write_text("int x;\n", encoding="utf-8")
+
+    d = decide_open([], files)
+
+    assert d.to_open == tuple(path.resolve() for path in files)
+    assert d.rejected == ()
+
+
 def test_opens_json_yaml_xml(tmp_path: Path):
     files = [
         tmp_path / "a.json",

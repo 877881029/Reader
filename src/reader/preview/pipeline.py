@@ -22,6 +22,8 @@ _BUILTIN = {
     ".yaml": fmt_code.to_preview,
     ".yml": fmt_code.to_preview,
     ".xml": fmt_code.to_preview,
+    ".c": fmt_code.to_preview,
+    ".h": fmt_code.to_preview,
 }
 
 

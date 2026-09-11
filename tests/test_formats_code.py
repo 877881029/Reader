@@ -15,6 +15,8 @@ def test_code_preview_keeps_text_and_kind(tmp_path: Path):
     assert language_for(".yaml") == "yaml"
     assert language_for(".yml") == "yaml"
     assert language_for(".xml") == "xml"
+    assert language_for(".c") == "c"
+    assert language_for(".h") == "c"
 
 
 def test_code_preview_replaces_invalid_utf8(tmp_path: Path):

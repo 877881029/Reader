@@ -19,6 +19,8 @@ EXTENSIONS = (
     ".yaml",
     ".yml",
     ".xml",
+    ".c",
+    ".h",
     ".svg",
     ".png",
     ".jpg",

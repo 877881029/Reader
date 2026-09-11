@@ -3,8 +3,14 @@ from pathlib import Path
 from PySide6.QtWidgets import QPlainTextEdit
 
 from reader.preview.code_view import CodeTextView
-from reader.preview.syntax import JsonHighlighter, XmlHighlighter, YamlHighlighter, highlighter_for
-from reader.theme import COBALT, PAPER
+from reader.preview.syntax import (
+    CHighlighter,
+    JsonHighlighter,
+    XmlHighlighter,
+    YamlHighlighter,
+    highlighter_for,
+)
+from reader.theme import COBALT, MUTED, PAPER
 
 
 def _layout_foregrounds(document) -> set[tuple[int, int, str]]:
@@ -26,6 +32,31 @@ def test_highlighter_colors_json_string(qtbot):
     colors = _layout_foregrounds(editor.document())
     assert (1, 7, "#0f766e") in colors
     assert (10, 2, "#c2410c") in colors
+
+
+def test_highlighter_colors_c_keyword_number_and_comment(qtbot):
+    editor = QPlainTextEdit()
+    qtbot.addWidget(editor)
+    editor.setPlainText("int x = 12; // done")
+    header = QPlainTextEdit()
+    qtbot.addWidget(header)
+    header.setPlainText("#include \"foo.h\"")
+    highlighter = highlighter_for(".c", editor.document())
+    header_hl = highlighter_for(".h", header.document())
+    assert isinstance(highlighter, CHighlighter)
+    assert isinstance(header_hl, CHighlighter)
+    highlighter.rehighlight()
+    header_hl.rehighlight()
+    colors = _layout_foregrounds(editor.document())
+    assert (0, 3, COBALT.lower()) in colors
+    assert (8, 2, "#c2410c") in colors
+    comment_colors = {color for _start, _length, color in colors}
+    assert MUTED.lower() in comment_colors
+    include_colors = {
+        color for _start, _length, color in _layout_foregrounds(header.document())
+    }
+    assert COBALT.lower() in include_colors
+    assert "#0f766e" in include_colors
 
 
 def test_highlighter_colors_yaml_key_and_xml_tag(qtbot):

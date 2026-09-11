@@ -11,9 +11,9 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 
 ## 1. 一句话能做什么
 
-打开并阅读：Word、PPT、Excel、Markdown、PDF、JSON / YAML / XML、SVG、常见图片。  
+打开并阅读：Word、PPT、Excel、Markdown、PDF、JSON / YAML / XML、C / 头文件、SVG、常见图片。  
 多文件用标签页；第二次再开 Reader 会把文件送到已经开着的窗口。  
-本机已把这些后缀的**当前用户默认程序**设成 Reader（含 `.pdf`、`.svg`、图片）。
+本机已把这些后缀的**当前用户默认程序**设成 Reader（含 `.pdf`、`.svg`、图片、`.c` / `.h`）。
 
 ---
 
@@ -29,7 +29,7 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 | 欢迎页「最近打开」 | 点卡片再开 |
 | 已经打开过的同一路径 | 切到已有标签，不重复开 |
 
-打开对话框筛选：`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`。
+打开对话框筛选：`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.c` `.h` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`。
 
 不支持的文件会拒绝（例如旧版 `.doc` / `.ppt` / `.xls`、HTML、文件夹、RAW / HEIC）。
 
@@ -116,17 +116,17 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 
 没有安装 Office 完全能打开这两类文件。
 
-### 5.5 代码（`.json` / `.yaml` / `.yml` / `.xml`）
+### 5.5 代码（`.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h`）
 
 只读代码页，不是 IDE：
 
 - 左侧 VS Code 式行号  
-- 语法高亮（轻量着色，不是校验器；坏掉的 JSON/XML 仍当文本显示）  
+- 语法高亮（轻量着色，不是校验器；坏掉的 JSON/XML 仍当文本显示；C 不是编译器）  
 - 可选中、可复制  
 - 不自动折行，过长向右滚  
 - UTF-8 读取，非法字节替换显示  
 
-`.yml` 和 `.yaml` 同一套高亮。
+`.yml` 和 `.yaml` 同一套高亮。`.c` 和 `.h` 同一套 C 高亮（关键字、数字、字符串、注释、预处理指令）。
 
 ### 5.6 SVG（`.svg`）
 
@@ -199,7 +199,7 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 
 启动 Reader 时，会把当前用户下这些后缀指到 Reader：
 
-`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`
+`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.c` `.h` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`
 
 - 不需要管理员。  
 - 不伪造 Windows 的 UserChoice 校验。  

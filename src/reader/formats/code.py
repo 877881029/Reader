@@ -4,7 +4,7 @@ from pathlib import Path
 
 from reader.preview.result import PreviewResult
 
-CODE_SUFFIXES = frozenset({".json", ".yaml", ".yml", ".xml"})
+CODE_SUFFIXES = frozenset({".json", ".yaml", ".yml", ".xml", ".c", ".h"})
 
 
 def language_for(suffix: str) -> str:
@@ -13,6 +13,8 @@ def language_for(suffix: str) -> str:
         return "yaml"
     if value == ".xml":
         return "xml"
+    if value in {".c", ".h"}:
+        return "c"
     return "json"
 
 

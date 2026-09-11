@@ -452,6 +452,8 @@ def test_readme_documents_formats_and_setup_command() -> None:
         ".json",
         ".yaml",
         ".xml",
+        ".c",
+        ".h",
         ".svg",
         ".png",
         r"scripts\setup.ps1",

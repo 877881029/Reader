@@ -265,6 +265,8 @@ def test_json_yaml_xml_use_code_preview_without_office(tmp_path: Path):
         "b.yaml": "k: 1\n",
         "c.yml": "- item\n",
         "d.xml": "<root/>\n",
+        "e.c": "int main(void) { return 0; }\n",
+        "f.h": "#define OK 1\n",
     }
     for name, body in samples.items():
         path = tmp_path / name

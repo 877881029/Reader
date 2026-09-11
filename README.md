@@ -11,7 +11,7 @@ Windows 桌面文档查看器，当前版本 **0.1.0**（功能仍在迭代，�
 | `.pptx` | 本地视觉预览（缩略图、翻页、缩放）；可切文本模式；可选 Office 高保真 |
 | `.md` | 只读渲染（表格、代码、离线 Mermaid、`[[wikilink]]`）；`Ctrl+I` 编辑，`Ctrl+S` 保存，`Ctrl+T` 回渲染 |
 | `.pdf` | Chromium 内置阅读器（只读） |
-| `.json` / `.yaml` / `.yml` / `.xml` | 只读代码阅读（行号、语法高亮、可复制） |
+| `.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h` | 只读代码阅读（行号、语法高亮、可复制） |
 | `.svg` | 只读图形预览（纸色适窗，Ctrl+滚轮缩放，不执行脚本） |
 | `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp` | 只读图片预览（纸色适窗，Ctrl+滚轮缩放） |
 | `.docx` / `.xlsx` | 内置 HTML 预览；可选 Office 高保真 |
