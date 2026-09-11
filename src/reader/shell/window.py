@@ -962,7 +962,18 @@ class MainWindow(QMainWindow):
                 return widget
         return None
 
+    def _welcome_visible(self) -> bool:
+        stack = getattr(self, "_content_stack", None)
+        welcome = getattr(self, "_welcome", None)
+        if stack is None or welcome is None:
+            return False
+        return self.tab_count() == 0 and stack.currentWidget() is welcome
+
     def _shortcut_find(self) -> None:
+        if self._welcome_visible():
+            self._welcome.show_lookup()
+            self.actionFindClose.setEnabled(True)
+            return
         if self._current_preview_widget() is None:
             return
         self._find_bar.show()
@@ -1002,6 +1013,9 @@ class MainWindow(QMainWindow):
         close = getattr(self, "actionFindClose", None)
         if close is not None:
             close.setEnabled(False)
+        welcome = getattr(self, "_welcome", None)
+        if welcome is not None:
+            welcome.hide_lookup()
 
     def status_text(self) -> str:
         return self.statusBar().currentMessage()

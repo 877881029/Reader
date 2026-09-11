@@ -22,7 +22,7 @@ Do **not** change `hit_test_local`, `begin_window_move`, or `nativeEvent`.
 | Match case | Off by default; toggle in the bar |
 | Wrap | Yes. If no later match, wrap; if none at all, show `未找到` |
 | Replace | Out of scope |
-| Welcome | Ctrl+F does nothing while the welcome page is showing |
+| Welcome | Ctrl+F reveals a path field on the **最近打开** row (directory lists files; file opens). The window FindBar stays hidden. |
 
 Plain-text views (`MarkdownTextView`, `CodeTextView`) use `QPlainTextEdit.find`. HTML / Markdown visual / PPTX visual / PDF use `QWebEnginePage.findText`. Test label viewers match substring only.
 

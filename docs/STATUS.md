@@ -5,6 +5,21 @@ Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标（已完成）
 
+**欢迎页右侧 Ctrl+F 路径查找（目录列出 / 文件打开）**
+
+- 规格：`docs/superpowers/specs/2026-09-11-welcome-path-lookup-design.md`
+- 计划：`docs/superpowers/plans/2026-09-11-welcome-path-lookup.md`（2 个任务均已完成）
+- 用户确认：在「最近打开」那一行加隐藏查找框；Ctrl+F 打开；输入目录回车列出该目录文件（卡片同最近打开）；输入文件回车即打开。只改右侧，左侧和色调不动。
+- 实现：欢迎页 Ctrl+F 只显示右侧路径框，不弹出窗口查找条；目录列出 `SUPPORTED_EXTENSIONS`；Esc 回到最近打开。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `414 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5994438 bytes`，SHA256 `cc2182f5a9e9a0579a18d516d6990421d5376c54c23b81bde6c15cd24c6627e2`
+
+## 下一步
+
+用户在欢迎页按 Ctrl+F，试目录列出和文件打开
+
+## 上一目标（已完成）
+
 **图形页 Ctrl+滚轮缩放，并预览常见图片**
 
 - 规格：`docs/superpowers/specs/2026-09-11-graphic-zoom-images-design.md`

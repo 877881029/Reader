@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QKeyEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from reader.shell.recent import visible_recent
+from reader.sniff import SUPPORTED_EXTENSIONS
 from reader.theme import PAPER as PAPER_HEX
 from reader.version import product_version
 
@@ -44,6 +46,28 @@ _BADGE_BY_SUFFIX = {
     ".webp": "WEBP",
     ".bmp": "BMP",
 }
+
+
+def parse_lookup_path(text: str) -> Path:
+    stripped = text.strip().strip('"').strip("'").strip()
+    return Path(stripped).expanduser()
+
+
+def openable_in_directory(path: Path) -> list[Path]:
+    try:
+        if not path.is_dir():
+            return []
+        items: list[Path] = []
+        for child in path.iterdir():
+            try:
+                if child.is_file() and child.suffix.lower() in SUPPORTED_EXTENSIONS:
+                    items.append(child)
+            except OSError:
+                continue
+        items.sort(key=lambda item: item.name.lower())
+        return items
+    except OSError:
+        return []
 
 
 class _ElideLabel(QLabel):
@@ -191,6 +215,19 @@ class WelcomePage(QWidget):
                 font-weight: 600;
                 letter-spacing: 1.4px;
             }
+            QLineEdit#welcomeLookup {
+                background: #fffaf2;
+                color: #1c1915;
+                border: 1px solid #e4d9c7;
+                border-radius: 8px;
+                padding: 4px 8px;
+                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+                font-size: 12px;
+                min-height: 24px;
+            }
+            QLineEdit#welcomeLookup:focus {
+                border: 1px solid #2563eb;
+            }
             QLabel#welcomeRecentEmpty {
                 color: #9a9186;
                 font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
@@ -294,9 +331,23 @@ class WelcomePage(QWidget):
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(8, 10, 0, 0)
         right_layout.setSpacing(12)
+        heading_row = QHBoxLayout()
+        heading_row.setContentsMargins(0, 0, 0, 0)
+        heading_row.setSpacing(12)
         heading = QLabel("最近打开")
         heading.setObjectName("welcomeRecentHeading")
-        right_layout.addWidget(heading)
+        heading.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self._lookup = QLineEdit()
+        self._lookup.setObjectName("welcomeLookup")
+        self._lookup.setPlaceholderText("路径")
+        self._lookup.setClearButtonEnabled(False)
+        self._lookup.hide()
+        self._lookup.returnPressed.connect(self._submit_lookup)
+        self._lookup.installEventFilter(self)
+        heading_row.addWidget(heading, 0, Qt.AlignmentFlag.AlignVCenter)
+        heading_row.addWidget(self._lookup, 1)
+        right_layout.addLayout(heading_row)
+        self._listing_directory = False
         self._recent_empty = QLabel("还没有最近打开的文件")
         self._recent_empty.setObjectName("welcomeRecentEmpty")
         right_layout.addWidget(self._recent_empty)
@@ -312,6 +363,48 @@ class WelcomePage(QWidget):
         root.addWidget(right, 1)
 
         self.reload_recent()
+
+    def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802
+        if (
+            watched is self._lookup
+            and event.type() == QEvent.Type.KeyPress
+            and isinstance(event, QKeyEvent)
+            and event.key() == Qt.Key.Key_Escape
+        ):
+            self.hide_lookup()
+            return True
+        return super().eventFilter(watched, event)
+
+    def show_lookup(self) -> None:
+        self._lookup.show()
+        self._lookup.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self._lookup.selectAll()
+
+    def hide_lookup(self) -> None:
+        was_open = self._lookup.isVisible() or self._listing_directory
+        self._lookup.hide()
+        self._lookup.clear()
+        self._listing_directory = False
+        if was_open:
+            self.reload_recent()
+
+    def _submit_lookup(self) -> None:
+        raw = self._lookup.text()
+        if not raw.strip().strip('"').strip("'"):
+            self._listing_directory = False
+            self.reload_recent()
+            return
+        path = parse_lookup_path(raw)
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved.is_file():
+            self.recent_opened.emit(str(resolved))
+            return
+        self._listing_directory = True
+        listed = openable_in_directory(resolved) if resolved.is_dir() else []
+        self._fill_list(listed, empty_text="没有可打开的文件")
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt API
         painter = QPainter(self)
@@ -335,8 +428,12 @@ class WelcomePage(QWidget):
             self.recent_opened.emit(str(path))
 
     def reload_recent(self) -> None:
+        self._listing_directory = False
+        self._fill_list(visible_recent(), empty_text="还没有最近打开的文件")
+
+    def _fill_list(self, paths: list[Path], *, empty_text: str) -> None:
         self._recent.clear()
-        paths = visible_recent()
+        self._recent_empty.setText(empty_text)
         self._recent_empty.setVisible(not paths)
         self._recent.setVisible(bool(paths))
         for path in paths:
