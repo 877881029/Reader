@@ -39,17 +39,22 @@ def to_html(path: Path) -> PreviewResult:
     return PreviewResult(html=html, status_label="内置预览", kind="html")
 
 
-def to_visual(path: Path) -> PreviewResult:
+_SAFE_EXTRACT_FALLBACK_HTML = (
+    "<!DOCTYPE html><html><head><meta charset='utf-8'></head>"
+    "<body><p>演示文稿已加密或损坏，无法生成文本回退。</p></body></html>"
+)
+
+
+def fallback_html_for(path: Path) -> str:
     try:
-        fallback = to_html(path).html
+        return to_html(path).html
     except Exception:
-        fallback = (
-            "<!DOCTYPE html><html><head><meta charset='utf-8'></head>"
-            "<body><p>演示文稿已加密或损坏，无法生成文本回退。</p></body></html>"
-        )
+        return _SAFE_EXTRACT_FALLBACK_HTML
+
+
+def to_visual(path: Path) -> PreviewResult:
     return PreviewResult(
         html="",
         status_label="内置预览（视觉模式）",
         kind="pptx",
-        fallback_html=fallback,
     )

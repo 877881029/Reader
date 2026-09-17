@@ -120,8 +120,7 @@ def test_pptx_defaults_to_visual_without_any_com_probe(tmp_path: Path):
 
     assert result.kind == "pptx"
     assert result.status_label == "内置预览（视觉模式）"
-    assert result.fallback_html is not None
-    assert "visual-default" in result.fallback_html
+    assert result.fallback_html is None
     assert office.available_calls == []
     assert office.calls == []
 
@@ -191,8 +190,7 @@ def test_pptx_falls_back_when_office_missing(tmp_path: Path):
     assert office.available_calls == [".pptx"]
     assert office.calls == []
     assert result.kind == "pptx"
-    assert result.fallback_html is not None
-    assert "pptx-fallback" in result.fallback_html
+    assert result.fallback_html is None
 
 
 def test_explicit_text_mode_returns_cacheable_html(tmp_path: Path):

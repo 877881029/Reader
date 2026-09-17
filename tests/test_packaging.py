@@ -272,8 +272,10 @@ def test_packaging_smoke_can_disable_real_shell_integration() -> None:
 
     assert "if not _shell_integration_disabled():" in main
     assert "QTimer.singleShot(0, lambda: _install_shell_integration(win))" in main
+    assert "SETTINGS_CLAIM_DELAY_MS" in main
+    assert "protected_claimer=lambda: None" in main
     assert "AA_ShareOpenGLContexts" in main
-    assert "register_open_with(exe, args=args)" in main
+    assert "register_open_with(exe, args=args" in main
     assert "create_desktop_shortcut(" in main
     assert 'resource_path("assets", "icons", "reader.ico")' in main
     assert "icon=exe" not in main

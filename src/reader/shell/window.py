@@ -81,9 +81,16 @@ DWMWCP_ROUND = 2
 class ChromeTabWidget(QTabWidget):
     """QTabWidget that does not keep a ghost tab-bar gap after the bar is reparented."""
 
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._resize_stretch_timer = QTimer(self)
+        self._resize_stretch_timer.setSingleShot(True)
+        self._resize_stretch_timer.setInterval(16)
+        self._resize_stretch_timer.timeout.connect(self._stretch_pane)
+
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
         super().resizeEvent(event)
-        self._stretch_pane()
+        self._resize_stretch_timer.start()
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
         super().showEvent(event)
@@ -606,6 +613,7 @@ class MainWindow(QMainWindow):
         self._owned_request_ids: set[str] = set()
         self._closing = False
         self._welcome_allowed = False
+        self._opened_files_before_show = False
 
         self._tabs = ChromeTabWidget()
         self._tabs.setTabsClosable(True)
@@ -766,7 +774,7 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
         super().showEvent(event)
-        if self._tabs.count() == 0:
+        if self._tabs.count() == 0 and not self._opened_files_before_show:
             self._welcome_allowed = True
         self._ensure_win32_frame_styles()
         self._hide_status_bar()
@@ -867,9 +875,39 @@ class MainWindow(QMainWindow):
             return False
         for index in range(layout.count()):
             widget = layout.itemAt(index).widget()
-            if widget is not None and widget.objectName() != "previewLoading":
-                return True
+            if widget is None or widget.objectName() == "previewLoading":
+                continue
+            if widget.property("readerPreviewReady") is False:
+                continue
+            return True
         return False
+
+    def _arm_preview_ready(self, content: QWidget) -> None:
+        if getattr(content, "ready", None) is not None:
+            content.setProperty("readerPreviewReady", False)
+            content.hide()
+            return
+        try:
+            from PySide6.QtWebEngineWidgets import QWebEngineView
+        except Exception:
+            content.setProperty("readerPreviewReady", True)
+            return
+        if isinstance(content, QWebEngineView):
+            content.setProperty("readerPreviewReady", False)
+            content.hide()
+            content.loadFinished.connect(
+                lambda _ok, widget=content: self._mark_preview_ready(widget)
+            )
+            return
+        content.setProperty("readerPreviewReady", True)
+
+    def _mark_preview_ready(self, widget: QWidget) -> None:
+        try:
+            widget.setProperty("readerPreviewReady", True)
+            widget.show()
+        except RuntimeError:
+            return
+        self._refresh_content_stack()
 
     def _refresh_content_stack(self) -> None:
         stack = getattr(self, "_content_stack", None)
@@ -1306,6 +1344,9 @@ class MainWindow(QMainWindow):
     ) -> None:
         if self._closing:
             return
+        if not self.isVisible():
+            self._welcome_allowed = False
+            self._opened_files_before_show = True
         existing = [document.path for document in self._documents.values()]
         decision = decide_open(existing, [Path(path) for path in paths])
 
@@ -1661,6 +1702,7 @@ class MainWindow(QMainWindow):
         if layout is None:
             _dispose_widget(content)
             return False
+        self._arm_preview_ready(content)
         layout.addWidget(content)
         for index in range(layout.count() - 1, -1, -1):
             widget = layout.itemAt(index).widget()
@@ -1796,6 +1838,7 @@ class MainWindow(QMainWindow):
                 append_visual_ready(str(document.path), count)
             if document.last_result is not None and document.last_result.kind == "markdown":
                 append_markdown_ready(str(document.path))
+            self._mark_preview_ready(widget)
 
     def _visual_slide_changed(
         self,
@@ -1827,6 +1870,7 @@ class MainWindow(QMainWindow):
         if document is None:
             return
         document.status_label = "内置预览（视觉渲染失败）"
+        self._mark_preview_ready(widget)
         self._refresh_preview_actions()
 
     def _visual_open_path(

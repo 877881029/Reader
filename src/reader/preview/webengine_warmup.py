@@ -3,11 +3,14 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication
+
+from reader.theme import PAPER
 
 _WARMED = False
 _VIEW = None
-WARMUP_DELAY_MS = 400
+WARMUP_DELAY_MS = 50
 _SKIP_VALUES = {"1", "true", "yes", "on"}
 
 
@@ -36,6 +39,7 @@ def warmup_webengine(app: QApplication | None = None) -> bool:
         view.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
         view.resize(8, 8)
         view.hide()
+        view.page().setBackgroundColor(QColor(PAPER))
         view.setHtml("<!doctype html><title>warmup</title>")
     except Exception:
         return False

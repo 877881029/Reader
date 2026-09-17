@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtGui import QColor
+
 from reader.preview import webengine_warmup
+from reader.theme import PAPER
 
 
 def test_webengine_warmup_is_idempotent(qapp):
     webengine_warmup.reset_warmup_for_tests()
     try:
+        assert webengine_warmup.WARMUP_DELAY_MS == 50
         assert webengine_warmup.warmup_webengine(qapp) is True
         view = webengine_warmup.kept_view()
         assert view is not None
         assert not view.isVisible()
+        assert view.page().backgroundColor() == QColor(PAPER)
         assert webengine_warmup.warmup_webengine(qapp) is False
         assert webengine_warmup.kept_view() is view
     finally:

@@ -9,8 +9,8 @@ import weakref
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QEvent, QMimeData, QPoint, QThread, QUrl, Qt, Signal
-from PySide6.QtGui import QKeySequence
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QSize, QThread, QUrl, Qt, Signal
+from PySide6.QtGui import QKeySequence, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -1443,6 +1443,117 @@ def test_open_paths_before_first_show_skips_welcome_while_loading(
 
     qtbot.waitUntil(lambda: window._content_stack.currentWidget() is window._tabs)
     qtbot.waitUntil(lambda: window._executor.active_count() == 0)
+    assert window._welcome_allowed is False
+
+
+def test_visible_welcome_waits_for_visual_ready(qtbot, tmp_path: Path) -> None:
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitUntil(window.isVisible)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    assert window._content_stack.currentWidget() is window._welcome
+    assert visual.isVisible() is False
+    visual.ready.emit(3)
+    qtbot.waitUntil(lambda: window._content_stack.currentWidget() is window._tabs)
+    assert visual.isVisible() is True
+
+
+def test_visible_welcome_leaves_on_visual_render_failed(qtbot, tmp_path: Path) -> None:
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+    )
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitUntil(window.isVisible)
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    assert window._content_stack.currentWidget() is window._welcome
+    visual.render_failed.emit("viewer render failed")
+    qtbot.waitUntil(lambda: window._content_stack.currentWidget() is window._tabs)
+
+
+def test_unready_preview_widget_is_not_content(qtbot) -> None:
+    from PySide6.QtWidgets import QVBoxLayout
+    from reader.shell.window import MainWindow
+
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: builtin_result(),
+        cache_factory=FakeCache,
+        viewer_factory=label_viewer,
+    )
+    qtbot.addWidget(window)
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    widget = QWidget()
+    widget.setProperty("readerPreviewReady", False)
+    layout.addWidget(widget)
+    assert window._tab_has_preview_content(page) is False
+    widget.setProperty("readerPreviewReady", True)
+    assert window._tab_has_preview_content(page) is True
+
+
+def test_tab_resize_coalesces_stretch(qtbot) -> None:
+    from reader.shell.window import ChromeTabWidget
+
+    tabs = ChromeTabWidget()
+    qtbot.addWidget(tabs)
+    assert tabs._resize_stretch_timer.interval() == 16
+    assert tabs._resize_stretch_timer.isSingleShot()
+    tabs.resizeEvent(QResizeEvent(QSize(400, 300), QSize(200, 150)))
+    assert tabs._resize_stretch_timer.isActive()
+
+
+def test_hidden_first_window_schedules_immediate_warmup(monkeypatch, qapp) -> None:
+    delays: list[int | None] = []
+    monkeypatch.setattr(
+        "reader.preview.webengine_warmup.schedule_webengine_warmup",
+        lambda _app=None, delay_ms=None: delays.append(delay_ms),
+    )
+    from reader.app import ReaderApp
+
+    app = ReaderApp(qapp, ipc=FakeIpc())
+    try:
+        app.new_window(show=False)
+        assert delays == [0]
+        app.new_window(show=False)
+        assert delays == [0]
+    finally:
+        app.close_all()
+
+
+def test_shown_first_window_uses_default_warmup_delay(monkeypatch, qapp) -> None:
+    delays: list[int | None] = []
+    monkeypatch.setattr(
+        "reader.preview.webengine_warmup.schedule_webengine_warmup",
+        lambda _app=None, delay_ms=None: delays.append(delay_ms),
+    )
+    from reader.app import ReaderApp
+
+    app = ReaderApp(qapp, ipc=FakeIpc())
+    try:
+        window = app.new_window(show=True)
+        window.hide()
+        assert delays == [None]
+    finally:
+        app.close_all()
 
 
 def test_office_probe_uses_pool_independent_from_blocked_preview(

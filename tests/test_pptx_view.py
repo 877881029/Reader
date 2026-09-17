@@ -187,6 +187,32 @@ def test_oversized_fallback_uses_fixed_safe_text(qtbot, tmp_path, monkeypatch):
     view.shutdown()
 
 
+def test_show_fallback_builds_html_lazily(qtbot, tmp_path, monkeypatch):
+    from pptx import Presentation
+
+    path = tmp_path / "lazy.pptx"
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "lazy-extract"
+    prs.save(path)
+    result = PreviewResult(html="", status_label="内置预览", kind="pptx")
+    monkeypatch.setattr(PptxVisualView, "load", lambda *_args: None)
+    fallback_calls: list[tuple[str, QUrl]] = []
+    monkeypatch.setattr(
+        PptxVisualView,
+        "setHtml",
+        lambda _self, html, base=QUrl(): fallback_calls.append((html, base)),
+    )
+    view = PptxVisualView(result, path)
+    qtbot.addWidget(view)
+
+    view._show_fallback("render failed")
+
+    assert fallback_calls
+    assert "lazy-extract" in fallback_calls[0][0]
+    view.shutdown()
+
+
 def test_fallback_disconnects_load_signal_before_stopping(qtbot, tmp_path, monkeypatch):
     monkeypatch.setattr(PptxVisualView, "load", lambda *_args: None)
     monkeypatch.setattr(PptxVisualView, "setHtml", lambda *_args: None)

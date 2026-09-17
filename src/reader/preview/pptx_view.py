@@ -384,7 +384,11 @@ class PptxVisualView(QWebEngineView):
         resources = self._resources
         if resources is not None:
             resources.secure_fallback()
-        fallback = self._result.fallback_html or _SAFE_FALLBACK_HTML
+        fallback = self._result.fallback_html
+        if not fallback:
+            from reader.formats.pptx import fallback_html_for
+
+            fallback = fallback_html_for(self._source)
         if len(fallback.encode("utf-8")) > _SET_HTML_SAFE_BYTES:
             fallback = _SAFE_FALLBACK_HTML
         self.setHtml(fallback, QUrl())

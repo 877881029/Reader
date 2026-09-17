@@ -1,9 +1,24 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-11
+最后更新：2026-09-17
 Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
 
 ## 当前目标
+
+**冷启动 / 双击打开 / 打开与缩放黑闪**（已完成）
+
+- 规格：`docs/superpowers/specs/2026-09-17-open-resize-snappiness-design.md`
+- 计划：`docs/superpowers/plans/2026-09-17-open-resize-snappiness.md`（3 个任务均已完成）
+- 用户确认：开机后第一次开 Reader 太慢；不先开 Reader、用它打开文件会先闪欢迎页；开新文件或改窗口大小会偶发等待或整框变黑。一并优化。
+- 实现：文件 argv 立刻预热且 `show` 前开路径；空启动预热 50ms；PDF Settings 申索延后 2.5s；视觉/WebEngine 未 ready 前不离开欢迎页（文件启动保持纸色标签）；PPTX `to_visual` 不再抽文本，回退时再提取；resize 合并 `_stretch_pane`。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `429 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5998001 bytes`，SHA256 `1f6c3bb225e9de220c667eb69c72b1b5309fa8968f402612e93772143274d0ad`
+
+## 下一步
+
+重启后再空开一次 Reader；关掉后用资源管理器双击文件，确认不再先闪欢迎页；开新文件和拖窗口边看等待与黑闪是否减轻
+
+## 上一目标（已完成）
 
 **setup.ps1 一次装好并冻结构建**（已完成）
 

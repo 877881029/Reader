@@ -405,6 +405,85 @@ def test_association_failure_shows_hint_and_still_attempts_shortcut(monkeypatch)
     assert "shortcut" in events
 
 
+def test_first_shell_tick_does_not_claim_protected_defaults(monkeypatch):
+    import reader.__main__ as main_module
+
+    claimed = []
+
+    def register(*_args, **kwargs):
+        claimer = kwargs.get("protected_claimer")
+        if claimer is not None:
+            claimer()
+
+    monkeypatch.setattr(main_module, "register_open_with", register)
+    monkeypatch.setattr(main_module, "create_desktop_shortcut", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "reader.shell.settings_claim.claim_protected_defaults",
+        lambda: claimed.append("claim"),
+    )
+
+    class Window:
+        def show_status(self, _message):
+            pass
+
+    main_module._install_shell_integration(Window())
+    assert claimed == []
+
+
+def test_settings_claim_is_scheduled_after_first_paint(monkeypatch):
+    import reader.__main__ as main_module
+
+    shots = []
+
+    class FakeQApplication:
+        @staticmethod
+        def setAttribute(*_args, **_kwargs):
+            pass
+
+        @classmethod
+        def instance(cls):
+            return None
+
+        def __init__(self, _argv):
+            pass
+
+        def exec(self):
+            return 0
+
+    class FakeWindow:
+        def open_paths(self, _paths):
+            pass
+
+        def show(self):
+            pass
+
+    class FakeReaderApp:
+        def __init__(self, _qapp):
+            pass
+
+        def is_primary_instance(self):
+            return True
+
+        def new_window(self, *, show=True):
+            return FakeWindow()
+
+    monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
+    monkeypatch.setattr(main_module, "ReaderApp", FakeReaderApp)
+    monkeypatch.setattr(main_module, "append_smoke_batch", lambda _paths: None)
+    monkeypatch.setattr(main_module, "_shell_integration_disabled", lambda: False)
+    monkeypatch.setattr(
+        main_module.QTimer,
+        "singleShot",
+        lambda ms, fn: shots.append((ms, fn)),
+    )
+
+    assert main_module.main(["Reader.exe"]) == 0
+    delays = [ms for ms, _fn in shots]
+    assert 0 in delays
+    assert main_module.SETTINGS_CLAIM_DELAY_MS in delays
+    assert main_module.SETTINGS_CLAIM_DELAY_MS >= 2500
+
+
 def test_shortcut_failure_shows_hint_and_app_continues(monkeypatch):
     result, events, deferred = _run_primary_with_shell_failure(
         monkeypatch,
