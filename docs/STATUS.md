@@ -1,7 +1,11 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-17
-Git：`main` 应与 `origin/main` 同步；功能边界必须提交并推送。
+Git：本地 `main` 比 `origin/main` 超前 1 个提交（`2ba2e1b`）；推送被拒。
+
+## 阻塞
+
+`git push origin main` 返回 403：`Permission to 877881029/Reader.git denied to runqyang_amdeng`。冷启动优化已提交在本地，未到远端。
 
 ## 当前目标
 
