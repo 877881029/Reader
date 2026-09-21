@@ -1,13 +1,29 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-17
-Git：本地 `main` 比 `origin/main` 超前 1 个提交（`2ba2e1b`）；推送被拒。
+最后更新：2026-09-21
+Git：本地 `main` 仍可能超前于 `origin/main`（上次 push 403）。
 
 ## 阻塞
 
-`git push origin main` 返回 403：`Permission to 877881029/Reader.git denied to runqyang_amdeng`。冷启动优化已提交在本地，未到远端。
+`git push origin main` 上次返回 403：`Permission to 877881029/Reader.git denied to runqyang_amdeng`。
 
 ## 当前目标
+
+**PPTX 表头文字看不见**（已完成）
+
+- 规格补充：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md` §11
+- 计划：`docs/superpowers/plans/2026-09-21-pptx-table-header-contrast.md`（2 个任务均已完成）
+- 用户确认：同一张幻灯片在 Reader 里表头底色在、文字几乎看不见。
+- 根因：`pptx-viewer@0.2.2` 把 `font-family: "Calibri"` 写进 HTML `style="..."`，双引号截断属性，白色/青色 `color` 未生效。
+- 实现：postinstall 补丁改用单引号；合成夹具 `table-header-contrast.pptx` 断言表头 span 仍是白色。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：vitest 33 passed；全量 `429 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5998001 bytes`，SHA256 `e6bccd5747df95793a60178c4a85e03506e5eaced3322842a4b70486a33bedc5`
+
+## 下一步
+
+用 Reader 再打开 `GAIT_AI_Skills_Roadshow_EN.pptx`，确认表头 Dimension / Manual path / This skill (measured) 可见
+
+## 上一目标（已完成）
 
 **冷启动 / 双击打开 / 打开与缩放黑闪**（已完成）
 

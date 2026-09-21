@@ -14,6 +14,10 @@ vi.mock("pptx-viewer", async (importOriginal) => {
 });
 
 const fixture = resolve(process.cwd(), "../../tests/fixtures/pptx/visual-elements.pptx");
+const headerContrastFixture = resolve(
+  process.cwd(),
+  "../../tests/fixtures/pptx/table-header-contrast.pptx",
+);
 
 function mountRoot(): HTMLDivElement {
   const root = document.createElement("div");
@@ -336,6 +340,25 @@ describe("official renderer integration", () => {
 
     presentation.cleanup();
     expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("keeps dark-fill table header run colors after quoting font-family", async () => {
+    const bytes = await readFile(headerContrastFixture);
+    const official = await vi.importActual<typeof import("pptx-viewer")>("pptx-viewer");
+    const presentation = await official.loadPresentation(new Uint8Array(bytes));
+    const host = document.createElement("div");
+    document.body.append(host);
+    official.renderSlideToElement(presentation, 0, host, { width: 960, height: 540 });
+
+    const header = [...host.querySelectorAll("td")].find((cell) =>
+      cell.textContent?.includes("HeaderOne"),
+    );
+    expect(header).toBeDefined();
+    const span = header?.querySelector("span");
+    expect(span).not.toBeNull();
+    expect(span?.getAttribute("style") ?? "").not.toMatch(/calibri",=/i);
+    expect((span?.style.color ?? "").toLowerCase()).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\))$/);
+    presentation.cleanup();
   });
 
   it("wires official rendering into controls and contains a single-slide failure", async () => {

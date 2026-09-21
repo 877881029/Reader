@@ -105,3 +105,24 @@ Approved fix:
   placeholders, and visible text in both Node/jsdom and real QWebEngine.
 - Rebuild the committed bundle and frozen Reader, rerun full regression and
   frozen smoke, refresh the desktop shortcut, and record hashes in STATUS.
+
+## 11. Compatibility amendment: table cell CSS quotes hide header text
+
+Date: 2026-09-21  
+Status: Approved by user (screenshot: same slide in PowerPoint vs Reader; table header fill shows, header labels do not)
+
+Pinned `pptx-viewer@0.2.2` builds table cell runs as HTML:
+
+` <span style="font-family: "Calibri", sans-serif; font-size: 16px; color: #FFFFFF"> `
+
+The extra double quotes around the font name terminate the `style` attribute. `color` never applies, so header runs inherit the slide’s dark text on the navy cell fill and look blank. Body cells stay readable because default text is already dark on a light fill.
+
+Approved fix:
+
+- Keep `pptx-viewer@0.2.2` pinned; extend the existing postinstall patch.
+- Table-run `font-family` inside HTML `style="..."` must use quotes that do not terminate the attribute (single quotes).
+- Do not commit the user’s internal deck. A synthetic fixture with Calibri + white text on `#0B1F3A` header cells is enough.
+- jsdom render of that fixture must keep the header span’s CSS color white.
+- Patch must fail fast if the pinned dist no longer contains the expected template.
+- Rebuild the committed pptx-viewer bundle and frozen Reader.
+

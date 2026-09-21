@@ -18,6 +18,13 @@ const PATCHED_LOOKUP = `    getByType(i) {
       return r.get(l) || [];
     },`;
 
+const UNPATCHED_FONT =
+  'i.fontFamily && c.push(`font-family: "${i.fontFamily}", sans-serif`)';
+const PATCHED_FONT =
+  "i.fontFamily && c.push(`font-family: '${i.fontFamily}', sans-serif`)";
+const UNSUPPORTED_FONT =
+  "Unsupported pptx-viewer@0.2.2 table run CSS: expected one quoted font-family template";
+
 export function patchRelationshipLookup(source) {
   if (source.includes(PATCHED_LOOKUP)) {
     if (source.includes(UNPATCHED_LOOKUP)) {
@@ -33,6 +40,25 @@ export function patchRelationshipLookup(source) {
   return source.replace(UNPATCHED_LOOKUP, PATCHED_LOOKUP);
 }
 
+export function patchTableRunCssQuotes(source) {
+  if (source.includes(PATCHED_FONT)) {
+    if (source.includes(UNPATCHED_FONT)) {
+      throw new Error(UNSUPPORTED_FONT);
+    }
+    return source;
+  }
+
+  const occurrences = source.split(UNPATCHED_FONT).length - 1;
+  if (occurrences !== 1) {
+    throw new Error(UNSUPPORTED_FONT);
+  }
+  return source.replace(UNPATCHED_FONT, PATCHED_FONT);
+}
+
+export function patchPptxViewerSource(source) {
+  return patchTableRunCssQuotes(patchRelationshipLookup(source));
+}
+
 async function patchInstalledPackage() {
   const scriptDirectory = dirname(fileURLToPath(import.meta.url));
   const packageDirectory = resolve(scriptDirectory, "../node_modules/pptx-viewer");
@@ -46,12 +72,12 @@ async function patchInstalledPackage() {
   }
 
   const source = await readFile(distributionPath, "utf8");
-  const patched = patchRelationshipLookup(source);
+  const patched = patchPptxViewerSource(source);
   if (patched !== source) {
     await writeFile(distributionPath, patched, "utf8");
-    console.log(`Patched exact relationship matching: ${distributionPath}`);
+    console.log(`Patched pptx-viewer: ${distributionPath}`);
   } else {
-    console.log(`Exact relationship patch already applied: ${distributionPath}`);
+    console.log(`pptx-viewer patches already applied: ${distributionPath}`);
   }
 }
 
