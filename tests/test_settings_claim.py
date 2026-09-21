@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from reader.shell.settings_claim import SETTINGS_URI, claim_protected_defaults
+from reader.shell.settings_claim import (
+    PROTECTED_EXTENSIONS,
+    SETTINGS_URI,
+    claim_protected_defaults,
+)
+
+
+def test_protected_extensions_include_pdf_and_txt() -> None:
+    assert PROTECTED_EXTENSIONS == (".pdf", ".txt")
 
 
 def test_claim_protected_defaults_skips_settings_when_pdf_already_reader() -> None:
@@ -43,6 +51,32 @@ def test_claim_protected_defaults_opens_reader_page_and_invokes_pdf() -> None:
 
     assert events[0] == ("open", SETTINGS_URI)
     assert ("invoke", (".pdf",)) in events
+    assert events[-1] == "close"
+
+
+def test_claim_protected_defaults_invokes_txt_when_not_reader() -> None:
+    state = {".txt": "Notepad", ".pdf": "Reader"}
+    events: list[object] = []
+
+    def query(ext: str) -> str:
+        return state.get(ext, "Reader")
+
+    def invoke(exts: list[str]) -> None:
+        events.append(("invoke", tuple(exts)))
+        for ext in exts:
+            state[ext] = "Reader"
+
+    claim_protected_defaults(
+        query_app=query,
+        open_settings=lambda uri: events.append(("open", uri)),
+        invoke_file_types=invoke,
+        close_settings=lambda: events.append("close"),
+        sleep=lambda _seconds: None,
+        timeout_s=12,
+    )
+
+    assert events[0] == ("open", SETTINGS_URI)
+    assert ("invoke", (".txt",)) in events
     assert events[-1] == "close"
 
 

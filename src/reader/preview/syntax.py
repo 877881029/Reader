@@ -269,6 +269,11 @@ class CHighlighter(QSyntaxHighlighter):
             )
 
 
+class PlainHighlighter(QSyntaxHighlighter):
+    def highlightBlock(self, text: str) -> None:  # noqa: N802
+        del text
+
+
 def highlighter_for(suffix: str, document: QTextDocument) -> QSyntaxHighlighter:
     language = suffix.lower()
     if language in {".yaml", ".yml"}:
@@ -277,4 +282,6 @@ def highlighter_for(suffix: str, document: QTextDocument) -> QSyntaxHighlighter:
         return XmlHighlighter(document)
     if language in {".c", ".h"}:
         return CHighlighter(document)
+    if language == ".txt":
+        return PlainHighlighter(document)
     return JsonHighlighter(document)

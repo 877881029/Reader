@@ -40,6 +40,7 @@ _BADGE_BY_SUFFIX = {
     ".xml": "XML",
     ".c": "C",
     ".h": "H",
+    ".txt": "TXT",
     ".svg": "SVG",
     ".png": "PNG",
     ".jpg": "JPG",

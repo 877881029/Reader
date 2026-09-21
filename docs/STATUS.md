@@ -5,6 +5,21 @@ Git：`main` 已与 `origin/main` 同步。
 
 ## 当前目标
 
+**`.txt` 阅读 + 默认打开方式也是 Reader**（已完成）
+
+- 规格：`docs/superpowers/specs/2026-09-21-txt-reading-design.md`
+- 计划：`docs/superpowers/plans/2026-09-21-txt-reading.md`（2 个任务均已完成）
+- 用户确认：增加 txt 支持，并把当前用户 `.txt` 默认打开方式改成 Reader。
+- 实现：`.txt` 走现有 `kind="code"` 只读页（行号、可选中复制、无 JSON 高亮，状态「文本预览」）；加入 sniff / 打开对话框 / 欢迎页徽章；`associate.EXTENSIONS` 含 `.txt`；UCPD 锁住时与 PDF 一样走 Settings 申索。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
+- 验证：全量 `435 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
+- 最终 `dist/Reader/Reader.exe`：`5998285 bytes`，SHA256 `700b0adb5bef447c0e49d6e1b288afa43267a672312f0ccd55d633aaac178bc4`
+
+## 下一步
+
+双击一个 `.txt` 确认进 Reader（纸色行号、不能编辑）；若仍进记事本，看启动时是否弹出过「设置 → Reader 的默认应用」
+
+## 上一目标（已完成）
+
 **PPTX 表头文字看不见**（已完成）
 
 - 规格补充：`docs/superpowers/specs/2026-08-25-pptx-visual-preview-design.md` §11
@@ -217,7 +232,7 @@ Git：`main` 已与 `origin/main` 同步。
 
 ## 背景
 
-Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h` / `.svg` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
+Reader 是 Windows 桌面文档查看器（PySide6）。v1 已支持 `.docx` / `.pptx` / `.xlsx` / `.md` / `.txt` / `.pdf` / `.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h` / `.svg` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp`，标签页、内置预览优先、可选 Office COM 高保真、单实例 IPC、PyInstaller onedir `dist/Reader/Reader.exe`、透明蓝色 R 图标。
 
 内置 PPTX 默认已切换为本地 WebEngine 视觉渲染；`python-pptx` 文本 HTML 保留为手动模式和视觉失败回退。
 

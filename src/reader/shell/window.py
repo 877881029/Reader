@@ -1330,7 +1330,7 @@ class MainWindow(QMainWindow):
             self,
             "打开",
             "",
-            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.c *.h *.svg *.png *.jpg *.jpeg *.gif *.webp *.bmp)",
+            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.c *.h *.txt *.svg *.png *.jpg *.jpeg *.gif *.webp *.bmp)",
         )
         if paths:
             self.open_paths([str(path) for path in paths])

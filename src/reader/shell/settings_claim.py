@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 from ctypes import wintypes
 
 SETTINGS_URI = "ms-settings:defaultapps?registeredAppUser=Reader"
-PROTECTED_EXTENSIONS = (".pdf",)
+PROTECTED_EXTENSIONS = (".pdf", ".txt")
 _CREATE_NO_WINDOW = 0x08000000
 _ASSOCF_NOTRUNCATE = 0x00000020
 _ASSOCSTR_FRIENDLYAPPNAME = 4

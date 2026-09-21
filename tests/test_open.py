@@ -54,6 +54,16 @@ def test_rejected_items_keep_reason_and_order(tmp_path: Path):
     )
 
 
+def test_opens_txt(tmp_path: Path):
+    path = tmp_path / "note.txt"
+    path.write_text("hello\n", encoding="utf-8")
+
+    d = decide_open([], [path])
+
+    assert d.to_open == (path.resolve(),)
+    assert d.rejected == ()
+
+
 def test_opens_c_and_h(tmp_path: Path):
     files = [tmp_path / "main.c", tmp_path / "main.h"]
     for path in files:

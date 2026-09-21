@@ -1,7 +1,7 @@
 # Reader 功能全解
 
 版本 **0.1.0**（仍在迭代，不是 1.0）  
-整理日期：2026-09-17  
+整理日期：2026-09-21  
 仓库路径：`docs/Reader功能全解.md`  
 对应本机入口：桌面 `Reader.lnk` → `dist\Reader\Reader.exe`
 
@@ -11,9 +11,9 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 
 ## 1. 一句话能做什么
 
-打开并阅读：Word、PPT、Excel、Markdown、PDF、JSON / YAML / XML、C / 头文件、SVG、常见图片。  
+打开并阅读：Word、PPT、Excel、Markdown、纯文本、PDF、JSON / YAML / XML、C / 头文件、SVG、常见图片。  
 多文件用标签页；第二次再开 Reader 会把文件送到已经开着的窗口。  
-本机已把这些后缀的**当前用户默认程序**设成 Reader（含 `.pdf`、`.svg`、图片、`.c` / `.h`）。
+本机已把这些后缀的**当前用户默认程序**设成 Reader（含 `.pdf`、`.txt`、`.svg`、图片、`.c` / `.h`）。
 
 ---
 
@@ -29,7 +29,7 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 | 欢迎页「最近打开」 | 点卡片再开 |
 | 已经打开过的同一路径 | 切到已有标签，不重复开 |
 
-打开对话框筛选：`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.c` `.h` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`。
+打开对话框筛选：`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.c` `.h` `.txt` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`。
 
 不支持的文件会拒绝（例如旧版 `.doc` / `.ppt` / `.xls`、HTML、文件夹、RAW / HEIC）。
 
@@ -128,6 +128,10 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 
 `.yml` 和 `.yaml` 同一套高亮。`.c` 和 `.h` 同一套 C 高亮（关键字、数字、字符串、注释、预处理指令）。
 
+### 5.5.1 纯文本（`.txt`）
+
+同样走只读代码页：行号、可选中复制、UTF-8（非法字节替换）。**没有**语法高亮，避免把普通笔记当成 JSON 上色。状态为「文本预览」。不可编辑保存。
+
 ### 5.6 SVG（`.svg`）
 
 只读图形预览，不是 XML 源码页：
@@ -199,11 +203,11 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 
 启动 Reader 时，会把当前用户下这些后缀指到 Reader：
 
-`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.c` `.h` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`
+`.docx` `.pptx` `.xlsx` `.md` `.pdf` `.json` `.yaml` `.yml` `.xml` `.c` `.h` `.txt` `.svg` `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp`
 
 - 不需要管理员。  
 - 不伪造 Windows 的 UserChoice 校验。  
-- `.pdf` 被系统锁死后，若还不是 Reader，会短暂打开一次「设置 → Reader 的默认应用」页，由系统自己改；已经是 Reader 则不再弹。  
+- `.pdf` / `.txt` 被系统锁死后，若还不是 Reader，会短暂打开一次「设置 → Reader 的默认应用」页，由系统自己改；已经是 Reader 则不再弹。  
 - 也会刷新桌面快捷方式（已有快捷方式默认不覆盖；本机日常用的 `Reader.lnk` 指向冻结后的 exe）。
 
 在「设置 → 应用 → 默认应用」里可以看到 Reader，按文件类型也能再改回去。

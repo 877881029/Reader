@@ -17,6 +17,17 @@ def test_code_preview_keeps_text_and_kind(tmp_path: Path):
     assert language_for(".xml") == "xml"
     assert language_for(".c") == "c"
     assert language_for(".h") == "c"
+    assert language_for(".txt") == "text"
+
+
+def test_txt_preview_uses_text_status(tmp_path: Path):
+    path = tmp_path / "note.txt"
+    path.write_text("hello\n", encoding="utf-8")
+    result = to_preview(path)
+    assert result.kind == "code"
+    assert result.status_label == "文本预览"
+    assert result.error is None
+    assert "hello" in result.html
 
 
 def test_code_preview_replaces_invalid_utf8(tmp_path: Path):

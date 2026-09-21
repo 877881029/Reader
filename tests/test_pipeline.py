@@ -265,13 +265,15 @@ def test_json_yaml_xml_use_code_preview_without_office(tmp_path: Path):
         "d.xml": "<root/>\n",
         "e.c": "int main(void) { return 0; }\n",
         "f.h": "#define OK 1\n",
+        "g.txt": "plain note\n",
     }
     for name, body in samples.items():
         path = tmp_path / name
         path.write_text(body, encoding="utf-8")
         result = preview(path, office=office)
         assert result.kind == "code"
-        assert result.status_label == "代码预览"
+        expected = "文本预览" if name.endswith(".txt") else "代码预览"
+        assert result.status_label == expected
         assert body in result.html
     assert office.calls == []
 

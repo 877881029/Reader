@@ -59,6 +59,18 @@ def test_highlighter_colors_c_keyword_number_and_comment(qtbot):
     assert "#0f766e" in include_colors
 
 
+def test_highlighter_txt_is_plain_not_json(qtbot):
+    editor = QPlainTextEdit()
+    qtbot.addWidget(editor)
+    editor.setPlainText('{"hello": 12}')
+    highlighter = highlighter_for(".txt", editor.document())
+    assert highlighter.__class__.__name__ == "PlainHighlighter"
+    assert not isinstance(highlighter, JsonHighlighter)
+    highlighter.rehighlight()
+    colors = _layout_foregrounds(editor.document())
+    assert (1, 7, "#0f766e") not in colors
+
+
 def test_highlighter_colors_yaml_key_and_xml_tag(qtbot):
     yaml_editor = QPlainTextEdit()
     xml_editor = QPlainTextEdit()
