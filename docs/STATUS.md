@@ -1,11 +1,7 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-21
-Git：本地 `main` 仍可能超前于 `origin/main`（上次 push 403）。
-
-## 阻塞
-
-`git push origin main` 上次返回 403：`Permission to 877881029/Reader.git denied to runqyang_amdeng`。
+Git：`main` 已与 `origin/main` 同步。
 
 ## 当前目标
 
