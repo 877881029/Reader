@@ -17,7 +17,19 @@ def test_code_preview_keeps_text_and_kind(tmp_path: Path):
     assert language_for(".xml") == "xml"
     assert language_for(".c") == "c"
     assert language_for(".h") == "c"
+    assert language_for(".cpp") == "c"
+    assert language_for(".hpp") == "c"
     assert language_for(".txt") == "text"
+
+
+def test_cpp_and_hpp_preview_as_code(tmp_path: Path):
+    for name in ("main.cpp", "main.hpp"):
+        path = tmp_path / name
+        path.write_text("class Reader {};\n", encoding="utf-8")
+        result = to_preview(path)
+        assert result.kind == "code"
+        assert result.status_label == "代码预览"
+        assert "class Reader" in result.html
 
 
 def test_txt_preview_uses_text_status(tmp_path: Path):

@@ -24,6 +24,8 @@ surface without adding dependencies.
 
 ## Task 1: Add the C++ suffix contract and production wiring
 
+Status: Complete
+
 **Files**
 
 - Modify: `tests/test_formats_code.py`
@@ -70,6 +72,8 @@ Update STATUS with RED/GREEN evidence, commit, and push before Task 2.
 
 ## Task 2: Add frozen C++ acceptance and close the feature
 
+Status: Pending
+
 **Files**
 
 - Modify: `tests/test_packaging.py`
@@ -103,4 +107,3 @@ cleanup counts, and all test totals in STATUS.
 
 Mark the specification implemented, update STATUS, commit, push, and confirm
 `HEAD...origin/main` is `0 / 0`.
-

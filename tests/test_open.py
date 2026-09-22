@@ -64,8 +64,13 @@ def test_opens_txt(tmp_path: Path):
     assert d.rejected == ()
 
 
-def test_opens_c_and_h(tmp_path: Path):
-    files = [tmp_path / "main.c", tmp_path / "main.h"]
+def test_opens_c_family_sources(tmp_path: Path):
+    files = [
+        tmp_path / "main.c",
+        tmp_path / "main.h",
+        tmp_path / "main.cpp",
+        tmp_path / "main.hpp",
+    ]
     for path in files:
         path.write_text("int x;\n", encoding="utf-8")
 

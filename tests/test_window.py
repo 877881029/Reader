@@ -2542,6 +2542,8 @@ def test_open_dialog_filter_includes_pdf(qtbot, monkeypatch):
     assert "*.xml" in captured[0]
     assert "*.c" in captured[0]
     assert "*.h" in captured[0]
+    assert "*.cpp" in captured[0]
+    assert "*.hpp" in captured[0]
     assert "*.txt" in captured[0]
     assert "*.svg" in captured[0]
     assert "*.png" in captured[0]

@@ -21,6 +21,8 @@ EXTENSIONS = (
     ".xml",
     ".c",
     ".h",
+    ".cpp",
+    ".hpp",
     ".txt",
     ".svg",
     ".png",

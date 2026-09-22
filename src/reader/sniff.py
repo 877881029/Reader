@@ -13,6 +13,8 @@ SUPPORTED_EXTENSIONS = frozenset(
         ".xml",
         ".c",
         ".h",
+        ".cpp",
+        ".hpp",
         ".txt",
         ".svg",
         ".png",

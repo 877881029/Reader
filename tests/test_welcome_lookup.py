@@ -18,6 +18,13 @@ def _window() -> MainWindow:
     )
 
 
+def test_cpp_and_hpp_have_welcome_badges():
+    from reader.shell.welcome import _BADGE_BY_SUFFIX
+
+    assert _BADGE_BY_SUFFIX[".cpp"] == "CPP"
+    assert _BADGE_BY_SUFFIX[".hpp"] == "HPP"
+
+
 def test_openable_in_directory_lists_folders_then_supported_files(tmp_path: Path):
     from reader.shell.welcome import openable_in_directory
 

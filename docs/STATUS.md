@@ -1,21 +1,24 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险 Task 1–5 已实现并验证；Task 5 风险修复 `22add51` 已同步到 `origin/main`，最终证据待提交。
+Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4` 已同步到 `origin/main`；C++ Task 1 待提交。
 
 ## 当前目标
 
-**`.cpp` / `.hpp` C++ 源码阅读**（规格和 TDD 计划已建立，等待 RED）
+**`.cpp` / `.hpp` C++ 源码阅读**（Task 1 已完成，Task 2 待开始）
 
 - 规格：`docs/superpowers/specs/2026-09-22-cpp-hpp-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-22-cpp-hpp-reading.md`（2 个 TDD 任务）
 - 范围：复用现有 C/H 的只读 code view、行号、复制、C-family 高亮和 `代码预览`；打通 sniff、pipeline、打开对话框、欢迎页徽章、当前用户 Open With 和 frozen smoke。
 - 非目标：编辑/保存、编译/LSP、第三方解析器、其他 C++ 后缀、UCPD Settings 申索；不得修改 `hit_test_local`、`begin_window_move` 或 `nativeEvent`。
-- 当前边界：先提交并推送规格/计划，再进入 Task 1 RED；不得把设计边界与生产代码混为一个提交。
+- Task 1 RED：只新增测试后，聚焦套件 `10 failed, 217 passed`；失败精确覆盖语言映射、C-family highlighter、sniff、`decide_open`、pipeline、当前用户关联、打开对话框和欢迎页徽章。
+- Task 1 GREEN：`.cpp` / `.hpp` 进入 `CODE_SUFFIXES` 和所有发现/打开/关联/UI 清单，映射到现有 `kind="code"`、`CHighlighter` 和 `代码预览`；README 与功能全解同步，`PROTECTED_EXTENSIONS` 保持仅 `.pdf` / `.txt`。
+- Task 1 验证：聚焦 `232 passed`；统一快速门禁成功，PPTX Web `33 passed`、Markdown Web `21 passed`、Python `448 passed, 1 skipped`，最终输出 `Reader fast verification passed`。
+- 当前边界：Task 1 完成，等待原子提交和推送；Task 2 将单独扩展 frozen smoke。
 
 ## 下一步
 
-执行 `.cpp` / `.hpp` Task 1 RED，证明各入口尚未支持，再做最小生产接线。
+提交并推送 `.cpp` / `.hpp` Task 1；随后执行 Task 2 frozen smoke RED。
 
 ## 上一目标（已完成）
 

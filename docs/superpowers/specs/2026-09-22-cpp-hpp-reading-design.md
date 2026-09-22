@@ -1,7 +1,7 @@
 # C++ Source Reading (`.cpp` / `.hpp`)
 
 Date: 2026-09-22
-Status: Approved; implementation pending
+Status: Implementing; Task 1 complete
 Progress ledger: `docs/STATUS.md`
 
 ## 1. Goal
@@ -67,4 +67,3 @@ All suffix comparisons remain case-insensitive through the existing
    Markdown, TXT, or two-batch IPC smoke contracts.
 5. The unified fast gate passes after implementation; the release gate passes
    before the feature is marked complete.
-

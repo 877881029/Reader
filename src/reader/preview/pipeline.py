@@ -24,6 +24,8 @@ _BUILTIN = {
     ".xml": fmt_code.to_preview,
     ".c": fmt_code.to_preview,
     ".h": fmt_code.to_preview,
+    ".cpp": fmt_code.to_preview,
+    ".hpp": fmt_code.to_preview,
     ".txt": fmt_code.to_preview,
 }
 

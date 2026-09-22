@@ -280,7 +280,7 @@ def highlighter_for(suffix: str, document: QTextDocument) -> QSyntaxHighlighter:
         return YamlHighlighter(document)
     if language == ".xml":
         return XmlHighlighter(document)
-    if language in {".c", ".h"}:
+    if language in {".c", ".h", ".cpp", ".hpp"}:
         return CHighlighter(document)
     if language == ".txt":
         return PlainHighlighter(document)

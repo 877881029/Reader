@@ -68,6 +68,8 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
         ".xml",
         ".c",
         ".h",
+        ".cpp",
+        ".hpp",
         ".txt",
         ".svg",
         ".png",
