@@ -53,6 +53,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 -SkipBuild
 
 开发者还要测试时加上 `-Dev`。也可以单独再跑 `scripts\build_windows.ps1`。
 
+## 开发验证
+
+每次原子代码修改先按 TDD 完成聚焦测试，再运行统一快速质量门：
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
+```
+
+它先用锁定依赖运行并构建 PPTX/Markdown Web，再运行 Python 全量测试；
+这样 Python 的供应链和 bundle manifest 检查也基于确定性构建产物。深路径
+worktree 可通过 `-Python C:\短路径\python.exe` 或 `READER_PYTHON` 指定短路径
+虚拟环境。
+
+发布候选还必须运行冻结构建和 GUI smoke：
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release
+```
+
 ## 文档
 
 - 功能全解：`docs/Reader功能全解.md`

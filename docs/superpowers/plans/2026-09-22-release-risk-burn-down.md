@@ -6,6 +6,8 @@ Spec: `docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
 
 ## Task 1: Enforce repository consistency
 
+Status: Complete (`1d5a379`)
+
 **Files**
 
 - Modify: `.gitignore`
@@ -44,6 +46,8 @@ Update STATUS, commit, and push before Task 2.
 
 ## Task 2: Add one fast quality gate
 
+Status: Complete; pending boundary commit
+
 **Files**
 
 - Create: `scripts/verify.ps1`
@@ -53,7 +57,8 @@ Update STATUS, commit, and push before Task 2.
 
 **RED**
 
-Add packaging tests requiring a strict PowerShell script that runs, in order:
+Add packaging tests requiring a strict PowerShell script. The initial proposed
+order was:
 
 1. Python `pytest`;
 2. PPTX `npm ci`, test, and typecheck;
@@ -61,6 +66,12 @@ Add packaging tests requiring a strict PowerShell script that runs, in order:
 
 It must stop on native non-zero exit and offer an explicit release switch that
 adds `build_windows.ps1` and `smoke_windows.ps1`.
+
+Real execution proved that Python supply-chain tests inspect installed Web
+dependencies and generated bundle manifests. The accepted order is therefore
+PPTX Web install/test/typecheck/build, Markdown Web
+install/test/typecheck/build, deterministic PPTX notice/manifest restoration,
+then Python `pytest`.
 
 **GREEN**
 

@@ -53,6 +53,75 @@ def test_build_windows_script_is_clean_and_runs_the_spec() -> None:
     assert "dist\\Reader\\Reader.exe" in script
 
 
+def test_verify_script_runs_fast_gate_and_optional_release_gate() -> None:
+    script = (ROOT / "scripts" / "verify.ps1").read_text(encoding="utf-8")
+
+    required = [
+        "[switch]$Release",
+        "[string]$Python",
+        "READER_PYTHON",
+        r".venv\Scripts\python.exe",
+        '-m pytest',
+        'Invoke-Npm "ci --prefix web\\pptx-viewer"',
+        'Invoke-Npm "test --prefix web\\pptx-viewer"',
+        'Invoke-Npm "run typecheck --prefix web\\pptx-viewer"',
+        'Invoke-Npm "run build --prefix web\\pptx-viewer"',
+        'Invoke-Npm "ci --prefix web\\md-viewer"',
+        'Invoke-Npm "test --prefix web\\md-viewer"',
+        'Invoke-Npm "run typecheck --prefix web\\md-viewer"',
+        'Invoke-Npm "run build --prefix web\\md-viewer"',
+        "function Write-WebBundleManifest",
+        "THIRD_PARTY_NOTICES.txt",
+        "manifest.sha256",
+        "[System.IO.File]::WriteAllBytes",
+        "[System.Text.Encoding]::ASCII.GetBytes($content)",
+        "$verificationMessage = if ($Release)",
+        "Write-Host $verificationMessage",
+        "build_windows.ps1",
+        "smoke_windows.ps1",
+        "dist\\Reader\\Reader.exe",
+        "$LASTEXITCODE -ne 0",
+    ]
+    for fragment in required:
+        assert fragment in script
+    assert "Write-Host (\n    if ($Release)" not in script
+
+    pptx_ci = script.index('Invoke-Npm "ci --prefix web\\pptx-viewer"')
+    pptx_tests = script.index('Invoke-Npm "test --prefix web\\pptx-viewer"')
+    pptx_typecheck = script.index(
+        'Invoke-Npm "run typecheck --prefix web\\pptx-viewer"'
+    )
+    pptx_build = script.index('Invoke-Npm "run build --prefix web\\pptx-viewer"')
+    md_ci = script.index('Invoke-Npm "ci --prefix web\\md-viewer"')
+    md_tests = script.index('Invoke-Npm "test --prefix web\\md-viewer"')
+    md_typecheck = script.index(
+        'Invoke-Npm "run typecheck --prefix web\\md-viewer"'
+    )
+    md_build = script.index('Invoke-Npm "run build --prefix web\\md-viewer"')
+    pptx_notice = script.index("THIRD_PARTY_NOTICES.txt", pptx_build)
+    pptx_manifest = script.index("Write-WebBundleManifest", pptx_notice)
+    python_tests = script.index("-m pytest")
+    release_gate = script.index("if ($Release)")
+    build = script.index("build_windows.ps1", release_gate)
+    smoke = script.index("smoke_windows.ps1", build)
+    assert (
+        pptx_ci
+        < pptx_tests
+        < pptx_typecheck
+        < pptx_build
+        < md_ci
+        < md_tests
+        < md_typecheck
+        < md_build
+        < pptx_notice
+        < pptx_manifest
+        < python_tests
+        < release_gate
+        < build
+        < smoke
+    )
+
+
 def test_build_script_runs_native_npm_checks_before_pyinstaller() -> None:
     script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
 

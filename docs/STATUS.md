@@ -1,24 +1,28 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：TDD 与原子提交治理规则已提交并同步到 `origin/main`（`4982e8e`）。
+Git：发布风险 Task 1 已提交并同步到 `origin/main`（`1d5a379`）；Task 2 已验证，待提交同步。
 
 ## 当前目标
 
 **发布风险前置消除与自动验收基线**（进行中）
 
 - 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
-- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1 已完成，Task 2 待开始）
+- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1–2 已完成，Task 3 待开始）
 - 用户确认：把潜在风险和进度风险加入下一步方案，提前消灭，并按完整方案逐步开始开发。
 - 审计发现：未跟踪 `logs/bvm/bvm.log` 污染工作区；多份已完成规格头部仍显示 Draft/awaiting/implementing；项目元数据落后；缺少统一快速质量门和远端 CI；冻结 smoke 尚未覆盖最新 `.txt` 能力；启动性能缺少稳定里程碑记录。
 - 执行顺序：项目卫生与状态一致性 → 统一质量门 → 冻结 TXT 验收 → Windows CI → 完整 release candidate 验证 → 下一功能。
 - Task 1 RED：`tests/test_project_hygiene.py` 初次运行 `3 failed`，分别复现 logs 未忽略、包描述过时、5 份规格状态误导。
 - Task 1 GREEN：加入 `/logs/` 忽略；包描述更新为 Windows multi-format document viewer；5 份已完成规格状态归一；聚焦测试 `3 passed`。深层 worktree 安装 PySide6 触发 Windows 路径长度限制，验证环境改用会话专属短路径 venv，不修改系统策略。
-- 当前边界：Task 1 验证完成，等待原子提交并推送。
+- Task 2 RED：`tests/test_packaging.py -k verify_script` 首次失败，证明统一门禁脚本缺失。
+- Task 2 真实执行依次暴露并消除三个风险：Python 早于 Web 构建导致供应链/manifest 检查失败；PPTX Vite 构建会删除第三方声明和 manifest；Windows PowerShell 5.1 不接受 `Write-Host (if ...)`。门禁改为 Web 锁定安装、测试、类型检查、构建，恢复 PPTX 声明并确定性生成 manifest，再执行 Python 全量测试；发布模式额外串联冻结构建和 GUI smoke。
+- Task 2 GREEN：聚焦回归 `1 passed`；`scripts\verify.ps1 -Python C:\venvs\reader-076ca44a\Scripts\python.exe` 成功，PPTX Web `33 passed`、Markdown Web `21 passed`、Python `439 passed, 1 skipped`，最终输出 `Reader fast verification passed` 且退出码 0。
+- 已知供应链风险：两个 Web 锁定依赖树当前均报告 4 个审计项（2 moderate、1 high、1 critical）；不使用破坏兼容性的 `npm audit fix --force`，后续单独规格化评估和升级。
+- 当前边界：Task 2 验证完成，等待原子提交并推送。
 
 ## 下一步
 
-提交并推送 Task 1；随后执行 Task 2，为 Python、PPTX Web、Markdown Web 建立一个快速质量门入口。
+提交并推送 Task 2；随后执行 Task 3，为冻结 Reader 增加 `.txt` 打开验收与精确 ready 遥测。
 
 ## 上一目标（已完成）
 
