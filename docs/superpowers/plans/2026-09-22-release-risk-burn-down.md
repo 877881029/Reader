@@ -46,7 +46,7 @@ Update STATUS, commit, and push before Task 2.
 
 ## Task 2: Add one fast quality gate
 
-Status: Complete; pending boundary commit
+Status: Complete (`3252f9e`)
 
 **Files**
 
