@@ -1,7 +1,7 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险 Task 1–2 已提交并同步到 `origin/main`（Task 2：`3252f9e`）；Task 3 已验证，待提交同步。
+Git：发布风险 Task 1–3 已提交并同步到 `origin/main`（Task 3：`b37976c`）。
 
 ## 当前目标
 
@@ -21,11 +21,11 @@ Git：发布风险 Task 1–2 已提交并同步到 `origin/main`（Task 2：`32
 - Task 3 RED：文档 ready helper、内容安装后 TXT 遥测、冻结 TXT 独立阶段共 `4 failed`，分别证明 helper、接线和 smoke 阶段均不存在。
 - Task 3 GREEN：`append_document_ready` 在未配置环境变量时无副作用；启用 smoke 时记录 canonical path、`kind="code"`、`extension=".txt"`、`status="文本预览"`，且只在当前文档内容成功安装后发出。冻结 smoke 新增独立 TXT 进程、命名空间、profile、临时根、精确事件等待和严格清理，原 IPC 两批约束不变。
 - Task 3 验证：聚焦 `4 passed`；相关 smoke/window/packaging `165 passed`；PowerShell 语法解析通过；统一快速门禁成功，PPTX Web `33 passed`、Markdown Web `21 passed`、Python `442 passed, 1 skipped`。
-- 当前边界：Task 3 验证完成，等待原子提交并推送。
+- 当前边界：Task 3 已完成并同步；Task 4 待开始。
 
 ## 下一步
 
-提交并推送 Task 3；随后执行 Task 4，增加 Windows Python 3.12 / Node 22 CI 并调用统一快速门禁。
+执行 Task 4，增加 Windows Python 3.12 / Node 22 CI 并调用统一快速门禁。
 
 ## 上一目标（已完成）
 
