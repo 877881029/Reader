@@ -3,11 +3,14 @@ description: Keep goals and progress in git so a new AI session can resume Reade
 alwaysApply: true
 ---
 
-# Git 进度同步（强制）
+# TDD 与 Git 进度同步（强制）
 
 - 权威来源是 git，不是聊天。开场先读 `docs/STATUS.md` 和 `docs/superpowers/process.md`。
 - 用户已确认的目标、规格、计划、完成/阻塞状态必须写入仓库：`docs/STATUS.md` + 对应 `docs/superpowers/specs/` 或 `plans/`。
-- 在这些边界提交并推送 `origin/main`：规格批准、计划写完、每个实现任务完成、会话结束前。只要有更新就必须同步远端。GitHub 远程用账号 `877881029`，不要用 `runqyang_amdeng`（清掉 amdeng 的 `GH_TOKEN` 后再 `gh auth switch --hostname github.com --user 877881029`）。
+- 所有产品代码修改必须按 TDD 的 RED → GREEN → REFACTOR 顺序进行：先写或修改测试并确认失败，再写最小实现使其通过，最后在测试保护下重构。修复缺陷必须先有能复现缺陷的回归测试；不得先写实现、事后补测试。
+- 每次代码修改都必须形成一个可独立回退、可独立说明的原子提交；完成本次修改并验证后，必须先更新 `docs/STATUS.md`、提交，再开始下一次代码修改。不得把多个目标、多个实现任务或无关改动积压在同一提交中。
+- 纯规格、计划、规则和状态修改也必须在各自边界单独提交。禁止将设计/计划与尚未验证的实现混在同一提交。
+- 在这些边界提交并推送 `origin/main`：规格批准、计划写完、每次代码修改完成、每个实现任务完成、会话结束前。只要有更新就必须同步远端。GitHub 远程用账号 `877881029`，不要用 `runqyang_amdeng`（清掉 amdeng 的 `GH_TOKEN` 后再 `gh auth switch --hostname github.com --user 877881029`）。
 - 提交信息写目标变化（为什么），并更新 STATUS 的「当前目标 / 已完成 / 下一步」。
 - 未推送不算同步。推送失败要记在 STATUS 阻塞项。
 - 不要只改代码不改 STATUS，也不要只在对话里说“下一步”。

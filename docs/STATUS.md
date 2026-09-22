@@ -1,9 +1,22 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-21
-Git：`main` 已与 `origin/main` 同步。
+最后更新：2026-09-22
+Git：开发治理规则补强待提交并同步。
 
 ## 当前目标
+
+**TDD 与原子 Git 进度规则补强**（已完成）
+
+- 用户确认：所有开发必须遵循 TDD；为避免 Agent 上下文污染，目标、进度和状态必须及时写入 git；每次代码修改都必须形成可回退提交，方便新 chat 从仓库快速接手。
+- 实现：`.cursor/rules/git-progress-handoff.mdc` 强制 RED → GREEN → REFACTOR、缺陷先写回归测试、每次代码修改验证后立即更新 STATUS 并原子提交、提交后才能开始下一项修改；`docs/superpowers/process.md` 同步明确开发节奏、提交边界和新会话接手顺序。
+- 边界解释：“每次代码修改”指一个可独立验证、可独立回退的最小行为变化，不按每次保存文件机械拆分；对应 RED 测试和 GREEN 实现可以放在同一个原子提交，但必须记录 RED/GREEN 证据。
+- 验证：仅规则与流程文档修改，无产品代码，无需运行产品测试。
+
+## 下一步
+
+所有后续功能从 `STATUS → 规格 → TDD 计划 → RED → GREEN → REFACTOR → STATUS → 原子提交 → 推送` 流程开始；当前产品验收仍为双击 `.txt` 确认进入 Reader。
+
+## 上一目标（已完成）
 
 **`.txt` 阅读 + 默认打开方式也是 Reader**（已完成）
 
@@ -13,10 +26,6 @@ Git：`main` 已与 `origin/main` 同步。
 - 实现：`.txt` 走现有 `kind="code"` 只读页（行号、可选中复制、无 JSON 高亮，状态「文本预览」）；加入 sniff / 打开对话框 / 欢迎页徽章；`associate.EXTENSIONS` 含 `.txt`；UCPD 锁住时与 PDF 一样走 Settings 申索。未改 `hit_test_local` / `begin_window_move` / `nativeEvent`
 - 验证：全量 `435 passed, 1 skipped`；frozen smoke PPTX/MD/IPC 通过；桌面快捷方式已刷新
 - 最终 `dist/Reader/Reader.exe`：`5998285 bytes`，SHA256 `700b0adb5bef447c0e49d6e1b288afa43267a672312f0ccd55d633aaac178bc4`
-
-## 下一步
-
-双击一个 `.txt` 确认进 Reader（纸色行号、不能编辑）；若仍进记事本，看启动时是否弹出过「设置 → Reader 的默认应用」
 
 ## 上一目标（已完成）
 
