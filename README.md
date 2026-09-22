@@ -72,6 +72,9 @@ worktree 可通过 `-Python C:\短路径\python.exe` 或 `READER_PYTHON` 指定�
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release
 ```
 
+提交到 `main` 或打开 pull request 时，Windows CI 会在 Python 3.12 和
+Node.js 22 的干净环境中执行同一快速质量门；本地与远端使用同一验收入口。
+
 ## 文档
 
 - 功能全解：`docs/Reader功能全解.md`

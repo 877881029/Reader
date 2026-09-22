@@ -45,3 +45,31 @@ def test_specification_headers_do_not_claim_completed_work_is_pending() -> None:
             stale.append(f"{path.name}: {match.group(0)}")
 
     assert stale == []
+
+
+def test_windows_quality_workflow_runs_unified_gate_with_pinned_toolchains() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "quality.yml"
+    ).read_text(encoding="utf-8")
+
+    required = [
+        "permissions:\n  contents: read",
+        "concurrency:",
+        "cancel-in-progress: true",
+        "runs-on: windows-latest",
+        "actions/checkout@v4",
+        "actions/setup-python@v5",
+        "python-version: '3.12'",
+        "cache: pip",
+        "cache-dependency-path: pyproject.toml",
+        "actions/setup-node@v4",
+        "node-version: '22'",
+        "cache: npm",
+        "web/pptx-viewer/package-lock.json",
+        "web/md-viewer/package-lock.json",
+        'python -m pip install -e ".[dev]"',
+        "scripts\\verify.ps1 -Python python",
+    ]
+    for fragment in required:
+        assert fragment in workflow
+    assert "office" not in workflow.lower()
