@@ -409,16 +409,21 @@ def _verify_real_view_fidelity(qtbot, view, changed, failures):
     assert len(blocked) == len(expected_blocked)
     assert set(blocked) == set(expected_blocked)
     assert blocked.count(TRACKER_URL) == 1
-    assert run_json(
-        qtbot,
-        view,
-        """
+    blocked_image_ready = """
         (() => {
           const image = [...document.querySelectorAll("[data-outbound-probe]")]
             .find(node => node.dataset.outboundProbe.includes("tracker.png"));
           return image.complete && image.naturalWidth === 0;
         })()
-        """,
+    """
+    qtbot.waitUntil(
+        lambda: run_json(qtbot, view, blocked_image_ready),
+        timeout=10_000,
+    )
+    assert run_json(
+        qtbot,
+        view,
+        blocked_image_ready,
     )
     assert failures == []
 

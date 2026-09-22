@@ -116,7 +116,7 @@ Update STATUS, commit, and push before Task 4.
 
 ## Task 4: Add clean Windows CI
 
-Status: Complete; pending boundary commit
+Status: Remote validation follow-up in progress
 
 **Files**
 
