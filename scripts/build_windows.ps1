@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+    [string]$Python = ""
+)
+
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
@@ -109,14 +114,20 @@ $MdManifestPath = Write-WebBundleManifest -BundlePath $MdBundlePath
 Test-WebBundleManifest -ManifestPath $MdManifestPath -BundlePath $MdBundlePath `
     -MismatchLabel "Markdown bundle hash mismatch"
 
-if (-not (Test-Path ".venv\Scripts\python.exe")) {
-    py -3.12 -m venv .venv
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to create the Python virtual environment (exit $LASTEXITCODE)"
+if ([string]::IsNullOrWhiteSpace($Python)) {
+    if (-not (Test-Path ".venv\Scripts\python.exe")) {
+        py -3.12 -m venv .venv
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create the Python virtual environment (exit $LASTEXITCODE)"
+        }
     }
+    $Python = (Resolve-Path ".venv\Scripts\python.exe").Path
+} elseif (Test-Path $Python -PathType Leaf) {
+    $Python = (Resolve-Path $Python).Path
+} else {
+    $Python = (Get-Command $Python -ErrorAction Stop).Source
 }
 
-$Python = Resolve-Path ".venv\Scripts\python.exe"
 & $Python -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to upgrade pip (exit $LASTEXITCODE)"

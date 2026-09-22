@@ -74,8 +74,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if ($Release) {
+    $buildPython = (
+        & $Python @pythonPrefix -c "import sys; print(sys.executable)"
+    ).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to resolve build Python (exit $LASTEXITCODE)"
+    }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass `
-        -File (Join-Path $PSScriptRoot "build_windows.ps1")
+        -File (Join-Path $PSScriptRoot "build_windows.ps1") `
+        -Python $buildPython
     if ($LASTEXITCODE -ne 0) {
         throw "Frozen build failed (exit $LASTEXITCODE)"
     }

@@ -41,6 +41,9 @@ def test_reader_spec_collects_complete_pptx_runtime_and_webchannel() -> None:
 def test_build_windows_script_is_clean_and_runs_the_spec() -> None:
     script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
 
+    assert '[string]$Python = ""' in script
+    assert 'Test-Path $Python -PathType Leaf' in script
+    assert 'Get-Command $Python -ErrorAction Stop' in script
     assert '& $Python -m pip install --upgrade pip' in script
     assert '& $Python -m pip install -e ".[dev]" pyinstaller' in script
     assert '& $Python scripts\\generate_icons.py' in script
@@ -78,6 +81,8 @@ def test_verify_script_runs_fast_gate_and_optional_release_gate() -> None:
         "$verificationMessage = if ($Release)",
         "Write-Host $verificationMessage",
         "build_windows.ps1",
+        '-Python $buildPython',
+        'import sys; print(sys.executable)',
         "smoke_windows.ps1",
         "dist\\Reader\\Reader.exe",
         "$LASTEXITCODE -ne 0",
@@ -353,6 +358,7 @@ def test_packaging_smoke_can_disable_real_shell_integration() -> None:
 def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> None:
     script = (ROOT / "scripts" / "smoke_windows.ps1").read_text(encoding="utf-8")
 
+    assert script.isascii()
     assert "READER_SKIP_SHELL_INTEGRATION" in script
     assert "READER_IPC_NAMESPACE" in script
     assert "READER_SMOKE_BATCH_LOG" in script
@@ -397,7 +403,11 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "frozen TXT rendering" in text_phase
     assert '$record.kind -eq "code"' in script
     assert '$record.extension -eq ".txt"' in script
-    assert '$record.status -eq "文本预览"' in script
+    assert "[char]0x6587" in script
+    assert "[char]0x672C" in script
+    assert "[char]0x9884" in script
+    assert "[char]0x89C8" in script
+    assert '$record.status -eq $textPreviewStatus' in script
     assert "Get-TextRecord" in text_phase
     assert "Frozen TXT Reader did not report format-explicit ready within 60 seconds" in (
         text_phase

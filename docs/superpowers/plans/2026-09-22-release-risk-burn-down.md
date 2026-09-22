@@ -142,6 +142,8 @@ Update STATUS, commit, and push before Task 5.
 
 ## Task 5: Release-candidate verification
 
+Status: In progress; final end-to-end rerun pending
+
 **Files**
 
 - Modify: `docs/STATUS.md`

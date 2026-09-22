@@ -1,14 +1,14 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险 Task 1–4 已提交并同步到 `origin/main`（Task 4 修复：`8dfcc42`）。
+Git：发布风险 Task 1–4 已提交并同步到 `origin/main`（Task 4 修复：`8dfcc42`）；Task 5 release gate 修复待同步。
 
 ## 当前目标
 
 **发布风险前置消除与自动验收基线**（进行中）
 
 - 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
-- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1–4 已完成，Task 5 待开始）
+- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1–4 已完成，Task 5 整链复验中）
 - 用户确认：把潜在风险和进度风险加入下一步方案，提前消灭，并按完整方案逐步开始开发。
 - 审计发现：未跟踪 `logs/bvm/bvm.log` 污染工作区；多份已完成规格头部仍显示 Draft/awaiting/implementing；项目元数据落后；缺少统一快速质量门和远端 CI；冻结 smoke 尚未覆盖最新 `.txt` 能力；启动性能缺少稳定里程碑记录。
 - 执行顺序：项目卫生与状态一致性 → 统一质量门 → 冻结 TXT 验收 → Windows CI → 完整 release candidate 验证 → 下一功能。
@@ -27,11 +27,15 @@ Git：发布风险 Task 1–4 已提交并同步到 `origin/main`（Task 4 修�
 - Task 4 首次远端 run `35713005104`：干净 runner 再次稳定复现同一 WebEngine 竞态（拦截器已记录全部阻断请求，但 `<img>` 的 complete 状态尚未异步更新）；runner 同时警告 checkout/setup action 的 Node 20 runtime 已弃用。
 - Task 4 远端修复：测试在确认全部 URL 被拦截后继续等待图片进入 `complete && naturalWidth === 0`，本地连续 3 次通过；actions 升级到 checkout v5、setup-python v6、setup-node v5，合同测试先 RED 后 `4 passed`。
 - Task 4 远端 GREEN：修复提交 `8dfcc42` 的 Windows quality run `35713742029` 在干净 runner 上全步骤通过，耗时 5m04s。
-- 当前边界：Task 4 已完成并同步；Task 5 待开始。
+- Task 5 第一次 RED：`verify.ps1 -Python` 未把解释器传给 `build_windows.ps1`，冻结构建误用深 worktree 内 `.venv`，PySide6 安装触发 Windows 长路径失败。构建脚本新增显式 `-Python`，门禁通过 `sys.executable` 解析并贯通短路径解释器；合同测试先 `2 failed` 后通过。
+- Task 5 第二次 RED：冻结 build 成功后，Windows PowerShell 5.1 按 ANSI 读取无 BOM UTF-8 smoke 脚本，中文状态字面量损坏并导致解析失败。smoke 脚本恢复纯 ASCII，以 Unicode codepoint 构造 `文本预览`；永久断言 `script.isascii()`，PowerShell 5.1 实际解析通过。
+- Task 5 分项 GREEN：Web/Python 全量 `33 + 21 + 443 passed, 1 skipped`；冻结 EXE 已构建；PPTX 4 slides、Markdown ready、TXT `kind=code extension=.txt status=文本预览`、IPC 精确两批均通过；独立复核 Reader 进程 0、smoke QtWebEngine 进程 0、smoke 临时根 0。
+- 当前 release candidate：`dist\Reader\Reader.exe` 6022752 bytes，SHA256 `f5b278ab27b3b9310b46a687a374ff70d563ee80285b77206f31c9219d423e26`；PPTX manifest SHA256 `09b1943863816023107701663d5be4683dfdf7726d14e5a253c4862ef0b662b9`；Markdown manifest SHA256 `cfe5c3ef1abff0be8110c895a9a74914b84e09b51a97c831866424432029a27e`，源码 bundle 与 frozen bundle 一致。
+- 当前边界：Task 5 风险修复和分项验收完成，等待原子提交并在已提交状态执行最终整链复验。
 
 ## 下一步
 
-执行 Task 5 完整 release candidate 验证，记录冻结 EXE 与 Web bundle hashes、GUI smoke 和清理结果。
+提交并推送 Task 5 风险修复；在已提交状态重跑完整 release gate，成功后闭合 Task 5。
 
 ## 上一目标（已完成）
 

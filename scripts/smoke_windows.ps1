@@ -63,6 +63,12 @@ $verifiedVisual = $null
 $verifiedMarkdown = $null
 $verifiedText = $null
 $verifiedBatches = @()
+$textPreviewStatus = -join @(
+    [char]0x6587
+    [char]0x672C
+    [char]0x9884
+    [char]0x89C8
+)
 
 function Wait-Until {
     param(
@@ -346,7 +352,7 @@ function Get-TextRecord {
         if (
             $record.kind -eq "code" -and
             $record.extension -eq ".txt" -and
-            $record.status -eq "文本预览" -and
+            $record.status -eq $textPreviewStatus -and
             [string]::Equals(
                 [string]$record.path,
                 $textFixturePath,
@@ -719,6 +725,6 @@ if ($smokeSucceeded) {
     Write-Host (
         "Reader GUI smoke passed: IPC primary PID $($ipcPrimary.Id), " +
         "visual-ready slides=4, markdown-ready kind=markdown, " +
-        "TXT-ready kind=code status=文本预览, exact two 2-file batches"
+        "TXT-ready kind=code extension=.txt, exact two 2-file batches"
     )
 }
