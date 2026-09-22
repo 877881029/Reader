@@ -604,6 +604,41 @@ def test_current_visual_ready_is_logged_after_state_update(
     assert document.visual_slide_count == 4
 
 
+def test_txt_ready_is_logged_after_current_content_is_installed(
+    qtbot, tmp_path: Path, monkeypatch
+):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "note.txt"
+    path.write_text("plain text", encoding="utf-8")
+    content = label_viewer(
+        PreviewResult(html="plain text", status_label="文本预览", kind="code")
+    )
+    calls: list[tuple[str, str, str, bool]] = []
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: PreviewResult(
+            html="plain text",
+            status_label="文本预览",
+            kind="code",
+        ),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: content,
+    )
+    qtbot.addWidget(window)
+
+    monkeypatch.setattr(
+        "reader.shell.window.append_document_ready",
+        lambda source, kind, status: calls.append(
+            (source, kind, status, current_content(window) is content)
+        ),
+        raising=False,
+    )
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: len(calls) == 1)
+    assert calls == [(str(path), "code", "文本预览", True)]
+
+
 def test_visual_render_failure_updates_status_but_keeps_visual_mode(
     qtbot, tmp_path: Path
 ):

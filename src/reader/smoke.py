@@ -47,6 +47,27 @@ def append_markdown_ready(path: str) -> bool:
     return True
 
 
+def append_document_ready(path: str, kind: str, status: str) -> bool:
+    """Persist a format-explicit document-ready event when smoke is enabled."""
+    configured_path = os.environ.get(SMOKE_VISUAL_LOG_ENV, "").strip()
+    if not configured_path:
+        return False
+
+    canonical_path = Path(path).resolve()
+    payload = {
+        "path": str(canonical_path),
+        "kind": kind,
+        "extension": canonical_path.suffix.lower(),
+        "status": status,
+    }
+    line = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
+    with Path(configured_path).open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(line)
+        handle.flush()
+        os.fsync(handle.fileno())
+    return True
+
+
 def append_smoke_batch(paths: list[str]) -> bool:
     """Append one received argv batch when explicit smoke telemetry is enabled."""
     configured_path = os.environ.get(SMOKE_BATCH_LOG_ENV, "").strip()

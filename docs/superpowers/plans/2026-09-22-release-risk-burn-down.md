@@ -84,6 +84,8 @@ Update STATUS, commit, and push before Task 3.
 
 ## Task 3: Prove frozen TXT opening
 
+Status: Complete; pending boundary commit
+
 **Files**
 
 - Modify: `src/reader/smoke.py`

@@ -361,18 +361,24 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "QTWEBENGINE_CHROMIUM_FLAGS" in script
     assert "visual-elements.pptx" in script
     assert "visual-document.md" in script
+    assert "reader-text-smoke-" in script
+    assert '"sample.txt"' in script
     assert "$visualProcess" in script
     assert "$markdownProcess" in script
+    assert "$textProcess" in script
     assert "$ipcPrimary" in script
     assert "$visualDeadline" in script
     assert "$markdownDeadline" in script
+    assert "$textDeadline" in script
     assert "AddSeconds(60)" in script
     assert "$visualProcess = $null" in script
     assert "$markdownProcess = $null" in script
+    assert "$textProcess = $null" in script
     assert "$ipcPrimary = $null" in script
     assert "$primary" not in script
     visual_phase, markdown_phase = script.split("# Phase B", 1)
-    markdown_phase, ipc_phase = markdown_phase.split("# Phase C", 1)
+    markdown_phase, text_and_ipc = markdown_phase.split("# Phase C", 1)
+    text_phase, ipc_phase = text_and_ipc.split("# Phase D", 1)
     assert "# Phase A" in visual_phase
     assert "slides -eq 4" in visual_phase
     assert "renderer-failure" in visual_phase
@@ -388,6 +394,19 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "Stop-MarkdownProcesses" in markdown_phase
     assert "Remove-MarkdownIsolation" in markdown_phase
     assert "-LocalAppDataRoot $hostLocalAppData" in markdown_phase
+    assert "frozen TXT rendering" in text_phase
+    assert '$record.kind -eq "code"' in script
+    assert '$record.extension -eq ".txt"' in script
+    assert '$record.status -eq "文本预览"' in script
+    assert "Get-TextRecord" in text_phase
+    assert "Frozen TXT Reader did not report format-explicit ready within 60 seconds" in (
+        text_phase
+    )
+    assert "Stop-TextProcesses" in text_phase
+    assert "Remove-TextIsolation" in text_phase
+    assert '-LocalAppDataRoot (Join-Path $textProfileRoot "AppData\\Local")' in (
+        text_phase
+    )
     assert "$ipcPrimary = Start-Process" in ipc_phase
     assert (
         '-LocalAppDataRoot (Join-Path $ipcProfileRoot "AppData\\Local")'

@@ -33,6 +33,15 @@ $markdownNamespace = "markdown-smoke-$runId"
 $markdownLockPath = Join-Path $markdownTempRoot (
     "reader-single-instance-locks\Reader.SingleInstance.v1.$markdownNamespace.lock"
 )
+$textRoot = Join-Path $env:TEMP "reader-text-smoke-$runId"
+$textProfileRoot = Join-Path $textRoot "profile"
+$textTempRoot = Join-Path $textRoot "temp"
+$textFixturePath = Join-Path $textRoot "sample.txt"
+$textLog = Join-Path $textRoot "document.jsonl"
+$textNamespace = "text-smoke-$runId"
+$textLockPath = Join-Path $textTempRoot (
+    "reader-single-instance-locks\Reader.SingleInstance.v1.$textNamespace.lock"
+)
 $ipcRoot = Join-Path $env:TEMP "reader-gui-smoke-$runId"
 $ipcProfileRoot = Join-Path $ipcRoot "profile"
 $sampleRoot = Join-Path $ipcRoot "samples"
@@ -44,6 +53,7 @@ $ipcLockPath = Join-Path $ipcTempRoot (
 )
 $visualProcess = $null
 $markdownProcess = $null
+$textProcess = $null
 $ipcPrimary = $null
 $secondaries = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
 $smokeSucceeded = $false
@@ -51,6 +61,7 @@ $smokeError = $null
 $cleanupFailures = [System.Collections.Generic.List[string]]::new()
 $verifiedVisual = $null
 $verifiedMarkdown = $null
+$verifiedText = $null
 $verifiedBatches = @()
 
 function Wait-Until {
@@ -180,6 +191,12 @@ function Stop-MarkdownProcesses {
         -FailureMessage "Markdown smoke process tree did not exit"
 }
 
+function Stop-TextProcesses {
+    Stop-ProcessTrees `
+        -RootProcesses @($textProcess) `
+        -FailureMessage "TXT smoke process tree did not exit"
+}
+
 function Remove-IsolationRoot {
     param([string]$Path)
 
@@ -215,6 +232,13 @@ function Remove-MarkdownIsolation {
         Remove-Item -LiteralPath $markdownLockPath -Force -ErrorAction Stop
     }
     Remove-IsolationRoot -Path $markdownRoot
+}
+
+function Remove-TextIsolation {
+    if (Test-Path -LiteralPath $textLockPath) {
+        Remove-Item -LiteralPath $textLockPath -Force -ErrorAction Stop
+    }
+    Remove-IsolationRoot -Path $textRoot
 }
 
 function Set-SmokeEnvironment {
@@ -300,6 +324,32 @@ function Get-MarkdownRecord {
             [string]::Equals(
                 [string]$record.path,
                 $markdownFixturePath,
+                [StringComparison]::OrdinalIgnoreCase
+            )
+        ) {
+            return $record
+        }
+    }
+    return $null
+}
+
+function Get-TextRecord {
+    if (-not (Test-Path -LiteralPath $textLog)) {
+        return $null
+    }
+    foreach ($line in @(Get-Content -LiteralPath $textLog -Encoding UTF8)) {
+        try {
+            $record = $line | ConvertFrom-Json
+        } catch {
+            continue
+        }
+        if (
+            $record.kind -eq "code" -and
+            $record.extension -eq ".txt" -and
+            $record.status -eq "文本预览" -and
+            [string]::Equals(
+                [string]$record.path,
+                $textFixturePath,
                 [StringComparison]::OrdinalIgnoreCase
             )
         ) {
@@ -443,7 +493,45 @@ try {
     Remove-MarkdownIsolation
     $markdownProcess = $null
 
-    # Phase C: existing two-batch IPC smoke with a new primary.
+    # Phase C: frozen TXT rendering in an isolated process and namespace.
+    Set-SmokeEnvironment `
+        -Namespace $textNamespace `
+        -ProfileRoot $textProfileRoot `
+        -LocalAppDataRoot (Join-Path $textProfileRoot "AppData\Local") `
+        -TempRoot $textTempRoot `
+        -BatchLogPath "" `
+        -VisualLogPath $textLog
+    New-Item -ItemType Directory -Force $textRoot | Out-Null
+    Set-Content -LiteralPath $textFixturePath -Value "frozen text ready" -Encoding UTF8
+    New-Item -ItemType File -Force $textLog | Out-Null
+
+    $textProcess = Start-Process `
+        -FilePath $resolvedExe `
+        -ArgumentList @($textFixturePath) `
+        -PassThru
+    $textDeadline = [DateTime]::UtcNow.AddSeconds(60)
+    do {
+        $runningText = Get-Process `
+            -Id $textProcess.Id `
+            -ErrorAction SilentlyContinue
+        if ($null -eq $runningText -or $runningText.HasExited) {
+            throw "Frozen TXT Reader exited before format-explicit ready"
+        }
+        $verifiedText = Get-TextRecord
+        if ($null -ne $verifiedText) {
+            break
+        }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $textDeadline)
+    if ($null -eq $verifiedText) {
+        throw "Frozen TXT Reader did not report format-explicit ready within 60 seconds"
+    }
+
+    Stop-TextProcesses
+    Remove-TextIsolation
+    $textProcess = $null
+
+    # Phase D: existing two-batch IPC smoke with a new primary.
     Set-SmokeEnvironment `
         -Namespace $ipcNamespace `
         -ProfileRoot $ipcProfileRoot `
@@ -522,6 +610,17 @@ try {
     $smokeError = $_
 } finally {
     try {
+        if (-not $smokeSucceeded -and (Test-Path -LiteralPath $textLog)) {
+            $textDiagnostic = Get-Content `
+                -LiteralPath $textLog `
+                -Raw `
+                -Encoding UTF8
+            Write-Warning "TXT smoke telemetry before cleanup: $textDiagnostic"
+        }
+    } catch {
+        $cleanupFailures.Add("TXT telemetry diagnostics: $_")
+    }
+    try {
         if (-not $smokeSucceeded -and (Test-Path -LiteralPath $markdownLog)) {
             $markdownDiagnostic = Get-Content `
                 -LiteralPath $markdownLog `
@@ -565,6 +664,11 @@ try {
     } catch {
         $cleanupFailures.Add("markdown process cleanup: $_")
     }
+    try {
+        Stop-TextProcesses
+    } catch {
+        $cleanupFailures.Add("TXT process cleanup: $_")
+    }
     foreach ($name in $environmentNames) {
         try {
             [Environment]::SetEnvironmentVariable(
@@ -576,7 +680,12 @@ try {
             $cleanupFailures.Add("restore environment $name`: $_")
         }
     }
-    foreach ($lockPath in @($visualLockPath, $markdownLockPath, $ipcLockPath)) {
+    foreach ($lockPath in @(
+        $visualLockPath,
+        $markdownLockPath,
+        $textLockPath,
+        $ipcLockPath
+    )) {
         try {
             if (Test-Path -LiteralPath $lockPath) {
                 Remove-Item -LiteralPath $lockPath -Force -ErrorAction Stop
@@ -585,7 +694,7 @@ try {
             $cleanupFailures.Add("namespace lock cleanup $lockPath`: $_")
         }
     }
-    foreach ($rootPath in @($visualRoot, $markdownRoot, $ipcRoot)) {
+    foreach ($rootPath in @($visualRoot, $markdownRoot, $textRoot, $ipcRoot)) {
         try {
             Remove-IsolationRoot -Path $rootPath
         } catch {
@@ -604,10 +713,12 @@ if ($null -ne $resolvedFailure) {
 if ($smokeSucceeded) {
     Write-Host "Reader visual smoke: $($verifiedVisual | ConvertTo-Json -Compress)"
     Write-Host "Reader markdown smoke: $($verifiedMarkdown | ConvertTo-Json -Compress)"
+    Write-Host "Reader TXT smoke: $($verifiedText | ConvertTo-Json -Compress)"
     Write-Host "Reader GUI smoke batch 1: $($verifiedBatches[0])"
     Write-Host "Reader GUI smoke batch 2: $($verifiedBatches[1])"
     Write-Host (
         "Reader GUI smoke passed: IPC primary PID $($ipcPrimary.Id), " +
-        "visual-ready slides=4, markdown-ready kind=markdown, exact two 2-file batches"
+        "visual-ready slides=4, markdown-ready kind=markdown, " +
+        "TXT-ready kind=code status=文本预览, exact two 2-file batches"
     )
 }

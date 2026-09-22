@@ -51,7 +51,11 @@ from reader.shell.recent import remember_recent
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
 from reader.shell.welcome import WelcomePage
-from reader.smoke import append_markdown_ready, append_visual_ready
+from reader.smoke import (
+    append_document_ready,
+    append_markdown_ready,
+    append_visual_ready,
+)
 
 WM_NCHITTEST = 0x0084
 WM_NCCALCSIZE = 0x0083
@@ -2077,6 +2081,13 @@ class MainWindow(QMainWindow):
             if output is not None:
                 _cleanup_dir(output.artifact_dir)
             return
+
+        if output is not None and output.result.kind == "code":
+            append_document_ready(
+                str(document.path),
+                output.result.kind,
+                status,
+            )
 
         if output is not None:
             if (

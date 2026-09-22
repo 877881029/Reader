@@ -55,6 +55,38 @@ def test_markdown_ready_flushes_and_fsyncs(
     assert len(fsync_calls) == 1
 
 
+def test_document_ready_log_is_disabled_without_environment(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("READER_SMOKE_VISUAL_LOG", raising=False)
+    from reader.smoke import append_document_ready
+
+    path = tmp_path / "note.txt"
+    assert append_document_ready(str(path), "code", "文本预览") is False
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_document_ready_records_canonical_format_explicit_event(
+    monkeypatch, tmp_path: Path
+) -> None:
+    log_path = tmp_path / "document.jsonl"
+    source = tmp_path / "folder" / ".." / "note.TXT"
+    monkeypatch.setenv("READER_SMOKE_VISUAL_LOG", str(log_path))
+    fsync_calls: list[int] = []
+    monkeypatch.setattr("reader.smoke.os.fsync", fsync_calls.append)
+    from reader.smoke import append_document_ready
+
+    assert append_document_ready(str(source), "code", "文本预览") is True
+
+    assert json.loads(log_path.read_text(encoding="utf-8")) == {
+        "path": str(source.resolve()),
+        "kind": "code",
+        "extension": ".txt",
+        "status": "文本预览",
+    }
+    assert len(fsync_calls) == 1
+
+
 def test_smoke_batch_log_is_disabled_without_environment(
     monkeypatch, tmp_path: Path
 ) -> None:
