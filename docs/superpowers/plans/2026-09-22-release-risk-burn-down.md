@@ -171,3 +171,7 @@ Commit and push the final STATUS/hash update.
 
 Create a separate specification and TDD plan for `.cpp`/`.hpp` reading. Do not
 combine that feature with release-risk commits.
+
+Status: Complete; see
+`docs/superpowers/specs/2026-09-22-cpp-hpp-reading-design.md` and
+`docs/superpowers/plans/2026-09-22-cpp-hpp-reading.md`.

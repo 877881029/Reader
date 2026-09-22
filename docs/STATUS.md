@@ -5,6 +5,20 @@ Git：发布风险 Task 1–5 已实现并验证；Task 5 风险修复 `22add51`
 
 ## 当前目标
 
+**`.cpp` / `.hpp` C++ 源码阅读**（规格和 TDD 计划已建立，等待 RED）
+
+- 规格：`docs/superpowers/specs/2026-09-22-cpp-hpp-reading-design.md`
+- 计划：`docs/superpowers/plans/2026-09-22-cpp-hpp-reading.md`（2 个 TDD 任务）
+- 范围：复用现有 C/H 的只读 code view、行号、复制、C-family 高亮和 `代码预览`；打通 sniff、pipeline、打开对话框、欢迎页徽章、当前用户 Open With 和 frozen smoke。
+- 非目标：编辑/保存、编译/LSP、第三方解析器、其他 C++ 后缀、UCPD Settings 申索；不得修改 `hit_test_local`、`begin_window_move` 或 `nativeEvent`。
+- 当前边界：先提交并推送规格/计划，再进入 Task 1 RED；不得把设计边界与生产代码混为一个提交。
+
+## 下一步
+
+执行 `.cpp` / `.hpp` Task 1 RED，证明各入口尚未支持，再做最小生产接线。
+
+## 上一目标（已完成）
+
 **发布风险前置消除与自动验收基线**（已完成）
 
 - 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
@@ -33,10 +47,6 @@ Git：发布风险 Task 1–5 已实现并验证；Task 5 风险修复 `22add51`
 - 最终 release candidate：`dist\Reader\Reader.exe` 6022752 bytes，SHA256 `f1dd689eb42bcc05bf663f94f5408c7a4416eab1d63bae98d64f8e5991d8c204`；PPTX manifest SHA256 `09b1943863816023107701663d5be4683dfdf7726d14e5a253c4862ef0b662b9`；Markdown manifest SHA256 `cfe5c3ef1abff0be8110c895a9a74914b84e09b51a97c831866424432029a27e`，两个源码 bundle 与 frozen bundle 均逐字节 manifest 一致。
 - 最终清理：Reader 进程 0、smoke QtWebEngine 进程 0、smoke 临时根 0；Web 构建引起的 tracked bundle 扰动已恢复，风险修复后的 `HEAD...origin/main` 为 `0 / 0`。
 - 当前边界：Task 5 完成；发布风险闭环结束，可以单独启动 `.cpp` / `.hpp` 阅读规格。
-
-## 下一步
-
-执行 Task 6：为 `.cpp` / `.hpp` 阅读建立独立规格和 TDD 计划，不混入发布风险提交。
 
 ## 上一目标（已完成）
 
