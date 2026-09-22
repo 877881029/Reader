@@ -1,7 +1,7 @@
 # C++ Source Reading (`.cpp` / `.hpp`)
 
 Date: 2026-09-22
-Status: Implementing; Task 1 complete
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## 1. Goal

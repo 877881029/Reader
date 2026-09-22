@@ -1,11 +1,11 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4` 已同步到 `origin/main`；C++ Task 1 待提交。
+Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f95f81e` 已同步到 `origin/main`；Task 2 最终证据待提交。
 
 ## 当前目标
 
-**`.cpp` / `.hpp` C++ 源码阅读**（Task 1 已完成，Task 2 待开始）
+**`.cpp` / `.hpp` C++ 源码阅读**（已完成）
 
 - 规格：`docs/superpowers/specs/2026-09-22-cpp-hpp-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-22-cpp-hpp-reading.md`（2 个 TDD 任务）
@@ -14,11 +14,16 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4` 已同步到 `or
 - Task 1 RED：只新增测试后，聚焦套件 `10 failed, 217 passed`；失败精确覆盖语言映射、C-family highlighter、sniff、`decide_open`、pipeline、当前用户关联、打开对话框和欢迎页徽章。
 - Task 1 GREEN：`.cpp` / `.hpp` 进入 `CODE_SUFFIXES` 和所有发现/打开/关联/UI 清单，映射到现有 `kind="code"`、`CHighlighter` 和 `代码预览`；README 与功能全解同步，`PROTECTED_EXTENSIONS` 保持仅 `.pdf` / `.txt`。
 - Task 1 验证：聚焦 `232 passed`；统一快速门禁成功，PPTX Web `33 passed`、Markdown Web `21 passed`、Python `448 passed, 1 skipped`，最终输出 `Reader fast verification passed`。
-- 当前边界：Task 1 完成，等待原子提交和推送；Task 2 将单独扩展 frozen smoke。
+- Task 2 RED：冻结 smoke 合同先 `1 failed, 20 passed`，证明 C++ 阶段缺失。首次 release gate 又由项目卫生合同发现规格状态漂移（`1 failed, 447 passed, 1 skipped`）；真实冻结运行随后暴露两个 PowerShell helper 被误嵌套。修复为顶层函数，并增加“禁止缩进函数定义”的结构回归。
+- Task 2 GREEN：独立 C++ 隔离进程同时打开 `sample.cpp` / `sample.hpp`，分别要求 canonical path、`kind="code"`、扩展名和 `代码预览`；纳入进程树、namespace lock、profile、temp root、失败诊断和最终清理，原 PPTX / Markdown / TXT / 精确两批 IPC 合同不变。
+- 最终 release gate：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release -Python C:\venvs\reader-076ca44a\Scripts\python.exe` 同次运行退出 0；PPTX Web `33 passed`、Markdown Web `21 passed`、Python `448 passed, 1 skipped`，`.cpp` / `.hpp` 均报告格式明确 ready，最终输出 `Reader release verification passed`。
+- 最终 release candidate：`dist\Reader\Reader.exe` 6022816 bytes，SHA256 `098c5bac4e1f0616902990ecc726b6ea2bc6a5b43380d55c5d6b0ed932214a3b`；PPTX manifest SHA256 `09b1943863816023107701663d5be4683dfdf7726d14e5a253c4862ef0b662b9`；Markdown manifest SHA256 `cfe5c3ef1abff0be8110c895a9a74914b84e09b51a97c831866424432029a27e`，源码与 frozen manifests 一致。
+- 最终清理：Reader 进程 0、smoke QtWebEngine 进程 0、smoke 临时根 0；Web build 生成扰动已恢复。
+- 当前边界：功能与冻结验收完成，等待 Task 2 原子提交和推送。
 
 ## 下一步
 
-提交并推送 `.cpp` / `.hpp` Task 1；随后执行 Task 2 frozen smoke RED。
+提交并推送 `.cpp` / `.hpp` Task 2，回写提交号后选择下一项独立功能。
 
 ## 上一目标（已完成）
 

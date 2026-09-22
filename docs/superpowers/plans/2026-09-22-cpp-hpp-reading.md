@@ -72,7 +72,7 @@ Update STATUS with RED/GREEN evidence, commit, and push before Task 2.
 
 ## Task 2: Add frozen C++ acceptance and close the feature
 
-Status: Pending
+Status: Complete
 
 **Files**
 

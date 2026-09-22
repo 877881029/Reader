@@ -369,22 +369,29 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "visual-document.md" in script
     assert "reader-text-smoke-" in script
     assert '"sample.txt"' in script
+    assert "reader-cpp-smoke-" in script
+    assert '"sample.cpp"' in script
+    assert '"sample.hpp"' in script
     assert "$visualProcess" in script
     assert "$markdownProcess" in script
     assert "$textProcess" in script
+    assert "$cppProcess" in script
     assert "$ipcPrimary" in script
     assert "$visualDeadline" in script
     assert "$markdownDeadline" in script
     assert "$textDeadline" in script
+    assert "$cppDeadline" in script
     assert "AddSeconds(60)" in script
     assert "$visualProcess = $null" in script
     assert "$markdownProcess = $null" in script
     assert "$textProcess = $null" in script
+    assert "$cppProcess = $null" in script
     assert "$ipcPrimary = $null" in script
     assert "$primary" not in script
     visual_phase, markdown_phase = script.split("# Phase B", 1)
     markdown_phase, text_and_ipc = markdown_phase.split("# Phase C", 1)
-    text_phase, ipc_phase = text_and_ipc.split("# Phase D", 1)
+    text_phase, cpp_and_ipc = text_and_ipc.split("# Phase D", 1)
+    cpp_phase, ipc_phase = cpp_and_ipc.split("# Phase E", 1)
     assert "# Phase A" in visual_phase
     assert "slides -eq 4" in visual_phase
     assert "renderer-failure" in visual_phase
@@ -417,6 +424,21 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert '-LocalAppDataRoot (Join-Path $textProfileRoot "AppData\\Local")' in (
         text_phase
     )
+    assert "frozen C++ rendering" in cpp_phase
+    assert '$record.extension -eq $Extension' in script
+    assert '$record.status -eq $codePreviewStatus' in script
+    assert "Get-CppRecord" in cpp_phase
+    assert "\nfunction Get-CppRecord {" in script
+    assert "\nfunction Remove-CppIsolation {" in script
+    assert not re.search(r"(?m)^[ \t]+function\s", script)
+    assert "Frozen C++ Reader did not report both format-explicit ready events within 60 seconds" in (
+        cpp_phase
+    )
+    assert "Stop-CppProcesses" in cpp_phase
+    assert "Remove-CppIsolation" in cpp_phase
+    assert '-LocalAppDataRoot (Join-Path $cppProfileRoot "AppData\\Local")' in (
+        cpp_phase
+    )
     assert "$ipcPrimary = Start-Process" in ipc_phase
     assert (
         '-LocalAppDataRoot (Join-Path $ipcProfileRoot "AppData\\Local")'
@@ -424,7 +446,7 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     )
     assert '"TEMP"' in script
     assert '"TMP"' in script
-    assert script.count("Start-Process") >= 2
+    assert script.count("Start-Process") >= 5
     assert "$baselineReaderProcessIds" in script
     assert "$secondaries" in script
     assert "MainWindowHandle" in script
@@ -449,6 +471,7 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     )[0]
     assert "throw " not in finally_body
     assert "Reader GUI smoke passed" in script
+    assert "Reader C++ smoke:" in script
 
 
 @pytest.mark.skipif(

@@ -42,6 +42,16 @@ $textNamespace = "text-smoke-$runId"
 $textLockPath = Join-Path $textTempRoot (
     "reader-single-instance-locks\Reader.SingleInstance.v1.$textNamespace.lock"
 )
+$cppRoot = Join-Path $env:TEMP "reader-cpp-smoke-$runId"
+$cppProfileRoot = Join-Path $cppRoot "profile"
+$cppTempRoot = Join-Path $cppRoot "temp"
+$cppFixturePath = Join-Path $cppRoot "sample.cpp"
+$hppFixturePath = Join-Path $cppRoot "sample.hpp"
+$cppLog = Join-Path $cppRoot "document.jsonl"
+$cppNamespace = "cpp-smoke-$runId"
+$cppLockPath = Join-Path $cppTempRoot (
+    "reader-single-instance-locks\Reader.SingleInstance.v1.$cppNamespace.lock"
+)
 $ipcRoot = Join-Path $env:TEMP "reader-gui-smoke-$runId"
 $ipcProfileRoot = Join-Path $ipcRoot "profile"
 $sampleRoot = Join-Path $ipcRoot "samples"
@@ -54,6 +64,7 @@ $ipcLockPath = Join-Path $ipcTempRoot (
 $visualProcess = $null
 $markdownProcess = $null
 $textProcess = $null
+$cppProcess = $null
 $ipcPrimary = $null
 $secondaries = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
 $smokeSucceeded = $false
@@ -62,10 +73,18 @@ $cleanupFailures = [System.Collections.Generic.List[string]]::new()
 $verifiedVisual = $null
 $verifiedMarkdown = $null
 $verifiedText = $null
+$verifiedCpp = $null
+$verifiedHpp = $null
 $verifiedBatches = @()
 $textPreviewStatus = -join @(
     [char]0x6587
     [char]0x672C
+    [char]0x9884
+    [char]0x89C8
+)
+$codePreviewStatus = -join @(
+    [char]0x4EE3
+    [char]0x7801
     [char]0x9884
     [char]0x89C8
 )
@@ -203,6 +222,12 @@ function Stop-TextProcesses {
         -FailureMessage "TXT smoke process tree did not exit"
 }
 
+function Stop-CppProcesses {
+    Stop-ProcessTrees `
+        -RootProcesses @($cppProcess) `
+        -FailureMessage "C++ smoke process tree did not exit"
+}
+
 function Remove-IsolationRoot {
     param([string]$Path)
 
@@ -245,6 +270,13 @@ function Remove-TextIsolation {
         Remove-Item -LiteralPath $textLockPath -Force -ErrorAction Stop
     }
     Remove-IsolationRoot -Path $textRoot
+}
+
+function Remove-CppIsolation {
+    if (Test-Path -LiteralPath $cppLockPath) {
+        Remove-Item -LiteralPath $cppLockPath -Force -ErrorAction Stop
+    }
+    Remove-IsolationRoot -Path $cppRoot
 }
 
 function Set-SmokeEnvironment {
@@ -356,6 +388,37 @@ function Get-TextRecord {
             [string]::Equals(
                 [string]$record.path,
                 $textFixturePath,
+                [StringComparison]::OrdinalIgnoreCase
+            )
+        ) {
+            return $record
+        }
+    }
+    return $null
+}
+
+function Get-CppRecord {
+    param(
+        [string]$Extension,
+        [string]$ExpectedPath
+    )
+
+    if (-not (Test-Path -LiteralPath $cppLog)) {
+        return $null
+    }
+    foreach ($line in @(Get-Content -LiteralPath $cppLog -Encoding UTF8)) {
+        try {
+            $record = $line | ConvertFrom-Json
+        } catch {
+            continue
+        }
+        if (
+            $record.kind -eq "code" -and
+            $record.extension -eq $Extension -and
+            $record.status -eq $codePreviewStatus -and
+            [string]::Equals(
+                [string]$record.path,
+                $ExpectedPath,
                 [StringComparison]::OrdinalIgnoreCase
             )
         ) {
@@ -537,7 +600,57 @@ try {
     Remove-TextIsolation
     $textProcess = $null
 
-    # Phase D: existing two-batch IPC smoke with a new primary.
+    # Phase D: frozen C++ rendering in an isolated process and namespace.
+    Set-SmokeEnvironment `
+        -Namespace $cppNamespace `
+        -ProfileRoot $cppProfileRoot `
+        -LocalAppDataRoot (Join-Path $cppProfileRoot "AppData\Local") `
+        -TempRoot $cppTempRoot `
+        -BatchLogPath "" `
+        -VisualLogPath $cppLog
+    New-Item -ItemType Directory -Force $cppRoot | Out-Null
+    Set-Content `
+        -LiteralPath $cppFixturePath `
+        -Value "class Reader final {};" `
+        -Encoding UTF8
+    Set-Content `
+        -LiteralPath $hppFixturePath `
+        -Value "#pragma once" `
+        -Encoding UTF8
+    New-Item -ItemType File -Force $cppLog | Out-Null
+
+    $cppProcess = Start-Process `
+        -FilePath $resolvedExe `
+        -ArgumentList @($cppFixturePath, $hppFixturePath) `
+        -PassThru
+    $cppDeadline = [DateTime]::UtcNow.AddSeconds(60)
+    do {
+        $runningCpp = Get-Process `
+            -Id $cppProcess.Id `
+            -ErrorAction SilentlyContinue
+        if ($null -eq $runningCpp -or $runningCpp.HasExited) {
+            throw "Frozen C++ Reader exited before format-explicit ready"
+        }
+        $verifiedCpp = Get-CppRecord `
+            -Extension ".cpp" `
+            -ExpectedPath $cppFixturePath
+        $verifiedHpp = Get-CppRecord `
+            -Extension ".hpp" `
+            -ExpectedPath $hppFixturePath
+        if ($null -ne $verifiedCpp -and $null -ne $verifiedHpp) {
+            break
+        }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $cppDeadline)
+    if ($null -eq $verifiedCpp -or $null -eq $verifiedHpp) {
+        throw "Frozen C++ Reader did not report both format-explicit ready events within 60 seconds"
+    }
+
+    Stop-CppProcesses
+    Remove-CppIsolation
+    $cppProcess = $null
+
+    # Phase E: existing two-batch IPC smoke with a new primary.
     Set-SmokeEnvironment `
         -Namespace $ipcNamespace `
         -ProfileRoot $ipcProfileRoot `
@@ -627,6 +740,17 @@ try {
         $cleanupFailures.Add("TXT telemetry diagnostics: $_")
     }
     try {
+        if (-not $smokeSucceeded -and (Test-Path -LiteralPath $cppLog)) {
+            $cppDiagnostic = Get-Content `
+                -LiteralPath $cppLog `
+                -Raw `
+                -Encoding UTF8
+            Write-Warning "C++ smoke telemetry before cleanup: $cppDiagnostic"
+        }
+    } catch {
+        $cleanupFailures.Add("C++ telemetry diagnostics: $_")
+    }
+    try {
         if (-not $smokeSucceeded -and (Test-Path -LiteralPath $markdownLog)) {
             $markdownDiagnostic = Get-Content `
                 -LiteralPath $markdownLog `
@@ -675,6 +799,11 @@ try {
     } catch {
         $cleanupFailures.Add("TXT process cleanup: $_")
     }
+    try {
+        Stop-CppProcesses
+    } catch {
+        $cleanupFailures.Add("C++ process cleanup: $_")
+    }
     foreach ($name in $environmentNames) {
         try {
             [Environment]::SetEnvironmentVariable(
@@ -690,6 +819,7 @@ try {
         $visualLockPath,
         $markdownLockPath,
         $textLockPath,
+        $cppLockPath,
         $ipcLockPath
     )) {
         try {
@@ -700,7 +830,13 @@ try {
             $cleanupFailures.Add("namespace lock cleanup $lockPath`: $_")
         }
     }
-    foreach ($rootPath in @($visualRoot, $markdownRoot, $textRoot, $ipcRoot)) {
+    foreach ($rootPath in @(
+        $visualRoot,
+        $markdownRoot,
+        $textRoot,
+        $cppRoot,
+        $ipcRoot
+    )) {
         try {
             Remove-IsolationRoot -Path $rootPath
         } catch {
@@ -720,11 +856,17 @@ if ($smokeSucceeded) {
     Write-Host "Reader visual smoke: $($verifiedVisual | ConvertTo-Json -Compress)"
     Write-Host "Reader markdown smoke: $($verifiedMarkdown | ConvertTo-Json -Compress)"
     Write-Host "Reader TXT smoke: $($verifiedText | ConvertTo-Json -Compress)"
+    Write-Host (
+        "Reader C++ smoke: cpp=" +
+        "$($verifiedCpp | ConvertTo-Json -Compress) hpp=" +
+        "$($verifiedHpp | ConvertTo-Json -Compress)"
+    )
     Write-Host "Reader GUI smoke batch 1: $($verifiedBatches[0])"
     Write-Host "Reader GUI smoke batch 2: $($verifiedBatches[1])"
     Write-Host (
         "Reader GUI smoke passed: IPC primary PID $($ipcPrimary.Id), " +
         "visual-ready slides=4, markdown-ready kind=markdown, " +
-        "TXT-ready kind=code extension=.txt, exact two 2-file batches"
+        "TXT-ready kind=code extension=.txt, " +
+        "C++-ready extensions=.cpp,.hpp, exact two 2-file batches"
     )
 }
