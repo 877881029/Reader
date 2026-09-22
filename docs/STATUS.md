@@ -1,7 +1,7 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f95f81e` 已同步到 `origin/main`；Task 2 最终证据待提交。
+Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f95f81e`、Task 2 `deb9736` 已同步到 `origin/main`。
 
 ## 当前目标
 
@@ -19,11 +19,11 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 - 最终 release gate：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release -Python C:\venvs\reader-076ca44a\Scripts\python.exe` 同次运行退出 0；PPTX Web `33 passed`、Markdown Web `21 passed`、Python `448 passed, 1 skipped`，`.cpp` / `.hpp` 均报告格式明确 ready，最终输出 `Reader release verification passed`。
 - 最终 release candidate：`dist\Reader\Reader.exe` 6022816 bytes，SHA256 `098c5bac4e1f0616902990ecc726b6ea2bc6a5b43380d55c5d6b0ed932214a3b`；PPTX manifest SHA256 `09b1943863816023107701663d5be4683dfdf7726d14e5a253c4862ef0b662b9`；Markdown manifest SHA256 `cfe5c3ef1abff0be8110c895a9a74914b84e09b51a97c831866424432029a27e`，源码与 frozen manifests 一致。
 - 最终清理：Reader 进程 0、smoke QtWebEngine 进程 0、smoke 临时根 0；Web build 生成扰动已恢复。
-- 当前边界：功能与冻结验收完成，等待 Task 2 原子提交和推送。
+- 当前边界：功能与冻结验收完成，Task 2 `deb9736` 已推送。
 
 ## 下一步
 
-提交并推送 `.cpp` / `.hpp` Task 2，回写提交号后选择下一项独立功能。
+选择下一项独立功能；已知 Web 依赖审计项必须单独规格化评估，不得直接执行破坏性 `npm audit fix --force`。
 
 ## 上一目标（已完成）
 

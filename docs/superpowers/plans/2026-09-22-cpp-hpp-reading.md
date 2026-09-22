@@ -24,7 +24,7 @@ surface without adding dependencies.
 
 ## Task 1: Add the C++ suffix contract and production wiring
 
-Status: Complete
+Status: Complete (`deb9736`)
 
 **Files**
 
