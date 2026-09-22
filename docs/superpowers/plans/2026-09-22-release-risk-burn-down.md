@@ -142,7 +142,7 @@ Update STATUS, commit, and push before Task 5.
 
 ## Task 5: Release-candidate verification
 
-Status: In progress; final end-to-end rerun pending
+Status: Complete (`22add51` plus final release evidence update)
 
 **Files**
 

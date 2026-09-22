@@ -1,14 +1,14 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险 Task 1–4 已提交并同步到 `origin/main`（Task 4 修复：`8dfcc42`）；Task 5 release gate 修复待同步。
+Git：发布风险 Task 1–5 已实现并验证；Task 5 风险修复 `22add51` 已同步到 `origin/main`，最终证据待提交。
 
 ## 当前目标
 
-**发布风险前置消除与自动验收基线**（进行中）
+**发布风险前置消除与自动验收基线**（已完成）
 
 - 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
-- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1–4 已完成，Task 5 整链复验中）
+- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（Task 1–5 已完成；Task 6 是下一功能的独立规格边界）
 - 用户确认：把潜在风险和进度风险加入下一步方案，提前消灭，并按完整方案逐步开始开发。
 - 审计发现：未跟踪 `logs/bvm/bvm.log` 污染工作区；多份已完成规格头部仍显示 Draft/awaiting/implementing；项目元数据落后；缺少统一快速质量门和远端 CI；冻结 smoke 尚未覆盖最新 `.txt` 能力；启动性能缺少稳定里程碑记录。
 - 执行顺序：项目卫生与状态一致性 → 统一质量门 → 冻结 TXT 验收 → Windows CI → 完整 release candidate 验证 → 下一功能。
@@ -29,13 +29,14 @@ Git：发布风险 Task 1–4 已提交并同步到 `origin/main`（Task 4 修�
 - Task 4 远端 GREEN：修复提交 `8dfcc42` 的 Windows quality run `35713742029` 在干净 runner 上全步骤通过，耗时 5m04s。
 - Task 5 第一次 RED：`verify.ps1 -Python` 未把解释器传给 `build_windows.ps1`，冻结构建误用深 worktree 内 `.venv`，PySide6 安装触发 Windows 长路径失败。构建脚本新增显式 `-Python`，门禁通过 `sys.executable` 解析并贯通短路径解释器；合同测试先 `2 failed` 后通过。
 - Task 5 第二次 RED：冻结 build 成功后，Windows PowerShell 5.1 按 ANSI 读取无 BOM UTF-8 smoke 脚本，中文状态字面量损坏并导致解析失败。smoke 脚本恢复纯 ASCII，以 Unicode codepoint 构造 `文本预览`；永久断言 `script.isascii()`，PowerShell 5.1 实际解析通过。
-- Task 5 分项 GREEN：Web/Python 全量 `33 + 21 + 443 passed, 1 skipped`；冻结 EXE 已构建；PPTX 4 slides、Markdown ready、TXT `kind=code extension=.txt status=文本预览`、IPC 精确两批均通过；独立复核 Reader 进程 0、smoke QtWebEngine 进程 0、smoke 临时根 0。
-- 当前 release candidate：`dist\Reader\Reader.exe` 6022752 bytes，SHA256 `f5b278ab27b3b9310b46a687a374ff70d563ee80285b77206f31c9219d423e26`；PPTX manifest SHA256 `09b1943863816023107701663d5be4683dfdf7726d14e5a253c4862ef0b662b9`；Markdown manifest SHA256 `cfe5c3ef1abff0be8110c895a9a74914b84e09b51a97c831866424432029a27e`，源码 bundle 与 frozen bundle 一致。
-- 当前边界：Task 5 风险修复和分项验收完成，等待原子提交并在已提交状态执行最终整链复验。
+- Task 5 最终 GREEN：风险修复 `22add51` 推送后，唯一 release 入口 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release -Python C:\venvs\reader-076ca44a\Scripts\python.exe` 在同一次运行内退出 0；PPTX Web `33 passed`、Markdown Web `21 passed`、Python `443 passed, 1 skipped`，冻结 build 成功，PPTX 4 slides、Markdown ready、TXT `kind=code extension=.txt status=文本预览`、IPC 精确两批均通过，最终输出 `Reader release verification passed`。
+- 最终 release candidate：`dist\Reader\Reader.exe` 6022752 bytes，SHA256 `f1dd689eb42bcc05bf663f94f5408c7a4416eab1d63bae98d64f8e5991d8c204`；PPTX manifest SHA256 `09b1943863816023107701663d5be4683dfdf7726d14e5a253c4862ef0b662b9`；Markdown manifest SHA256 `cfe5c3ef1abff0be8110c895a9a74914b84e09b51a97c831866424432029a27e`，两个源码 bundle 与 frozen bundle 均逐字节 manifest 一致。
+- 最终清理：Reader 进程 0、smoke QtWebEngine 进程 0、smoke 临时根 0；Web 构建引起的 tracked bundle 扰动已恢复，风险修复后的 `HEAD...origin/main` 为 `0 / 0`。
+- 当前边界：Task 5 完成；发布风险闭环结束，可以单独启动 `.cpp` / `.hpp` 阅读规格。
 
 ## 下一步
 
-提交并推送 Task 5 风险修复；在已提交状态重跑完整 release gate，成功后闭合 Task 5。
+执行 Task 6：为 `.cpp` / `.hpp` 阅读建立独立规格和 TDD 计划，不混入发布风险提交。
 
 ## 上一目标（已完成）
 
