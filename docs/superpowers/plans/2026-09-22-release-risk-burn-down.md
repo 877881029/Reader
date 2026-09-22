@@ -116,7 +116,7 @@ Update STATUS, commit, and push before Task 4.
 
 ## Task 4: Add clean Windows CI
 
-Status: Remote validation follow-up in progress
+Status: Complete (`8dfcc42`; Windows run `35713742029`)
 
 **Files**
 

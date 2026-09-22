@@ -1,14 +1,14 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-22
-Git：发布风险 Task 1–3 已提交并同步到 `origin/main`（Task 3：`b37976c`）；Task 4 首版已推送（`5c9822e`），远端失败修复待同步。
+Git：发布风险 Task 1–4 已提交并同步到 `origin/main`（Task 4 修复：`8dfcc42`）。
 
 ## 当前目标
 
 **发布风险前置消除与自动验收基线**（进行中）
 
 - 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
-- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1–3 已完成，Task 4 远端验收修复中）
+- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1–4 已完成，Task 5 待开始）
 - 用户确认：把潜在风险和进度风险加入下一步方案，提前消灭，并按完整方案逐步开始开发。
 - 审计发现：未跟踪 `logs/bvm/bvm.log` 污染工作区；多份已完成规格头部仍显示 Draft/awaiting/implementing；项目元数据落后；缺少统一快速质量门和远端 CI；冻结 smoke 尚未覆盖最新 `.txt` 能力；启动性能缺少稳定里程碑记录。
 - 执行顺序：项目卫生与状态一致性 → 统一质量门 → 冻结 TXT 验收 → Windows CI → 完整 release candidate 验证 → 下一功能。
@@ -26,11 +26,12 @@ Git：发布风险 Task 1–3 已提交并同步到 `origin/main`（Task 3：`b3
 - Task 4 验证：项目卫生 `4 passed`。首次统一门禁遇到既有 WebEngine 网络阻断图片完成状态抖动，失败用例单独复跑通过；随后完整门禁成功，PPTX Web `33 passed`、Markdown Web `21 passed`、Python `443 passed, 1 skipped`。
 - Task 4 首次远端 run `35713005104`：干净 runner 再次稳定复现同一 WebEngine 竞态（拦截器已记录全部阻断请求，但 `<img>` 的 complete 状态尚未异步更新）；runner 同时警告 checkout/setup action 的 Node 20 runtime 已弃用。
 - Task 4 远端修复：测试在确认全部 URL 被拦截后继续等待图片进入 `complete && naturalWidth === 0`，本地连续 3 次通过；actions 升级到 checkout v5、setup-python v6、setup-node v5，合同测试先 RED 后 `4 passed`。
-- 当前边界：Task 4 远端失败修复已验证，等待原子提交、推送和新 CI run。
+- Task 4 远端 GREEN：修复提交 `8dfcc42` 的 Windows quality run `35713742029` 在干净 runner 上全步骤通过，耗时 5m04s。
+- 当前边界：Task 4 已完成并同步；Task 5 待开始。
 
 ## 下一步
 
-提交并推送 Task 4 远端修复，确认新 Windows CI；随后执行 Task 5 完整 release candidate 验证。
+执行 Task 5 完整 release candidate 验证，记录冻结 EXE 与 Web bundle hashes、GUI smoke 和清理结果。
 
 ## 上一目标（已完成）
 
