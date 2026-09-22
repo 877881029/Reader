@@ -1,7 +1,7 @@
 # Notepad-Like Markdown Edit & Chrome Polish Design
 
 Date: 2026-09-01  
-Status: Approved by user (Approach A); implementing  
+Status: Implemented (Approach A)
 Depends on: `docs/superpowers/specs/2026-09-01-notepad-titlebar-design.md`  
 Progress ledger: `docs/STATUS.md`
 

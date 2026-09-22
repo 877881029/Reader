@@ -1,7 +1,7 @@
 # Reader v1 Design
 
 Date: 2026-08-21  
-Status: Draft for user review  
+Status: Implemented as the Reader 0.1.0 baseline
 Product: Reader, a Windows desktop document viewer for daily work
 
 ## 1. Goal

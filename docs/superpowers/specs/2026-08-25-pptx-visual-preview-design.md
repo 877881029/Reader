@@ -1,7 +1,7 @@
 # PPTX Visual Preview Design
 
 Date: 2026-08-25  
-Status: Approved by user; awaiting implementation plan  
+Status: Implemented
 Depends on: `docs/superpowers/specs/2026-08-24-reader-ux-packaging-design.md`  
 Progress ledger: `docs/STATUS.md`
 
@@ -125,4 +125,3 @@ Approved fix:
 - jsdom render of that fixture must keep the header span’s CSS color white.
 - Patch must fail fast if the pinned dist no longer contains the expected template.
 - Rebuild the committed pptx-viewer bundle and frozen Reader.
-

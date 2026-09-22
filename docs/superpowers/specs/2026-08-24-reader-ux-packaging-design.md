@@ -1,7 +1,7 @@
 # Reader UX, Icon, and Packaging Design
 
 Date: 2026-08-24  
-Status: Draft for user review  
+Status: Implemented
 Depends on: `docs/superpowers/specs/2026-08-21-reader-design.md`
 
 ## 1. Goal
@@ -115,4 +115,3 @@ Provide `scripts/build_windows.ps1` that: create venv-or-use current, `pip insta
 - WebEngine + PyInstaller: must collect QtWebEngineProcess and resources or the viewer is blank.
 - Transparent ICO: Windows 11 taskbar sometimes composites poorly; keep a slightly thicker stroke.
 - Multi-file “Open with”: Windows may start N processes; IPC must accept rapid sequential connects.
-

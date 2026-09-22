@@ -1,7 +1,7 @@
 # Markdown Visual Preview Design
 
 Date: 2026-08-28  
-Status: Approved by user (Approach A); awaiting implementation plan  
+Status: Implemented (Approach A)
 Depends on: `docs/superpowers/specs/2026-08-21-reader-design.md`  
 Progress ledger: `docs/STATUS.md`
 

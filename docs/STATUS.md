@@ -8,15 +8,17 @@ Git：TDD 与原子提交治理规则已提交并同步到 `origin/main`（`4982
 **发布风险前置消除与自动验收基线**（进行中）
 
 - 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
-- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1 待开始）
+- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1 已完成，Task 2 待开始）
 - 用户确认：把潜在风险和进度风险加入下一步方案，提前消灭，并按完整方案逐步开始开发。
 - 审计发现：未跟踪 `logs/bvm/bvm.log` 污染工作区；多份已完成规格头部仍显示 Draft/awaiting/implementing；项目元数据落后；缺少统一快速质量门和远端 CI；冻结 smoke 尚未覆盖最新 `.txt` 能力；启动性能缺少稳定里程碑记录。
 - 执行顺序：项目卫生与状态一致性 → 统一质量门 → 冻结 TXT 验收 → Windows CI → 完整 release candidate 验证 → 下一功能。
-- 当前边界：规格和 TDD 计划已完成；本次设计/计划边界提交并推送后开始 Task 1 RED。
+- Task 1 RED：`tests/test_project_hygiene.py` 初次运行 `3 failed`，分别复现 logs 未忽略、包描述过时、5 份规格状态误导。
+- Task 1 GREEN：加入 `/logs/` 忽略；包描述更新为 Windows multi-format document viewer；5 份已完成规格状态归一；聚焦测试 `3 passed`。深层 worktree 安装 PySide6 触发 Windows 路径长度限制，验证环境改用会话专属短路径 venv，不修改系统策略。
+- 当前边界：Task 1 验证完成，等待原子提交并推送。
 
 ## 下一步
 
-提交并推送风险规格/计划；随后执行 Task 1，先用失败测试钉死 logs 忽略、项目描述和规格状态一致性。
+提交并推送 Task 1；随后执行 Task 2，为 Python、PPTX Web、Markdown Web 建立一个快速质量门入口。
 
 ## 上一目标（已完成）
 
