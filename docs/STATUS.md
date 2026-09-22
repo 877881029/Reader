@@ -5,16 +5,27 @@ Git：TDD 与原子提交治理规则已提交并同步到 `origin/main`（`4982
 
 ## 当前目标
 
+**发布风险前置消除与自动验收基线**（进行中）
+
+- 规格：`docs/superpowers/specs/2026-09-22-release-risk-burn-down-design.md`
+- 计划：`docs/superpowers/plans/2026-09-22-release-risk-burn-down.md`（6 个任务；Task 1 待开始）
+- 用户确认：把潜在风险和进度风险加入下一步方案，提前消灭，并按完整方案逐步开始开发。
+- 审计发现：未跟踪 `logs/bvm/bvm.log` 污染工作区；多份已完成规格头部仍显示 Draft/awaiting/implementing；项目元数据落后；缺少统一快速质量门和远端 CI；冻结 smoke 尚未覆盖最新 `.txt` 能力；启动性能缺少稳定里程碑记录。
+- 执行顺序：项目卫生与状态一致性 → 统一质量门 → 冻结 TXT 验收 → Windows CI → 完整 release candidate 验证 → 下一功能。
+- 当前边界：规格和 TDD 计划已完成；本次设计/计划边界提交并推送后开始 Task 1 RED。
+
+## 下一步
+
+提交并推送风险规格/计划；随后执行 Task 1，先用失败测试钉死 logs 忽略、项目描述和规格状态一致性。
+
+## 上一目标（已完成）
+
 **TDD 与原子 Git 进度规则补强**（已完成）
 
 - 用户确认：所有开发必须遵循 TDD；为避免 Agent 上下文污染，目标、进度和状态必须及时写入 git；每次代码修改都必须形成可回退提交，方便新 chat 从仓库快速接手。
 - 实现：`.cursor/rules/git-progress-handoff.mdc` 强制 RED → GREEN → REFACTOR、缺陷先写回归测试、每次代码修改验证后立即更新 STATUS 并原子提交、提交后才能开始下一项修改；`docs/superpowers/process.md` 同步明确开发节奏、提交边界和新会话接手顺序。
 - 边界解释：“每次代码修改”指一个可独立验证、可独立回退的最小行为变化，不按每次保存文件机械拆分；对应 RED 测试和 GREEN 实现可以放在同一个原子提交，但必须记录 RED/GREEN 证据。
 - 验证：仅规则与流程文档修改，无产品代码，无需运行产品测试。
-
-## 下一步
-
-所有后续功能从 `STATUS → 规格 → TDD 计划 → RED → GREEN → REFACTOR → STATUS → 原子提交 → 推送` 流程开始；当前产品验收仍为双击 `.txt` 确认进入 Reader。
 
 ## 上一目标（已完成）
 
