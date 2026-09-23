@@ -372,6 +372,12 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "reader-cpp-smoke-" in script
     assert '"sample.cpp"' in script
     assert '"sample.hpp"' in script
+    assert '"sample.cc"' in script
+    assert '"sample.cxx"' in script
+    assert '"sample.hh"' in script
+    assert '"sample.hxx"' in script
+    assert '"sample.inl"' in script
+    assert '"sample.ipp"' in script
     assert "$visualProcess" in script
     assert "$markdownProcess" in script
     assert "$textProcess" in script
@@ -431,9 +437,10 @@ def test_windows_gui_smoke_script_declares_strict_telemetry_and_cleanup() -> Non
     assert "\nfunction Get-CppRecord {" in script
     assert "\nfunction Remove-CppIsolation {" in script
     assert not re.search(r"(?m)^[ \t]+function\s", script)
-    assert "Frozen C++ Reader did not report both format-explicit ready events within 60 seconds" in (
+    assert "Frozen C++ Reader did not report all format-explicit ready events within 60 seconds" in (
         cpp_phase
     )
+    assert "C++-ready extensions=.cpp,.hpp,.cc,.cxx,.hh,.hxx,.inl,.ipp" in script
     assert "Stop-CppProcesses" in cpp_phase
     assert "Remove-CppIsolation" in cpp_phase
     assert '-LocalAppDataRoot (Join-Path $cppProfileRoot "AppData\\Local")' in (

@@ -47,6 +47,12 @@ $cppProfileRoot = Join-Path $cppRoot "profile"
 $cppTempRoot = Join-Path $cppRoot "temp"
 $cppFixturePath = Join-Path $cppRoot "sample.cpp"
 $hppFixturePath = Join-Path $cppRoot "sample.hpp"
+$ccFixturePath = Join-Path $cppRoot "sample.cc"
+$cxxFixturePath = Join-Path $cppRoot "sample.cxx"
+$hhFixturePath = Join-Path $cppRoot "sample.hh"
+$hxxFixturePath = Join-Path $cppRoot "sample.hxx"
+$inlFixturePath = Join-Path $cppRoot "sample.inl"
+$ippFixturePath = Join-Path $cppRoot "sample.ipp"
 $cppLog = Join-Path $cppRoot "document.jsonl"
 $cppNamespace = "cpp-smoke-$runId"
 $cppLockPath = Join-Path $cppTempRoot (
@@ -75,6 +81,12 @@ $verifiedMarkdown = $null
 $verifiedText = $null
 $verifiedCpp = $null
 $verifiedHpp = $null
+$verifiedCc = $null
+$verifiedCxx = $null
+$verifiedHh = $null
+$verifiedHxx = $null
+$verifiedInl = $null
+$verifiedIpp = $null
 $verifiedBatches = @()
 $textPreviewStatus = -join @(
     [char]0x6587
@@ -617,11 +629,44 @@ try {
         -LiteralPath $hppFixturePath `
         -Value "#pragma once" `
         -Encoding UTF8
+    Set-Content `
+        -LiteralPath $ccFixturePath `
+        -Value "class ReaderCc final {};" `
+        -Encoding UTF8
+    Set-Content `
+        -LiteralPath $cxxFixturePath `
+        -Value "class ReaderCxx final {};" `
+        -Encoding UTF8
+    Set-Content `
+        -LiteralPath $hhFixturePath `
+        -Value "#pragma once" `
+        -Encoding UTF8
+    Set-Content `
+        -LiteralPath $hxxFixturePath `
+        -Value "#pragma once" `
+        -Encoding UTF8
+    Set-Content `
+        -LiteralPath $inlFixturePath `
+        -Value "inline int reader_value() { return 1; }" `
+        -Encoding UTF8
+    Set-Content `
+        -LiteralPath $ippFixturePath `
+        -Value "template <typename T> T reader_value(T value) { return value; }" `
+        -Encoding UTF8
     New-Item -ItemType File -Force $cppLog | Out-Null
 
     $cppProcess = Start-Process `
         -FilePath $resolvedExe `
-        -ArgumentList @($cppFixturePath, $hppFixturePath) `
+        -ArgumentList @(
+            $cppFixturePath,
+            $hppFixturePath,
+            $ccFixturePath,
+            $cxxFixturePath,
+            $hhFixturePath,
+            $hxxFixturePath,
+            $inlFixturePath,
+            $ippFixturePath
+        ) `
         -PassThru
     $cppDeadline = [DateTime]::UtcNow.AddSeconds(60)
     do {
@@ -637,13 +682,49 @@ try {
         $verifiedHpp = Get-CppRecord `
             -Extension ".hpp" `
             -ExpectedPath $hppFixturePath
-        if ($null -ne $verifiedCpp -and $null -ne $verifiedHpp) {
+        $verifiedCc = Get-CppRecord `
+            -Extension ".cc" `
+            -ExpectedPath $ccFixturePath
+        $verifiedCxx = Get-CppRecord `
+            -Extension ".cxx" `
+            -ExpectedPath $cxxFixturePath
+        $verifiedHh = Get-CppRecord `
+            -Extension ".hh" `
+            -ExpectedPath $hhFixturePath
+        $verifiedHxx = Get-CppRecord `
+            -Extension ".hxx" `
+            -ExpectedPath $hxxFixturePath
+        $verifiedInl = Get-CppRecord `
+            -Extension ".inl" `
+            -ExpectedPath $inlFixturePath
+        $verifiedIpp = Get-CppRecord `
+            -Extension ".ipp" `
+            -ExpectedPath $ippFixturePath
+        if (
+            $null -ne $verifiedCpp -and
+            $null -ne $verifiedHpp -and
+            $null -ne $verifiedCc -and
+            $null -ne $verifiedCxx -and
+            $null -ne $verifiedHh -and
+            $null -ne $verifiedHxx -and
+            $null -ne $verifiedInl -and
+            $null -ne $verifiedIpp
+        ) {
             break
         }
         Start-Sleep -Milliseconds 100
     } while ([DateTime]::UtcNow -lt $cppDeadline)
-    if ($null -eq $verifiedCpp -or $null -eq $verifiedHpp) {
-        throw "Frozen C++ Reader did not report both format-explicit ready events within 60 seconds"
+    if (
+        $null -eq $verifiedCpp -or
+        $null -eq $verifiedHpp -or
+        $null -eq $verifiedCc -or
+        $null -eq $verifiedCxx -or
+        $null -eq $verifiedHh -or
+        $null -eq $verifiedHxx -or
+        $null -eq $verifiedInl -or
+        $null -eq $verifiedIpp
+    ) {
+        throw "Frozen C++ Reader did not report all format-explicit ready events within 60 seconds"
     }
 
     Stop-CppProcesses
@@ -859,7 +940,13 @@ if ($smokeSucceeded) {
     Write-Host (
         "Reader C++ smoke: cpp=" +
         "$($verifiedCpp | ConvertTo-Json -Compress) hpp=" +
-        "$($verifiedHpp | ConvertTo-Json -Compress)"
+        "$($verifiedHpp | ConvertTo-Json -Compress) cc=" +
+        "$($verifiedCc | ConvertTo-Json -Compress) cxx=" +
+        "$($verifiedCxx | ConvertTo-Json -Compress) hh=" +
+        "$($verifiedHh | ConvertTo-Json -Compress) hxx=" +
+        "$($verifiedHxx | ConvertTo-Json -Compress) inl=" +
+        "$($verifiedInl | ConvertTo-Json -Compress) ipp=" +
+        "$($verifiedIpp | ConvertTo-Json -Compress)"
     )
     Write-Host "Reader GUI smoke batch 1: $($verifiedBatches[0])"
     Write-Host "Reader GUI smoke batch 2: $($verifiedBatches[1])"
@@ -867,6 +954,7 @@ if ($smokeSucceeded) {
         "Reader GUI smoke passed: IPC primary PID $($ipcPrimary.Id), " +
         "visual-ready slides=4, markdown-ready kind=markdown, " +
         "TXT-ready kind=code extension=.txt, " +
-        "C++-ready extensions=.cpp,.hpp, exact two 2-file batches"
+        "C++-ready extensions=.cpp,.hpp,.cc,.cxx,.hh,.hxx,.inl,.ipp, " +
+        "exact two 2-file batches"
     )
 }
