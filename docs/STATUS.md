@@ -5,11 +5,12 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 
 ## 当前目标
 
-**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（规格已批准）
+**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（计划完成，待 Task 1）
 
 - 用户已批准依次实现 Web 依赖安全升级、C++ 后缀族和代码阅读体验。
 - 规格：`docs/superpowers/specs/2026-09-23-reader-hardening-and-code-reading-design.md`
-- 当前阶段：规格已固化；下一边界是实施计划，尚未修改产品代码。
+- 计划：`docs/superpowers/plans/2026-09-23-reader-hardening-and-code-reading.md`（5 个顺序 TDD 任务）
+- 当前阶段：规格与计划已固化；下一边界是 Task 1 Web 开发依赖升级，尚未修改产品代码或锁文件。
 - Web 审计：两个依赖树均为 2 moderate / 1 high / 1 critical，全部来自 Vite/Vitest 开发工具。批准升级 `vite 5.4.19 → 5.4.21`、`vitest 2.1.9 → 3.2.6`，保持 Node 18+；允许记录一个 Node 20 才能兼容清零的 dev-only moderate 剩余风险。
 - C++ 范围：`.cc/.cxx/.hh/.hxx/.inl/.ipp` 打通格式、pipeline、高亮、sniff、关联、UI、文档与 frozen smoke。
 - 阅读体验：代码视图内工具栏提供行跳转、实时行列、wrap 和 8–24pt 字号；不启用隐藏的全局状态栏，不引入编辑、保存、编译或 LSP。
@@ -37,7 +38,7 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 
 ## 下一步
 
-编写逐任务 TDD 实施计划并单独提交推送；计划完成前不得修改产品代码或依赖锁文件。
+执行 Task 1：先让两个 Web 资产合同因旧 Vite/Vitest 精确版本而 RED，再升级清除 high/critical 审计项。
 
 ## 上一目标（已完成）
 
