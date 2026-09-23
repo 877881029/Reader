@@ -17,6 +17,7 @@ build/
 *.qmlc
 preview-cache/
 /logs/
+/graphify-out/
 .env
 .env.*
 !.env.example

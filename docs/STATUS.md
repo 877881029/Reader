@@ -1,11 +1,19 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-22
+最后更新：2026-09-23
 Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f95f81e`、Task 2 `deb9736` 已同步到 `origin/main`。
 
 ## 当前目标
 
-**`.cpp` / `.hpp` C++ 源码阅读**（已完成）
+**稳定发布基线后的下一独立功能评审**
+
+- 最新完成项仍为 `.cpp` / `.hpp` C++ 源码阅读；产品代码、冻结验收与 `origin/main` 保持同步。
+- 2026-09-23 完成全仓能力图谱盘点：扫描 285 个文件（185 code / 93 document / 7 image），结构与语义图合计 6,467 nodes、17,904 edges、215 communities。
+- 图谱主干确认 `MainWindow`（157 edges）和 `PreviewResult`（134 edges）是桌面壳、格式 pipeline、视觉预览、查找、缓存、IPC 与质量门之间的核心桥梁。
+- 图谱完整性警告：501 条 dangling endpoint、170 条 self-loop、无向构图折叠 2,206 条同端点边；主要来自打包 Web bundle 与 AST/语义 ID 粒度差异，不影响产品发布基线，但不能把社区数量直接解释为产品模块数量。
+- `graphify-out/` 是本地分析生成物，已加入忽略规则，不进入产品提交。
+
+### 最近完成：`.cpp` / `.hpp` C++ 源码阅读
 
 - 规格：`docs/superpowers/specs/2026-09-22-cpp-hpp-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-22-cpp-hpp-reading.md`（2 个 TDD 任务）
@@ -23,7 +31,9 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 
 ## 下一步
 
-选择下一项独立功能；已知 Web 依赖审计项必须单独规格化评估，不得直接执行破坏性 `npm audit fix --force`。
+1. **第一优先：Web 依赖安全升级专项。** 先确认 PPTX/Markdown 两棵锁定依赖树的 4 个审计项（2 moderate、1 high、1 critical）是否位于运行时可达路径，再分别建规格并按 TDD 升级；必须通过 Web tests、manifest、WebEngine 与完整 frozen release gate，不得直接执行破坏性 `npm audit fix --force`。
+2. **第二优先：补齐 C++ 后缀族。** 独立小增量支持 `.cc` / `.cxx` / `.hh` / `.hxx` / `.inl` / `.ipp`，复用现有 C-family 只读链路并增加冻结 smoke；价值中等、实现和回归风险低。
+3. **第三优先：代码阅读体验。** 规格化评估行跳转、当前行列状态、wrap 开关与字号调整；继续保持“阅读器”边界，不引入编辑、保存、编译或 LSP。
 
 ## 上一目标（已完成）
 
