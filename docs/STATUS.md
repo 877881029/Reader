@@ -5,12 +5,12 @@ Git：三项增量规格/计划及安全目标修订已同步到 `origin/main`�
 
 ## 当前目标
 
-**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（C++ 后缀族完成，待代码阅读控制）
+**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（功能完成，待最终 release gate）
 
 - 用户已批准依次实现 Web 依赖安全升级、C++ 后缀族和代码阅读体验。
 - 规格：`docs/superpowers/specs/2026-09-23-reader-hardening-and-code-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-23-reader-hardening-and-code-reading.md`（5 个顺序 TDD 任务）
-- 当前阶段：Task 3 frozen C++ 后缀族验收合同完成；下一边界是 Task 4 代码阅读控制。
+- 当前阶段：Task 4 代码阅读控制完成；下一边界是 Task 5 最终 release candidate。
 - Task 1 RED：先把两个资产合同改为精确要求 Vite `6.4.3` / Vitest `3.2.6`，得到 `4 failed, 10 passed, 1 skipped`；两个目标失败证明 manifest/lockfile 仍是旧版本，另外两个失败证明已提交 bundle manifest 与待重建字节不一致。
 - Task 1 GREEN：PPTX 与 Markdown 两棵依赖树均升级到 Vite `6.4.3` / Vitest `3.2.6`，保留 Node 18+ 契约；两个构建后静态 bundle 和 SHA256 manifest 已确定性重建。Vite 6 还暴露 Windows checkout 下生成 HTML/JS/CSS 的 EOL 漂移，`.gitattributes` 已将 Web HTML 与生成资产固定为 LF，提交前 `git diff --check` 通过。
 - Task 1 审计：两个依赖树现在均为 2 moderate / 0 high / 0 critical。剩余项是同一 `@vitest/mocker` advisory 的直接/传递报告，仅存在于不进入 frozen Reader 的测试工具链；完全清零要求升级到需要 Node 20 的 Vitest 新主版本，因此本阶段不执行破坏 Node 18 契约的 `npm audit fix --force`。
@@ -21,6 +21,9 @@ Git：三项增量规格/计划及安全目标修订已同步到 `origin/main`�
 - Task 3 RED：先扩展冻结脚本静态合同，要求 `sample.cc/.cxx/.hh/.hxx/.inl/.ipp` 六个新夹具和最终 ready 摘要，得到 `1 failed, 20 passed`，证明 frozen C++ 阶段仍只覆盖 `.cpp/.hpp`。
 - Task 3 GREEN：同一隔离 Reader 进程现在打开全部八个 C++ 文件；每个文件均通过共享 `Get-CppRecord` 验证 canonical path、精确 extension、`kind="code"` 和 `代码预览`，并继续复用独立 namespace/profile/temp、失败诊断和严格清理。脚本保持纯 ASCII，所有 helper 仍为顶层，精确两批 IPC 不变。
 - Task 3 验证：`tests/test_packaging.py` 为 `21 passed`，Windows PowerShell parser 无语法错误；真实 frozen build/smoke 保留到 Task 5 唯一 release gate 同次执行。
+- Task 4 RED：新增命名工具栏控件、跳转/位置、wrap/字号和重新加载状态四组行为测试，先得到 `4 failed, 6 passed`，失败均因现有 `CodeTextView` 只有编辑器、没有阅读控制。
+- Task 4 GREEN：代码页新增自有紧凑工具栏；1-based 行号 spin 与「跳转」将目标限制在合法 block 并移动到行首；右侧实时显示「行 N，列 M」；「换行」在 `NoWrap/WidgetWidth` 间切换；`A-/A+` 在 8–24pt 内调整 12pt 默认等宽字体，同时刷新 tab stop、gutter geometry 和绘制。每个 `CodeTextView` 独立持有阅读状态，全局隐藏状态栏保持不变。
+- Task 4 验证：聚焦 `10 passed`；code/find/window 回归 `151 passed`；统一快速门 PPTX Web `33 passed`、Markdown Web `21 passed`、Python `458 passed, 1 skipped`，最终输出 `Reader fast verification passed`。README 与功能全解已同步。
 - C++ 范围：`.cc/.cxx/.hh/.hxx/.inl/.ipp` 打通格式、pipeline、高亮、sniff、关联、UI、文档与 frozen smoke。
 - 阅读体验：代码视图内工具栏提供行跳转、实时行列、wrap 和 8–24pt 字号；不启用隐藏的全局状态栏，不引入编辑、保存、编译或 LSP。
 - 最新完成项仍为 `.cpp` / `.hpp` C++ 源码阅读；产品代码与冻结验收保持稳定。
@@ -47,7 +50,7 @@ Git：三项增量规格/计划及安全目标修订已同步到 `origin/main`�
 
 ## 下一步
 
-执行 Task 4：先为代码视图工具栏、行跳转、实时行列、wrap 与 8–24pt 字号控制建立行为 RED，再做最小 UI 实现。
+执行 Task 5：运行唯一 `verify.ps1 -Release`，记录真实 frozen 八后缀 ready、产物/manifest 哈希与清理结果，再关闭规格和计划。
 
 ## 上一目标（已完成）
 
