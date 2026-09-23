@@ -28,12 +28,13 @@ suffix family, and add focused read-only code navigation controls.
 **RED**
 
 Extend `tests/test_pptx_web_assets.py` and `tests/test_md_web_assets.py` to
-require exact `vite=5.4.21` and `vitest=3.2.6` manifest and lockfile roots.
+require exact `vite=6.4.3` and `vitest=3.2.6` manifest and lockfile roots.
 Run the focused Python tests and observe failures against `5.4.19` / `2.1.9`.
 
 **GREEN**
 
-Update both package manifests and regenerate both lockfiles with npm. Do not
+Update both package manifests and regenerate both lockfiles with npm. Vite 6.4.3
+is the first current-audit-safe release and retains Node 18 support. Do not
 change runtime renderer dependencies. Run:
 
 ```powershell

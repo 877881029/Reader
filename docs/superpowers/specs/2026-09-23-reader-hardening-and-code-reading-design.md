@@ -36,8 +36,14 @@ generated static assets and does not run a Vite or Vitest server.
 
 | Package | Current | Target | Reason |
 |---|---:|---:|---|
-| `vite` | `5.4.19` | `5.4.21` | Fixes the reported Vite/esbuild chain and remains Node 18 compatible |
+| `vite` | `5.4.19` | `6.4.3` | First release above all current Vite advisory ranges; remains Node 18 compatible |
 | `vitest` | `2.1.9` | `3.2.6` | Fixes the critical server issue and remains Node 18 compatible |
+
+The initial npm suggestion of `vite@5.4.21` is insufficient for advisories
+published after that patch: current audit data marks all Vite versions through
+`6.4.2` vulnerable. `vite@6.4.3` declares
+`^18.0.0 || ^20.0.0 || >=22.0.0`, so it closes the high-risk chain without
+raising Reader's Node floor.
 
 `vitest@4.1.11` is not selected because it requires Node 20 and would silently
 break the documented Node 18+ contract. One dev-only moderate

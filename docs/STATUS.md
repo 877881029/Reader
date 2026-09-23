@@ -11,7 +11,7 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 - 规格：`docs/superpowers/specs/2026-09-23-reader-hardening-and-code-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-23-reader-hardening-and-code-reading.md`（5 个顺序 TDD 任务）
 - 当前阶段：规格与计划已固化；下一边界是 Task 1 Web 开发依赖升级，尚未修改产品代码或锁文件。
-- Web 审计：两个依赖树均为 2 moderate / 1 high / 1 critical，全部来自 Vite/Vitest 开发工具。批准升级 `vite 5.4.19 → 5.4.21`、`vitest 2.1.9 → 3.2.6`，保持 Node 18+；允许记录一个 Node 20 才能兼容清零的 dev-only moderate 剩余风险。
+- Web 审计：两个依赖树均为 2 moderate / 1 high / 1 critical，全部来自 Vite/Vitest 开发工具。实施复审发现 npm 最初建议的 Vite 5.4.21 仍落在新披露漏洞范围内，目标修订为首个越过全部当前 advisory 范围且仍支持 Node 18 的 `vite 6.4.3`；`vitest 2.1.9 → 3.2.6` 不变。允许记录 Node 20 才能兼容清零的 dev-only moderate 剩余风险。
 - C++ 范围：`.cc/.cxx/.hh/.hxx/.inl/.ipp` 打通格式、pipeline、高亮、sniff、关联、UI、文档与 frozen smoke。
 - 阅读体验：代码视图内工具栏提供行跳转、实时行列、wrap 和 8–24pt 字号；不启用隐藏的全局状态栏，不引入编辑、保存、编译或 LSP。
 - 最新完成项仍为 `.cpp` / `.hpp` C++ 源码阅读；产品代码与冻结验收保持稳定。
