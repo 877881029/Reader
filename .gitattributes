@@ -3,4 +3,8 @@
 .gitattributes text eol=lf
 assets/**/THIRD_PARTY_NOTICES.txt text eol=lf
 assets/**/manifest.sha256 text eol=lf
+assets/**/*.html text eol=lf
+assets/**/*.js text eol=lf
+assets/**/*.css text eol=lf
 web/**/THIRD_PARTY_NOTICES.txt text eol=lf
+web/**/*.html text eol=lf

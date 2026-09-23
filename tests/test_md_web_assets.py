@@ -14,8 +14,8 @@ EXPECTED_DEV_DEPENDENCIES = {
     "jsdom": "24.1.3",
     "type-fest": "4.41.0",
     "typescript": "5.9.2",
-    "vite": "5.4.19",
-    "vitest": "2.1.9",
+    "vite": "6.4.3",
+    "vitest": "3.2.6",
 }
 
 
@@ -53,6 +53,7 @@ def test_md_viewer_supply_chain_is_exact_and_offline():
     assert set(package["dependencies"]) == {"markdown-it", "mermaid"}
     assert all(not value.startswith(("^", "~")) for value in package["dependencies"].values())
     assert package["devDependencies"] == EXPECTED_DEV_DEPENDENCIES
+    assert lock["packages"][""]["devDependencies"] == EXPECTED_DEV_DEPENDENCIES
     assert all(not value.startswith(("^", "~")) for value in package["devDependencies"].values())
     for dep_name in sorted(package["devDependencies"]):
         dep_package = json.loads((WEB / "node_modules" / dep_name / "package.json").read_text(encoding="utf-8"))

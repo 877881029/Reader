@@ -21,9 +21,10 @@ def test_locked_supply_chain_and_node_floor():
         "@types/node": "22.13.14",
         "jsdom": "24.1.3",
         "typescript": "5.9.2",
-        "vite": "5.4.19",
-        "vitest": "2.1.9",
+        "vite": "6.4.3",
+        "vitest": "3.2.6",
     }
+    assert lock["packages"][""]["devDependencies"] == package["devDependencies"]
     assert lock["packages"]["node_modules/pptx-viewer"]["version"] == "0.2.2"
     assert lock["packages"]["node_modules/pptx-viewer"]["dependencies"] == {"fflate": "^0.8.2"}
 
