@@ -5,9 +5,15 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 
 ## 当前目标
 
-**稳定发布基线后的下一独立功能评审**
+**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（规格已批准）
 
-- 最新完成项仍为 `.cpp` / `.hpp` C++ 源码阅读；产品代码、冻结验收与 `origin/main` 保持同步。
+- 用户已批准依次实现 Web 依赖安全升级、C++ 后缀族和代码阅读体验。
+- 规格：`docs/superpowers/specs/2026-09-23-reader-hardening-and-code-reading-design.md`
+- 当前阶段：规格已固化；下一边界是实施计划，尚未修改产品代码。
+- Web 审计：两个依赖树均为 2 moderate / 1 high / 1 critical，全部来自 Vite/Vitest 开发工具。批准升级 `vite 5.4.19 → 5.4.21`、`vitest 2.1.9 → 3.2.6`，保持 Node 18+；允许记录一个 Node 20 才能兼容清零的 dev-only moderate 剩余风险。
+- C++ 范围：`.cc/.cxx/.hh/.hxx/.inl/.ipp` 打通格式、pipeline、高亮、sniff、关联、UI、文档与 frozen smoke。
+- 阅读体验：代码视图内工具栏提供行跳转、实时行列、wrap 和 8–24pt 字号；不启用隐藏的全局状态栏，不引入编辑、保存、编译或 LSP。
+- 最新完成项仍为 `.cpp` / `.hpp` C++ 源码阅读；产品代码与冻结验收保持稳定。
 - 2026-09-23 完成全仓能力图谱盘点：扫描 285 个文件（185 code / 93 document / 7 image），结构与语义图合计 6,467 nodes、17,904 edges、215 communities。
 - 图谱主干确认 `MainWindow`（157 edges）和 `PreviewResult`（134 edges）是桌面壳、格式 pipeline、视觉预览、查找、缓存、IPC 与质量门之间的核心桥梁。
 - 图谱完整性警告：501 条 dangling endpoint、170 条 self-loop、无向构图折叠 2,206 条同端点边；主要来自打包 Web bundle 与 AST/语义 ID 粒度差异，不影响产品发布基线，但不能把社区数量直接解释为产品模块数量。
@@ -31,9 +37,7 @@ Git：发布风险闭环 `898eaf6`、C++ 规格计划 `ba505a4`、C++ Task 1 `f9
 
 ## 下一步
 
-1. **第一优先：Web 依赖安全升级专项。** 先确认 PPTX/Markdown 两棵锁定依赖树的 4 个审计项（2 moderate、1 high、1 critical）是否位于运行时可达路径，再分别建规格并按 TDD 升级；必须通过 Web tests、manifest、WebEngine 与完整 frozen release gate，不得直接执行破坏性 `npm audit fix --force`。
-2. **第二优先：补齐 C++ 后缀族。** 独立小增量支持 `.cc` / `.cxx` / `.hh` / `.hxx` / `.inl` / `.ipp`，复用现有 C-family 只读链路并增加冻结 smoke；价值中等、实现和回归风险低。
-3. **第三优先：代码阅读体验。** 规格化评估行跳转、当前行列状态、wrap 开关与字号调整；继续保持“阅读器”边界，不引入编辑、保存、编译或 LSP。
+编写逐任务 TDD 实施计划并单独提交推送；计划完成前不得修改产品代码或依赖锁文件。
 
 ## 上一目标（已完成）
 
