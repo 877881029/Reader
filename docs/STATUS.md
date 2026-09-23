@@ -1,16 +1,16 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-09-23
-Git：三项增量规格/计划及安全目标修订已同步到 `origin/main`；本边界提交 Web Task 1。
+Git：Web 安全 `be91d5f`、C++ 接线 `b0c505a`、frozen 验收 `2333c48`、代码控制 `a38c9a3` 已同步到 `origin/main`；本边界提交最终状态。
 
 ## 当前目标
 
-**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（功能完成，待最终 release gate）
+**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（已完成）
 
 - 用户已批准依次实现 Web 依赖安全升级、C++ 后缀族和代码阅读体验。
 - 规格：`docs/superpowers/specs/2026-09-23-reader-hardening-and-code-reading-design.md`
 - 计划：`docs/superpowers/plans/2026-09-23-reader-hardening-and-code-reading.md`（5 个顺序 TDD 任务）
-- 当前阶段：Task 4 代码阅读控制完成；下一边界是 Task 5 最终 release candidate。
+- 当前阶段：Task 1–5 全部完成，规格与计划状态为 Implemented。
 - Task 1 RED：先把两个资产合同改为精确要求 Vite `6.4.3` / Vitest `3.2.6`，得到 `4 failed, 10 passed, 1 skipped`；两个目标失败证明 manifest/lockfile 仍是旧版本，另外两个失败证明已提交 bundle manifest 与待重建字节不一致。
 - Task 1 GREEN：PPTX 与 Markdown 两棵依赖树均升级到 Vite `6.4.3` / Vitest `3.2.6`，保留 Node 18+ 契约；两个构建后静态 bundle 和 SHA256 manifest 已确定性重建。Vite 6 还暴露 Windows checkout 下生成 HTML/JS/CSS 的 EOL 漂移，`.gitattributes` 已将 Web HTML 与生成资产固定为 LF，提交前 `git diff --check` 通过。
 - Task 1 审计：两个依赖树现在均为 2 moderate / 0 high / 0 critical。剩余项是同一 `@vitest/mocker` advisory 的直接/传递报告，仅存在于不进入 frozen Reader 的测试工具链；完全清零要求升级到需要 Node 20 的 Vitest 新主版本，因此本阶段不执行破坏 Node 18 契约的 `npm audit fix --force`。
@@ -24,6 +24,10 @@ Git：三项增量规格/计划及安全目标修订已同步到 `origin/main`�
 - Task 4 RED：新增命名工具栏控件、跳转/位置、wrap/字号和重新加载状态四组行为测试，先得到 `4 failed, 6 passed`，失败均因现有 `CodeTextView` 只有编辑器、没有阅读控制。
 - Task 4 GREEN：代码页新增自有紧凑工具栏；1-based 行号 spin 与「跳转」将目标限制在合法 block 并移动到行首；右侧实时显示「行 N，列 M」；「换行」在 `NoWrap/WidgetWidth` 间切换；`A-/A+` 在 8–24pt 内调整 12pt 默认等宽字体，同时刷新 tab stop、gutter geometry 和绘制。每个 `CodeTextView` 独立持有阅读状态，全局隐藏状态栏保持不变。
 - Task 4 验证：聚焦 `10 passed`；code/find/window 回归 `151 passed`；统一快速门 PPTX Web `33 passed`、Markdown Web `21 passed`、Python `458 passed, 1 skipped`，最终输出 `Reader fast verification passed`。README 与功能全解已同步。
+- Task 5 最终 release gate：唯一入口 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release -Python C:\venvs\reader-076ca44a\Scripts\python.exe` 同次运行退出 0；PPTX Web `33 passed`、Markdown Web `21 passed`、Python `458 passed, 1 skipped`，最终输出 `Reader release verification passed`。
+- Frozen 验收：PPTX 4 slides、Markdown ready、TXT `kind=code extension=.txt`，以及 `.cpp/.hpp/.cc/.cxx/.hh/.hxx/.inl/.ipp` 全部逐项报告 canonical path、`kind="code"`、精确 extension 和 `代码预览`；IPC 保持精确两批、每批两个文件。
+- 最终 release candidate：`dist\Reader\Reader.exe` 7460250 bytes，SHA256 `dc2ab2f4958007198a98540f2f6e63b63c13ef31011880c81e5a63fc9668a574`。PPTX manifest SHA256 `2cad803774cd8d1400f230f0fc25d976b16fb84459fe9d98459d26df40fd41d1`，Markdown manifest SHA256 `19f31e1c86cdf7267bbea6003e88c20e435371e92221239c60a10ff4a2f63890`，源码与 frozen manifest 分别一致。
+- 最终清理：Reader 进程 0、Reader QtWebEngine 进程 0、smoke 临时根 0。两个 Web 依赖树继续为 2 moderate / 0 high / 0 critical，残余仅为 Node 20 才能兼容清零的 dev-only `@vitest/mocker`。
 - C++ 范围：`.cc/.cxx/.hh/.hxx/.inl/.ipp` 打通格式、pipeline、高亮、sniff、关联、UI、文档与 frozen smoke。
 - 阅读体验：代码视图内工具栏提供行跳转、实时行列、wrap 和 8–24pt 字号；不启用隐藏的全局状态栏，不引入编辑、保存、编译或 LSP。
 - 最新完成项仍为 `.cpp` / `.hpp` C++ 源码阅读；产品代码与冻结验收保持稳定。
@@ -50,7 +54,7 @@ Git：三项增量规格/计划及安全目标修订已同步到 `origin/main`�
 
 ## 下一步
 
-执行 Task 5：运行唯一 `verify.ps1 -Release`，记录真实 frozen 八后缀 ready、产物/manifest 哈希与清理结果，再关闭规格和计划。
+三项增量已完成；下一项产品开发需建立新的独立规格和 TDD 计划。
 
 ## 上一目标（已完成）
 

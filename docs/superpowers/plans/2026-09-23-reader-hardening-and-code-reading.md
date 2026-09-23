@@ -1,5 +1,7 @@
 # Reader Hardening and Code Reading Implementation Plan
 
+Status: Implemented
+
 > Execute tasks in order. For each task: observe RED, implement GREEN, run the
 > focused suite, update `docs/STATUS.md`, commit, and push `origin/main` before
 > starting the next task.
