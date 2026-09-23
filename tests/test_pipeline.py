@@ -267,6 +267,12 @@ def test_json_yaml_xml_use_code_preview_without_office(tmp_path: Path):
         "f.h": "#define OK 1\n",
         "main.cpp": "class Reader {};\n",
         "main.hpp": "#pragma once\n",
+        "main.cc": "class ReaderCc {};\n",
+        "main.cxx": "class ReaderCxx {};\n",
+        "main.hh": "#pragma once\n",
+        "main.hxx": "#pragma once\n",
+        "main.inl": "inline int value() { return 1; }\n",
+        "main.ipp": "template <typename T> T value(T item) { return item; }\n",
         "g.txt": "plain note\n",
     }
     for name, body in samples.items():

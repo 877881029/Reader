@@ -17,13 +17,22 @@ def test_code_preview_keeps_text_and_kind(tmp_path: Path):
     assert language_for(".xml") == "xml"
     assert language_for(".c") == "c"
     assert language_for(".h") == "c"
-    assert language_for(".cpp") == "c"
-    assert language_for(".hpp") == "c"
+    for suffix in (".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx", ".inl", ".ipp"):
+        assert language_for(suffix) == "c"
     assert language_for(".txt") == "text"
 
 
-def test_cpp_and_hpp_preview_as_code(tmp_path: Path):
-    for name in ("main.cpp", "main.hpp"):
+def test_cpp_suffix_family_previews_as_code(tmp_path: Path):
+    for name in (
+        "main.cpp",
+        "main.hpp",
+        "main.cc",
+        "main.cxx",
+        "main.hh",
+        "main.hxx",
+        "main.inl",
+        "main.ipp",
+    ):
         path = tmp_path / name
         path.write_text("class Reader {};\n", encoding="utf-8")
         result = to_preview(path)

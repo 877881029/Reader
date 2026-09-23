@@ -70,6 +70,12 @@ def test_opens_c_family_sources(tmp_path: Path):
         tmp_path / "main.h",
         tmp_path / "main.cpp",
         tmp_path / "main.hpp",
+        tmp_path / "main.cc",
+        tmp_path / "main.cxx",
+        tmp_path / "main.hh",
+        tmp_path / "main.hxx",
+        tmp_path / "main.inl",
+        tmp_path / "main.ipp",
     ]
     for path in files:
         path.write_text("int x;\n", encoding="utf-8")

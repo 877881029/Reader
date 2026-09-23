@@ -4,8 +4,11 @@ from pathlib import Path
 
 from reader.preview.result import PreviewResult
 
+C_FAMILY_SUFFIXES = frozenset(
+    {".c", ".h", ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx", ".inl", ".ipp"}
+)
 CODE_SUFFIXES = frozenset(
-    {".json", ".yaml", ".yml", ".xml", ".c", ".h", ".cpp", ".hpp", ".txt"}
+    {".json", ".yaml", ".yml", ".xml", ".txt"} | C_FAMILY_SUFFIXES
 )
 
 
@@ -15,7 +18,7 @@ def language_for(suffix: str) -> str:
         return "yaml"
     if value == ".xml":
         return "xml"
-    if value in {".c", ".h", ".cpp", ".hpp"}:
+    if value in C_FAMILY_SUFFIXES:
         return "c"
     if value == ".txt":
         return "text"

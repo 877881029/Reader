@@ -59,8 +59,8 @@ def test_highlighter_colors_c_keyword_number_and_comment(qtbot):
     assert "#0f766e" in include_colors
 
 
-def test_cpp_and_hpp_use_c_highlighter(qtbot):
-    for suffix in (".cpp", ".hpp"):
+def test_cpp_suffix_family_uses_c_highlighter(qtbot):
+    for suffix in (".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx", ".inl", ".ipp"):
         editor = QPlainTextEdit()
         qtbot.addWidget(editor)
         editor.setPlainText("class Reader final {};")

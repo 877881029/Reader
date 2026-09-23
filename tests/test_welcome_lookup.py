@@ -18,11 +18,22 @@ def _window() -> MainWindow:
     )
 
 
-def test_cpp_and_hpp_have_welcome_badges():
+def test_cpp_suffix_family_has_welcome_badges():
     from reader.shell.welcome import _BADGE_BY_SUFFIX
 
-    assert _BADGE_BY_SUFFIX[".cpp"] == "CPP"
-    assert _BADGE_BY_SUFFIX[".hpp"] == "HPP"
+    assert {
+        suffix: _BADGE_BY_SUFFIX[suffix]
+        for suffix in (".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx", ".inl", ".ipp")
+    } == {
+        ".cpp": "CPP",
+        ".hpp": "HPP",
+        ".cc": "CC",
+        ".cxx": "CXX",
+        ".hh": "HH",
+        ".hxx": "HXX",
+        ".inl": "INL",
+        ".ipp": "IPP",
+    }
 
 
 def test_openable_in_directory_lists_folders_then_supported_files(tmp_path: Path):

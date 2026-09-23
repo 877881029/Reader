@@ -26,6 +26,12 @@ _BUILTIN = {
     ".h": fmt_code.to_preview,
     ".cpp": fmt_code.to_preview,
     ".hpp": fmt_code.to_preview,
+    ".cc": fmt_code.to_preview,
+    ".cxx": fmt_code.to_preview,
+    ".hh": fmt_code.to_preview,
+    ".hxx": fmt_code.to_preview,
+    ".inl": fmt_code.to_preview,
+    ".ipp": fmt_code.to_preview,
     ".txt": fmt_code.to_preview,
 }
 
