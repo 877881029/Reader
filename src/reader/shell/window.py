@@ -740,6 +740,16 @@ class MainWindow(QMainWindow):
         self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
         self.actionSave.triggered.connect(self.save_current_tab)
         self.addAction(self.actionSave)
+        self.actionSaveAs = QAction("另存为", self)
+        self.actionSaveAs.setObjectName("actionSaveAs")
+        self.actionSaveAs.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self.actionSaveAs.triggered.connect(self.save_current_tab_as)
+        self.addAction(self.actionSaveAs)
+        self.actionNewText = QAction("新建文本", self)
+        self.actionNewText.setObjectName("actionNewText")
+        self.actionNewText.setShortcut(QKeySequence.StandardKey.New)
+        self.actionNewText.triggered.connect(self.add_untitled_text_tab)
+        self.addAction(self.actionNewText)
 
         self.actionFind = QAction("查找", self)
         self.actionFind.setObjectName("actionFind")
@@ -1139,11 +1149,9 @@ class MainWindow(QMainWindow):
             and (is_pptx or is_md)
             and (is_md or document.last_result is not None)
         )
-        self.actionSave.setEnabled(
-            document is not None
-            and is_md
-            and document.mode == "text"
-        )
+        editable = self._editable_view(document) is not None
+        self.actionSave.setEnabled(editable)
+        self.actionSaveAs.setEnabled(editable)
         self.actionMarkdownEdit.setEnabled(
             is_md and document is not None and document.mode != "text"
         )
@@ -1232,62 +1240,135 @@ class MainWindow(QMainWindow):
         self._refresh_content_stack()
         self._refresh_preview_actions()
 
+    def _editable_view(self, document: _Document | None) -> QWidget | None:
+        from reader.preview.code_view import CodeTextView
+        from reader.preview.md_text_view import MarkdownTextView
+
+        if document is None:
+            return None
+        if document.mode == "text":
+            view = document.page.findChild(MarkdownTextView)
+            if view is not None:
+                return view
+        return document.page.findChild(CodeTextView)
+
     def _sync_markdown_tab_title(self, document_id: str) -> None:
         document = self._documents.get(document_id)
-        if document is None:
-            return
-        view = document.page.findChild(QWidget, "markdownTextView")
-        if view is None:
+        view = self._editable_view(document)
+        if document is None or view is None:
             return
         index = self._tabs.indexOf(document.page)
         if index >= 0:
             self._tabs.setTabText(index, view.display_title())
 
     def _on_markdown_path_changed(self, document_id: str) -> None:
-        from reader.preview.md_text_view import MarkdownTextView
-
         document = self._documents.get(document_id)
-        if document is None:
+        view = self._editable_view(document)
+        if document is None or view is None or view.path is None:
             return
-        view = document.page.findChild(MarkdownTextView)
-        if view is None or view.path is None:
-            return
-        document.path = view.path
+        document.path = Path(view.path).resolve()
         document.page.setProperty("readerBlankTab", False)
         remember_recent(document.path)
         self._sync_markdown_tab_title(document_id)
         self._refresh_preview_actions()
 
-    def save_current_tab(self) -> None:
-        from reader.preview.md_text_view import MarkdownTextView
+    def _bind_editable_view(self, document_id: str, view: QWidget) -> None:
+        view.dirty_changed.connect(
+            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
+        )
+        view.path_changed.connect(
+            lambda _path, did=document_id: self._on_markdown_path_changed(did)
+        )
 
+    def save_current_tab(self) -> bool:
         document_id = self._current_document_id()
         if document_id is None:
-            return
-        document = self._documents[document_id]
-        view = document.page.findChild(MarkdownTextView)
-        if view is None or document.mode != "text":
-            return
-        if view.path is not None:
-            view.save()
-            self._sync_markdown_tab_title(document_id)
-            self.statusBar().showMessage("已保存")
-            return
-        path, _selected = QFileDialog.getSaveFileName(
-            self,
-            "另存为",
-            "未命名.md",
-            "Markdown (*.md)",
+            return False
+        return self._save_document(document_id)
+
+    def save_current_tab_as(self) -> bool:
+        document_id = self._current_document_id()
+        if document_id is None:
+            return False
+        return self._save_document_as(document_id)
+
+    def _save_document(self, document_id: str) -> bool:
+        view = self._editable_view(self._documents.get(document_id))
+        if view is None:
+            return False
+        if view.path is None:
+            return self._save_document_as(document_id)
+        if not view.save():
+            self.statusBar().showMessage("只读文件无法保存")
+            return False
+        self._sync_markdown_tab_title(document_id)
+        self.statusBar().showMessage("已保存")
+        return True
+
+    def _save_document_as(self, document_id: str) -> bool:
+        from reader.preview.md_text_view import MarkdownTextView
+
+        view = self._editable_view(self._documents.get(document_id))
+        if view is None:
+            return False
+        is_markdown = isinstance(view, MarkdownTextView)
+        suffix = ".md" if is_markdown else (view.suffix or ".txt")
+        default_name = view.path.name if view.path is not None else f"未命名{suffix}"
+        filters = (
+            "Markdown (*.md)"
+            if is_markdown
+            else ";;".join(
+                (
+                    "文本文件 (*.txt)",
+                    "JSON (*.json)",
+                    "YAML (*.yaml *.yml)",
+                    "XML (*.xml)",
+                    "C/C++ (*.c *.h *.cpp *.hpp *.cc *.cxx *.hh *.hxx *.inl *.ipp)",
+                    "Markdown (*.md)",
+                    "所有文件 (*)",
+                )
+            )
         )
+        path, _selected = QFileDialog.getSaveFileName(self, "另存为", default_name, filters)
         if not path:
-            return
+            return False
         target = Path(path)
-        if target.suffix.lower() != ".md":
+        if is_markdown and target.suffix.lower() != ".md":
             target = target.with_suffix(".md")
-        view.save_as(target)
+        try:
+            view.save_as(target)
+        except OSError as exc:
+            self.statusBar().showMessage(f"保存失败：{exc}")
+            return False
         self._on_markdown_path_changed(document_id)
         self.statusBar().showMessage("已保存")
+        return True
 
+    def add_untitled_text_tab(self) -> None:
+        from reader.preview.code_view import CodeTextView
+
+        document_id = uuid4().hex
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        view = CodeTextView(page)
+        view.load_untitled(".txt")
+        layout.addWidget(view)
+        document = _Document(
+            path=Path(f"未命名-{document_id[:8]}.txt"),
+            page=page,
+            mode="builtin",
+            builtin_mode="builtin",
+            status_label="文本编辑",
+            last_result=PreviewResult(html="", status_label="文本编辑", kind="code"),
+        )
+        self._documents[document_id] = document
+        self._tabs.addTab(page, view.display_title())
+        self._tabs.setCurrentWidget(page)
+        self._bind_editable_view(document_id, view)
+        self._refresh_content_stack()
+        self._refresh_preview_actions()
+        view.editor().setFocus()
     def _open_markdown_text_tab(
         self,
         path: Path,
@@ -1718,6 +1799,8 @@ class MainWindow(QMainWindow):
             layout.takeAt(index)
             _dispose_widget(widget)
         self._bind_visual_events(document_id, generation, content)
+        if content.objectName() == "codeTextView":
+            self._bind_editable_view(document_id, content)
         start = getattr(content, "start", None)
         if callable(start):
             start()

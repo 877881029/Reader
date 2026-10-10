@@ -4118,3 +4118,151 @@ def test_app_user_model_id_uses_reader_desktop_on_windows(monkeypatch):
 
     assert app_module.APP_USER_MODEL_ID == "Reader.Desktop"
     assert calls == ["Reader.Desktop"]
+
+
+# --- P1 notepad-class editing ------------------------------------------------
+
+
+def _code_window(qtbot):
+    from reader.shell.window import MainWindow, _default_viewer
+
+    def preview_fn(path: Path, office=None, mode="builtin") -> PreviewResult:
+        return PreviewResult(html="", status_label="文本预览", kind="code")
+
+    window = MainWindow(
+        preview_fn=preview_fn,
+        cache_factory=FakeCache,
+        viewer_factory=_default_viewer,
+    )
+    qtbot.addWidget(window)
+    return window
+
+
+def _open_code(qtbot, window, path: Path):
+    from reader.preview.code_view import CodeTextView
+
+    window.open_paths([str(path)])
+    qtbot.waitUntil(lambda: window.findChild(CodeTextView) is not None)
+    return window.findChild(CodeTextView)
+
+
+def _append_code(view, text: str) -> None:
+    from PySide6.QtGui import QTextCursor
+
+    cursor = view.editor().textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.End)
+    view.editor().setTextCursor(cursor)
+    view.editor().insertPlainText(text)
+
+
+def test_editing_shortcuts_are_registered(qtbot):
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+
+    assert window.actionSave.shortcut().toString() == "Ctrl+S"
+    assert window.actionSaveAs.shortcut().toString() == "Ctrl+Shift+S"
+    assert window.actionNewText.shortcut().toString() == "Ctrl+N"
+
+
+@pytest.mark.parametrize(
+    ("name", "raw", "expected"),
+    [
+        ("a.txt", b"one\r\n", b"one\r\n!"),
+        ("a.json", b'{"a": 1}\n', b'{"a": 1}\n!'),
+    ],
+)
+def test_ctrl_s_saves_dirty_code_tab_and_clears_star(qtbot, tmp_path: Path, name, raw, expected):
+    path = tmp_path / name
+    path.write_bytes(raw)
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, path)
+
+    _append_code(view, "!")
+    assert window._tabs.tabText(0) == f"*{name}"
+
+    window.actionSave.trigger()
+
+    assert path.read_bytes() == expected
+    assert window._tabs.tabText(0) == name
+
+
+def test_save_as_code_tab_retitles_and_keeps_original(qtbot, tmp_path: Path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    source = tmp_path / "a.txt"
+    source.write_bytes(b"x")
+    target = tmp_path / "b.json"
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, source)
+    _append_code(view, "y")
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(target), "")
+    )
+
+    window.actionSaveAs.trigger()
+
+    assert target.read_bytes() == b"xy"
+    assert source.read_bytes() == b"x"
+    assert window._tabs.tabText(0) == "b.json"
+    document = next(iter(window._documents.values()))
+    assert document.path == target.resolve()
+
+
+def test_save_as_markdown_text_tab(qtbot, tmp_path: Path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    from reader.preview.md_text_view import MarkdownTextView
+
+    target = tmp_path / "doc.md"
+    window = make_window(lambda *_a, **_k: markdown_visual_result())
+    qtbot.addWidget(window)
+    window.add_untitled_markdown_tab()
+    view = window.findChild(MarkdownTextView)
+    view._editor.insertPlainText("# hi")
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(target), "")
+    )
+
+    window.actionSaveAs.trigger()
+
+    assert target.read_bytes() == b"# hi"
+    assert window._tabs.tabText(0) == "doc.md"
+
+
+def test_ctrl_n_creates_untitled_text_tab_saved_via_dialog(qtbot, tmp_path: Path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    from reader.preview.code_view import CodeTextView
+
+    target = tmp_path / "new.txt"
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+
+    window.actionNewText.trigger()
+
+    view = window.findChild(CodeTextView)
+    assert view is not None and view.is_editable()
+    assert window._tabs.tabText(0) == "未命名.txt"
+    _append_code(view, "a\nb")
+    assert window._tabs.tabText(0) == "*未命名.txt"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(target), "")
+    )
+
+    window.actionSave.trigger()
+
+    assert target.read_bytes() == b"a\r\nb"
+    assert window._tabs.tabText(0) == "new.txt"
+    document = next(iter(window._documents.values()))
+    assert document.path == target.resolve()
+
+
+def test_save_on_lossy_code_tab_reports_and_keeps_bytes(qtbot, tmp_path: Path):
+    path = tmp_path / "bad.txt"
+    raw = b"\x80\x81\xfe\xff\xff"
+    path.write_bytes(raw)
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, path)
+
+    window.actionSave.trigger()
+
+    assert path.read_bytes() == raw
+    assert window.statusBar().currentMessage() == "只读文件无法保存"
