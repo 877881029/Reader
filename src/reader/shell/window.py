@@ -498,7 +498,10 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
         from reader.preview.code_view import CodeTextView
 
         view = CodeTextView()
-        view.load_text(result.html, source_path.suffix)
+        if source_path.is_file():
+            view.load_path(source_path)
+        else:
+            view.load_text(result.html, source_path.suffix)
         return view
     if result.kind == "svg":
         from reader.preview.svg_view import SvgView

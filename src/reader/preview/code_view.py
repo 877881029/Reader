@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtCore import QRect, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from reader.preview.syntax import highlighter_for
+from reader.text_io import TextFile, default_text_file, read_text_file, write_text_file
 from reader.theme import CHROME, HOVER, INK, LINE, MUTED, PAPER
 
 
@@ -140,10 +141,15 @@ class CodeTextView(QWidget):
     MIN_FONT_SIZE = 8
     MAX_FONT_SIZE = 24
 
+    dirty_changed = Signal(bool)
+    path_changed = Signal(object)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("codeTextView")
         self._path: Path | None = None
+        self._suffix = ""
+        self._format: TextFile | None = None
         self._highlighter = None
         self._editor = CodeEditor(self)
         self._toolbar = QFrame(self)
@@ -171,6 +177,9 @@ class CodeTextView(QWidget):
         self._font_size_label.setObjectName("codeFontSize")
         self._position_label = QLabel("行 1，列 1", self._toolbar)
         self._position_label.setObjectName("codeCursorPosition")
+        self._readonly_notice = QLabel("只读：无法无损识别编码", self._toolbar)
+        self._readonly_notice.setObjectName("codeReadOnlyNotice")
+        self._readonly_notice.hide()
 
         toolbar_layout.addWidget(line_label)
         toolbar_layout.addWidget(self._line_spin)
@@ -180,6 +189,7 @@ class CodeTextView(QWidget):
         toolbar_layout.addWidget(self._font_increase)
         toolbar_layout.addWidget(self._font_size_label)
         toolbar_layout.addStretch(1)
+        toolbar_layout.addWidget(self._readonly_notice)
         toolbar_layout.addWidget(self._position_label)
 
         layout = QVBoxLayout(self)
@@ -212,7 +222,71 @@ class CodeTextView(QWidget):
         self._font_increase.clicked.connect(self._increase_font_size)
         self._editor.blockCountChanged.connect(self._sync_line_range)
         self._editor.cursorPositionChanged.connect(self._sync_position)
+        self._editor.document().modificationChanged.connect(self.dirty_changed)
         self._sync_font_controls()
+
+    @property
+    def path(self) -> Path | None:
+        return self._path
+
+    @property
+    def suffix(self) -> str:
+        return self._suffix
+
+    @property
+    def dirty(self) -> bool:
+        return self._editor.document().isModified()
+
+    def text(self) -> str:
+        return self._editor.toPlainText()
+
+    def is_editable(self) -> bool:
+        return not self._editor.isReadOnly()
+
+    def display_title(self) -> str:
+        name = self._path.name if self._path is not None else f"未命名{self._suffix or '.txt'}"
+        return f"*{name}" if self.dirty else name
+
+    def save(self) -> bool:
+        if self._path is None or self._format is None or not self._format.lossless:
+            return False
+        write_text_file(self._path, self.text(), self._format)
+        self._editor.document().setModified(False)
+        return True
+
+    def save_as(self, path: Path) -> None:
+        target = Path(path)
+        if target.suffix == "":
+            target = target.with_suffix(self._suffix or ".txt")
+        fmt = self._format if self._format is not None and self._format.lossless else default_text_file()
+        write_text_file(target, self.text(), fmt)
+        self._format = fmt
+        self._path = target.resolve()
+        if target.suffix.lower() != self._suffix.lower():
+            self._suffix = target.suffix
+            self._apply_highlighter()
+        self._editor.document().setModified(False)
+        self.path_changed.emit(self._path)
+
+    def load_untitled(self, suffix: str = ".txt") -> None:
+        self._path = None
+        self._format = default_text_file()
+        self._show_text("", suffix, editable=True)
+
+    def _set_editable(self, editable: bool) -> None:
+        self._editor.setReadOnly(not editable)
+        flags = (
+            Qt.TextInteractionFlag.TextEditorInteraction
+            if editable
+            else Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        self._editor.setTextInteractionFlags(flags)
+
+    def _apply_highlighter(self) -> None:
+        if self._highlighter is not None:
+            self._highlighter.setDocument(None)
+        self._highlighter = highlighter_for(self._suffix, self._editor.document())
 
     def editor(self) -> CodeEditor:
         return self._editor
@@ -282,15 +356,26 @@ class CodeTextView(QWidget):
 
     def load_path(self, path: Path) -> None:
         path = Path(path)
-        text = path.read_text(encoding="utf-8", errors="replace")
+        loaded = read_text_file(path)
         self._path = path.resolve()
-        self.load_text(text, path.suffix)
+        self._format = loaded
+        self._show_text(loaded.text, path.suffix, editable=loaded.lossless)
 
     def load_text(self, text: str, suffix: str) -> None:
+        self._path = None
+        self._format = None
+        self._show_text(text, suffix, editable=False)
+
+    def _show_text(self, text: str, suffix: str, *, editable: bool) -> None:
+        self._suffix = suffix
         self._editor.setPlainText(text)
-        if self._highlighter is not None:
-            self._highlighter.setDocument(None)
-        self._highlighter = highlighter_for(suffix, self._editor.document())
+        self._apply_highlighter()
+        self._set_editable(editable)
+        self._readonly_notice.setHidden(
+            self._format is None or self._format.lossless
+        )
+        self._editor.document().clearUndoRedoStacks()
+        self._editor.document().setModified(False)
         self._editor._update_gutter_width(0)
         self._editor.viewport().update()
         self._editor.line_number_area().update()

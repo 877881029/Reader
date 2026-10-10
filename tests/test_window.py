@@ -263,7 +263,9 @@ def test_default_viewer_factory_uses_code_text_view(tmp_path: Path):
     widget = _default_viewer(result, source)
     assert isinstance(widget, CodeTextView)
     assert widget.editor().toPlainText() == '{"a":1}'
-    assert widget.editor().isReadOnly() is True
+    assert widget.editor().isReadOnly() is False
+    assert widget.path == source.resolve()
+    assert widget.dirty is False
 
 
 def test_default_viewer_factory_uses_svg_view(tmp_path: Path):

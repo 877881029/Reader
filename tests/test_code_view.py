@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QLabel, QPlainTextEdit, QPushButton, QSpinBox
@@ -103,7 +104,7 @@ def test_highlighter_colors_yaml_key_and_xml_tag(qtbot):
     assert "#0f766e" in xml_colors
 
 
-def test_code_view_is_readonly_with_gutter(qtbot, tmp_path: Path):
+def test_code_view_load_path_is_editable_with_gutter(qtbot, tmp_path: Path):
     path = tmp_path / "data.json"
     path.write_text("{\n  \"a\": 1\n}\n", encoding="utf-8")
     view = CodeTextView()
@@ -114,7 +115,7 @@ def test_code_view_is_readonly_with_gutter(qtbot, tmp_path: Path):
 
     editor = view.editor()
     gutter = view.line_number_area()
-    assert editor.isReadOnly() is True
+    assert editor.isReadOnly() is False
     assert editor.toPlainText().startswith("{")
     assert editor.blockCount() >= 3
     assert gutter is not None
@@ -226,3 +227,138 @@ def test_code_view_loading_resets_navigation_without_losing_highlighter(qtbot):
     assert (line_spin.minimum(), line_spin.maximum(), line_spin.value()) == (1, 1, 1)
     assert position_label.text() == "行 1，列 1"
     assert isinstance(view.highlighter(), YamlHighlighter)
+
+
+# --- P1 editing -------------------------------------------------------------
+
+
+def _type(qtbot, view, text: str) -> None:
+    editor = view.editor()
+    editor.setFocus()
+    cursor = editor.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.End)
+    editor.setTextCursor(cursor)
+    qtbot.keyClicks(editor, text)
+
+
+def test_load_path_starts_clean_without_undo_history(qtbot, tmp_path: Path):
+    path = tmp_path / "notes.txt"
+    path.write_text("hello\n", encoding="utf-8")
+    view = CodeTextView()
+    qtbot.addWidget(view)
+
+    view.load_path(path)
+
+    assert view.dirty is False
+    assert view.editor().document().isUndoAvailable() is False
+    assert view.display_title() == "notes.txt"
+
+
+def test_typing_marks_dirty_and_undo_restores_clean(qtbot, tmp_path: Path):
+    path = tmp_path / "notes.txt"
+    path.write_text("hello", encoding="utf-8")
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.load_path(path)
+    seen: list[bool] = []
+    view.dirty_changed.connect(seen.append)
+
+    _type(qtbot, view, "!")
+
+    assert view.dirty is True
+    assert view.display_title() == "*notes.txt"
+    view.editor().undo()
+    assert view.dirty is False
+    assert seen == [True, False]
+
+
+@pytest.mark.parametrize(
+    ("name", "raw", "expected"),
+    [
+        ("a.txt", "第一\r\n".encode("gb18030"), "第一!\r\n".encode("gb18030")),
+        ("a.json", b'\xef\xbb\xbf{"a":1}\r\n', b'\xef\xbb\xbf{"a":1}\r\n!'),
+        ("a.yaml", b"k: v\n", b"k: v\n!"),
+    ],
+)
+def test_save_preserves_encoding_and_newlines(qtbot, tmp_path: Path, name, raw, expected):
+    path = tmp_path / name
+    path.write_bytes(raw)
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.load_path(path)
+    if name == "a.txt":
+        cursor = view.editor().textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.Start)
+        cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+        view.editor().setTextCursor(cursor)
+        qtbot.keyClicks(view.editor(), "!")
+    else:
+        _type(qtbot, view, "!")
+
+    assert view.save() is True
+
+    assert path.read_bytes() == expected
+    assert view.dirty is False
+    assert view.display_title() == name
+
+
+def test_save_as_moves_path_and_rehighlights(qtbot, tmp_path: Path):
+    source = tmp_path / "a.txt"
+    source.write_bytes(b"int x = 1;\n")
+    target = tmp_path / "b.cpp"
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.load_path(source)
+    paths: list[object] = []
+    view.path_changed.connect(paths.append)
+
+    view.save_as(target)
+
+    assert target.read_bytes() == b"int x = 1;\n"
+    assert view.path == target.resolve()
+    assert paths == [target.resolve()]
+    assert isinstance(view.highlighter(), CHighlighter)
+    assert view.display_title() == "b.cpp"
+
+
+def test_untitled_text_is_editable_and_cannot_save_without_path(qtbot):
+    view = CodeTextView()
+    qtbot.addWidget(view)
+
+    view.load_untitled(".txt")
+    _type(qtbot, view, "draft")
+
+    assert view.path is None
+    assert view.editor().isReadOnly() is False
+    assert view.display_title() == "*未命名.txt"
+    assert view.save() is False
+    assert view.suffix == ".txt"
+
+
+def test_untitled_save_as_uses_utf8_crlf(qtbot, tmp_path: Path):
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.load_untitled(".txt")
+    _type(qtbot, view, "a")
+    view.editor().insertPlainText("\nb")
+    target = tmp_path / "new.txt"
+
+    view.save_as(target)
+
+    assert target.read_bytes() == b"a\r\nb"
+
+
+def test_lossy_file_opens_read_only_with_notice(qtbot, tmp_path: Path):
+    path = tmp_path / "bin.txt"
+    path.write_bytes(b"ok \x80\x81\xfe\xff\xff")
+    view = CodeTextView()
+    qtbot.addWidget(view)
+
+    view.load_path(path)
+
+    notice = view.findChild(QLabel, "codeReadOnlyNotice")
+    assert view.editor().isReadOnly() is True
+    assert notice is not None and notice.text() == "只读：无法无损识别编码"
+    assert notice.isHidden() is False
+    assert view.save() is False
+    assert path.read_bytes() == b"ok \x80\x81\xfe\xff\xff"
