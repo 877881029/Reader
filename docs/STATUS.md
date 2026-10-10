@@ -5,13 +5,14 @@ Git：三项增量最终状态 `47529db` 已同步；本边界提交记事本级
 
 ## 当前目标
 
-**记事本级文本编辑 P1：TXT / MD / JSON / YAML / XML / C/C++ 统一可编辑保存**（规格已批准，待写计划）
+**记事本级文本编辑 P1：TXT / MD / JSON / YAML / XML / C/C++ 统一可编辑保存**（计划已提交，执行中）
 
 - 背景：对标 Windows 记事本，Reader 阅读能力已超越，但 TXT/代码只读是最大差距；另缺新建/另存为/未保存保护/编码保留。
 - 用户批准 P1，并要求兼顾 txt、md、json 等全部文本格式。
 - 规格：`docs/superpowers/specs/2026-09-24-notepad-text-editing-design.md`
 - 后续阶段：P2 替换/Ctrl+G/缩放/状态栏；P3 编码选择与换行转换；P4 大文件、打印、会话恢复、启动速度。
-- 下一步：写 TDD 计划并提交。
+- 计划：`docs/superpowers/plans/2026-09-24-notepad-text-editing.md`（6 个顺序 TDD 任务）
+- 下一步：Task 1 无损文本 I/O。
 
 ## 上一目标：三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验（已完成）
 
@@ -62,7 +63,7 @@ Git：三项增量最终状态 `47529db` 已同步；本边界提交记事本级
 
 ## 下一步
 
-记事本级编辑 P1：规格已提交，下一步写 TDD 计划 `docs/superpowers/plans/2026-09-24-notepad-text-editing.md`。
+记事本级编辑 P1：执行计划 Task 1–6。
 
 ## 上一目标（已完成）
 
