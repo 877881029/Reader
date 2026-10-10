@@ -4266,3 +4266,136 @@ def test_save_on_lossy_code_tab_reports_and_keeps_bytes(qtbot, tmp_path: Path):
 
     assert path.read_bytes() == raw
     assert window.statusBar().currentMessage() == "只读文件无法保存"
+
+
+# --- P1 unsaved-changes protection -------------------------------------------
+
+
+def _dirty_code_window(qtbot, tmp_path: Path, answer: str):
+    path = tmp_path / "keep.txt"
+    path.write_bytes(b"orig")
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, path)
+    _append_code(view, "+")
+    prompts: list[str] = []
+
+    def prompt(name: str) -> str:
+        prompts.append(name)
+        return answer
+
+    window.unsaved_prompt = prompt
+    return window, path, prompts
+
+
+def test_close_dirty_tab_cancel_keeps_tab(qtbot, tmp_path: Path):
+    window, path, prompts = _dirty_code_window(qtbot, tmp_path, "cancel")
+
+    window.close_tab(0)
+
+    assert prompts == ["keep.txt"]
+    assert window._tabs.count() == 1
+    assert path.read_bytes() == b"orig"
+
+
+def test_close_dirty_tab_discard_closes_without_writing(qtbot, tmp_path: Path):
+    window, path, prompts = _dirty_code_window(qtbot, tmp_path, "discard")
+
+    window.close_tab(0)
+
+    assert prompts == ["keep.txt"]
+    assert window._documents == {}
+    assert path.read_bytes() == b"orig"
+
+
+def test_close_dirty_tab_save_writes_then_closes(qtbot, tmp_path: Path):
+    window, path, _prompts = _dirty_code_window(qtbot, tmp_path, "save")
+
+    window.close_tab(0)
+
+    assert window._documents == {}
+    assert path.read_bytes() == b"orig+"
+
+
+def test_close_clean_tab_never_prompts(qtbot, tmp_path: Path):
+    path = tmp_path / "clean.json"
+    path.write_bytes(b"{}")
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, path)
+    window.unsaved_prompt = lambda _name: pytest.fail("clean tab must not prompt")
+
+    window.close_tab(0)
+
+    assert window._documents == {}
+
+
+def test_close_window_cancel_keeps_everything(qtbot, tmp_path: Path):
+    window, path, prompts = _dirty_code_window(qtbot, tmp_path, "cancel")
+    window.show()
+
+    assert window.close() is False
+
+    assert prompts == ["keep.txt"]
+    assert window._closing is False
+    assert len(window._documents) == 1
+    assert path.read_bytes() == b"orig"
+
+
+def test_close_window_save_with_cancelled_save_as_aborts(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    window.actionNewText.trigger()
+    from reader.preview.code_view import CodeTextView
+
+    _append_code(window.findChild(CodeTextView), "draft")
+    window.unsaved_prompt = lambda _name: "save"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: ("", ""))
+    window.show()
+
+    assert window.close() is False
+    assert len(window._documents) == 1
+
+
+def test_close_window_discard_all_closes(qtbot, tmp_path: Path):
+    window, path, prompts = _dirty_code_window(qtbot, tmp_path, "discard")
+    window.show()
+
+    assert window.close() is True
+    assert prompts == ["keep.txt"]
+    assert path.read_bytes() == b"orig"
+
+
+def test_opening_file_never_replaces_dirty_untitled_draft(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    other = tmp_path / "other.docx"
+    other.write_bytes(b"x")
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    window.add_untitled_markdown_tab()
+    window.findChild(MarkdownTextView)._editor.insertPlainText("draft")
+
+    window.open_paths([str(other)])
+
+    assert window._tabs.count() == 2
+    assert window.findChild(MarkdownTextView).text() == "draft"
+
+
+def test_default_unsaved_prompt_dismissed_dialog_means_cancel(qtbot, monkeypatch, real_unsaved_prompt):
+    from PySide6.QtWidgets import QMessageBox
+
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    seen: list[str] = []
+
+    def fake_exec(box):
+        seen.append(box.text())
+        seen.extend(button.text() for button in box.buttons())
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+
+    assert real_unsaved_prompt(window, "a.txt") == "cancel"
+    assert seen[0] == "是否将更改保存到 a.txt？"
+    assert set(seen[1:]) == {"保存", "不保存", "取消"}

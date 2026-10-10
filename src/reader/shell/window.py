@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QStackedWidget,
     QStatusBar,
     QTabWidget,
@@ -559,8 +560,10 @@ class MainWindow(QMainWindow):
         office: Win32OfficeBackend | None = None,
         icon_path_provider: Callable[[], Path] | None = None,
         icon_applier: Callable[[QIcon], None] | None = None,
+        unsaved_prompt: Callable[[str], str] | None = None,
     ) -> None:
         super().__init__()
+        self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
         self.setWindowTitle("Reader")
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -1180,9 +1183,51 @@ class MainWindow(QMainWindow):
         if document.builtin_artifact_dir != document.artifact_dir:
             _cleanup_dir(document.builtin_artifact_dir)
 
+    def _ask_unsaved_changes(self, name: str) -> str:
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Reader")
+        box.setText(f"是否将更改保存到 {name}？")
+        save = box.addButton("保存", QMessageBox.ButtonRole.AcceptRole)
+        discard = box.addButton("不保存", QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(save)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is save:
+            return "save"
+        if clicked is discard:
+            return "discard"
+        return "cancel"
+
+    def _is_dirty(self, document: _Document | None) -> bool:
+        view = self._editable_view(document)
+        return view is not None and bool(view.dirty)
+
+    def _confirm_discard(self, document_id: str) -> bool:
+        document = self._documents.get(document_id)
+        if not self._is_dirty(document):
+            return True
+        assert document is not None
+        self._tabs.setCurrentWidget(document.page)
+        name = self._editable_view(document).display_title().lstrip("*")
+        prompt = self.unsaved_prompt or self._ask_unsaved_changes
+        answer = prompt(name)
+        if answer == "discard":
+            return True
+        if answer == "save":
+            return self._save_document(document_id)
+        return False
+
     def close_tab(self, index: int) -> None:
         page = self._tabs.widget(index)
         if page is None:
+            return
+        document_id = next(
+            (key for key, document in self._documents.items() if document.page is page),
+            None,
+        )
+        if document_id is not None and not self._confirm_discard(document_id):
             return
         self._forget_document_for_page(page)
         self._tabs.removeTab(index)
@@ -1196,14 +1241,26 @@ class MainWindow(QMainWindow):
             if (
                 preferred_index >= 0
                 and preferred_page.property("readerBlankTab") is True
+                and not self._page_is_dirty(preferred_page)
             ):
                 return preferred_index
             return None
         for index in range(self._tabs.count()):
             page = self._tabs.widget(index)
-            if page is not None and page.property("readerBlankTab") is True:
+            if (
+                page is not None
+                and page.property("readerBlankTab") is True
+                and not self._page_is_dirty(page)
+            ):
                 return index
         return None
+
+    def _page_is_dirty(self, page: QWidget) -> bool:
+        return any(
+            self._is_dirty(document)
+            for document in self._documents.values()
+            if document.page is page
+        )
 
     def add_blank_tab(self) -> None:
         self.add_untitled_markdown_tab()
@@ -2217,6 +2274,10 @@ class MainWindow(QMainWindow):
         if self._closing:
             super().closeEvent(event)
             return
+        for document_id in list(self._documents):
+            if not self._confirm_discard(document_id):
+                event.ignore()
+                return
         self._closing = True
         if self._on_closing is not None:
             self._on_closing(self)

@@ -17,7 +17,8 @@ Git：三项增量最终状态 `47529db` 已同步；本边界提交记事本级
 - Task 3 完成：`MarkdownTextView` 经 `text_io` 加载/保存，保留 UTF-8 BOM、GB18030、CRLF；新建 Markdown 保持原有 UTF-8 LF；lossy Markdown 永不进入编辑且拒绝保存；撤销回保存点恢复干净状态，加载后无撤销历史。`formats/md.py` 渲染同样经 `text_io` 解码。RED：md_text_view `4 failed, 4 passed`，GB18030 渲染 `1 failed`；GREEN：md_text_view `8 passed`，formats_md `3 passed`，window+find+md `149 passed`，全量 Python `485 passed, 1 skipped`。
 - Task 4 完成：窗口统一 `_editable_view`（Markdown 文本模式或 `CodeTextView`），`Ctrl+S` 保存、`Ctrl+Shift+S` 另存为（代码/文本带 txt/json/yaml/xml/C++/md/全部 过滤器，Markdown 仍强制 `.md`）、`Ctrl+N` 新建 UTF-8 CRLF `未命名.txt`；代码页安装后接入 `dirty_changed/path_changed`，标签实时 `*name`，另存为更新 `document.path` 与最近文件；lossy 文件保存提示「只读文件无法保存」且不改字节。RED：新增 7 个窗口测试 `7 failed`；GREEN：window `143 passed`，全量 Python `493 passed, 1 skipped`。
 - 环境风险（2026-10-10 新出现，基线同样复现）：本机 Chromium 沙箱导致真实 WebEngine 测试进程以 `-536870873` 崩溃；`QTWEBENGINE_DISABLE_SANDBOX=1` 下全部通过。产品代码未改；Task 6 发布门需确认冻结 EXE 是否受影响。
-- 下一步：Task 5 未保存保护（关闭标签/关闭窗口 保存/不保存/取消）。
+- Task 5 完成：`_confirm_discard` 在关闭标签与关闭窗口前对脏页弹出「保存 / 不保存 / 取消」（`MainWindow.unsaved_prompt` 可注入，默认 `QMessageBox`）；取消或另存为被取消都会中止关闭（`event.ignore()`），干净页不提示；打开文件不再复用已编辑的未命名草稿页（原有数据丢失路径）。测试 conftest 自动把真实对话框替换为 "discard"，避免 teardown 弹模态框；独立测试覆盖默认对话框文案与关闭即取消。RED：`5 failed, 4 errors`；GREEN：window/md_text/code `179 passed`，全量 `502 passed, 1 skipped`（`QTWEBENGINE_DISABLE_SANDBOX=1`）。
+- 下一步：Task 6 文档同步与 release gate。
 
 ## 上一目标：三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验（已完成）
 
