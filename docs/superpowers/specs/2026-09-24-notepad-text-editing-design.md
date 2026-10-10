@@ -1,7 +1,7 @@
 # Notepad-Class Text Editing (P1)
 
 Date: 2026-09-24
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## 1. Goal

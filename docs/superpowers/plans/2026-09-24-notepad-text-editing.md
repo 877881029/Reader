@@ -1,6 +1,6 @@
 # Notepad-Class Text Editing (P1) Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 > Execute tasks in order. For each task: observe RED, implement GREEN, run the
 > focused suite, update `docs/STATUS.md`, commit, and push `origin/main` before
