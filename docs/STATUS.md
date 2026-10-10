@@ -12,7 +12,8 @@ Git：三项增量最终状态 `47529db` 已同步；本边界提交记事本级
 - 规格：`docs/superpowers/specs/2026-09-24-notepad-text-editing-design.md`
 - 后续阶段：P2 替换/Ctrl+G/缩放/状态栏；P3 编码选择与换行转换；P4 大文件、打印、会话恢复、启动速度。
 - 计划：`docs/superpowers/plans/2026-09-24-notepad-text-editing.md`（6 个顺序 TDD 任务）
-- 下一步：Task 1 无损文本 I/O。
+- Task 1 完成：`src/reader/text_io.py` 无损读写（UTF-8 / UTF-8 BOM / UTF-16 LE/BE BOM / GB18030，CRLF/LF/CR，空文件默认 UTF-8 CRLF，无法无损解码标记 lossy 并拒绝写入，临时文件 + `os.replace` 原子写）。RED：模块缺失导致收集失败；GREEN：`tests/test_text_io.py` 14 passed。
+- 下一步：Task 2 可编辑代码/文本视图。
 
 ## 上一目标：三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验（已完成）
 
