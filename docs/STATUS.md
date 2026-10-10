@@ -1,11 +1,19 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-09-23
-Git：Web 安全 `be91d5f`、C++ 接线 `b0c505a`、frozen 验收 `2333c48`、代码控制 `a38c9a3` 已同步到 `origin/main`；本边界提交最终状态。
+最后更新：2026-09-24
+Git：三项增量最终状态 `47529db` 已同步；本边界提交记事本级编辑 P1 规格。
 
 ## 当前目标
 
-**三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验**（已完成）
+**记事本级文本编辑 P1：TXT / MD / JSON / YAML / XML / C/C++ 统一可编辑保存**（规格已批准，待写计划）
+
+- 背景：对标 Windows 记事本，Reader 阅读能力已超越，但 TXT/代码只读是最大差距；另缺新建/另存为/未保存保护/编码保留。
+- 用户批准 P1，并要求兼顾 txt、md、json 等全部文本格式。
+- 规格：`docs/superpowers/specs/2026-09-24-notepad-text-editing-design.md`
+- 后续阶段：P2 替换/Ctrl+G/缩放/状态栏；P3 编码选择与换行转换；P4 大文件、打印、会话恢复、启动速度。
+- 下一步：写 TDD 计划并提交。
+
+## 上一目标：三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验（已完成）
 
 - 用户已批准依次实现 Web 依赖安全升级、C++ 后缀族和代码阅读体验。
 - 规格：`docs/superpowers/specs/2026-09-23-reader-hardening-and-code-reading-design.md`
@@ -54,7 +62,7 @@ Git：Web 安全 `be91d5f`、C++ 接线 `b0c505a`、frozen 验收 `2333c48`、�
 
 ## 下一步
 
-三项增量已完成；下一项产品开发需建立新的独立规格和 TDD 计划。
+记事本级编辑 P1：规格已提交，下一步写 TDD 计划 `docs/superpowers/plans/2026-09-24-notepad-text-editing.md`。
 
 ## 上一目标（已完成）
 
