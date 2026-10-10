@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -5,6 +6,9 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 
+# Chromium's sandbox crashes the dev test process on some hosts; the frozen
+# smoke still exercises the sandboxed product path.
+os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
 _app = QApplication.instance() or QApplication(sys.argv)
 
 

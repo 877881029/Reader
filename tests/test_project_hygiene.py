@@ -73,3 +73,9 @@ def test_windows_quality_workflow_runs_unified_gate_with_pinned_toolchains() -> 
     for fragment in required:
         assert fragment in workflow
     assert "office" not in workflow.lower()
+
+
+def test_webengine_test_process_disables_chromium_sandbox():
+    import os
+
+    assert os.environ.get("QTWEBENGINE_DISABLE_SANDBOX") == "1"
