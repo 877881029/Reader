@@ -14,7 +14,8 @@ Git：三项增量最终状态 `47529db` 已同步；本边界提交记事本级
 - 计划：`docs/superpowers/plans/2026-09-24-notepad-text-editing.md`（6 个顺序 TDD 任务）
 - Task 1 完成：`src/reader/text_io.py` 无损读写（UTF-8 / UTF-8 BOM / UTF-16 LE/BE BOM / GB18030，CRLF/LF/CR，空文件默认 UTF-8 CRLF，无法无损解码标记 lossy 并拒绝写入，临时文件 + `os.replace` 原子写）。RED：模块缺失导致收集失败；GREEN：`tests/test_text_io.py` 14 passed。
 - Task 2 完成：`CodeTextView.load_path` 经 `text_io` 加载即可编辑（记事本式无独立编辑模式），加载后无撤销历史且不脏；`dirty_changed`/`path_changed`、`*name` 标题、`save`/`save_as`（无后缀沿用原后缀，后缀变化重设高亮）/`load_untitled`；lossy 文件只读并显示「只读：无法无损识别编码」。`load_text` 仍为只读预览。`_default_viewer` 对真实文件走 `load_path`；`formats/code.py` 预览文本也经 `text_io` 解码（GB18030 不再乱码）。RED：`11 failed, 9 passed`；GREEN：code_view+text_io `33 passed`，window+find `141 passed`，全量 Python `481 passed, 1 skipped`。
-- 下一步：Task 3 Markdown 文本视图保留编码。
+- Task 3 完成：`MarkdownTextView` 经 `text_io` 加载/保存，保留 UTF-8 BOM、GB18030、CRLF；新建 Markdown 保持原有 UTF-8 LF；lossy Markdown 永不进入编辑且拒绝保存；撤销回保存点恢复干净状态，加载后无撤销历史。`formats/md.py` 渲染同样经 `text_io` 解码。RED：md_text_view `4 failed, 4 passed`，GB18030 渲染 `1 failed`；GREEN：md_text_view `8 passed`，formats_md `3 passed`，window+find+md `149 passed`，全量 Python `485 passed, 1 skipped`。
+- 下一步：Task 4 窗口保存、另存为、新建文本、脏标题。
 
 ## 上一目标：三项连续 TDD 增量：Web 安全、C++ 后缀族、代码阅读体验（已完成）
 

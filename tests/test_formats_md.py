@@ -35,3 +35,12 @@ def test_markdown_visual_contract_and_safe_fallback(tmp_path: Path):
     assert "<h1>Hello</h1>" in result.fallback_html
     assert "\ufffd" in result.fallback_html
     assert "<script" not in result.fallback_html.lower()
+
+
+def test_to_html_decodes_gb18030_markdown(tmp_path):
+    from reader.formats.md import to_html
+
+    path = tmp_path / "zh.md"
+    path.write_bytes("# 中文标题\n".encode("gb18030"))
+
+    assert "中文标题" in to_html(path).html

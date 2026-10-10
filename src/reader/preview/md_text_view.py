@@ -6,7 +6,10 @@ from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QFrame, QPlainTextEdit, QVBoxLayout, QWidget
 
+from reader.text_io import TextFile, read_text_file, write_text_file
 from reader.theme import INK, PAPER
+
+_UNTITLED_MARKDOWN = TextFile(text="", encoding="utf-8", bom=False, newline="\n", lossless=True)
 
 
 class MarkdownTextView(QWidget):
@@ -22,6 +25,7 @@ class MarkdownTextView(QWidget):
         self._dirty = False
         self._allow_edit = False
         self._loading = False
+        self._format: TextFile = _UNTITLED_MARKDOWN
 
         self._editor = QPlainTextEdit(self)
         self._editor.setObjectName("markdownTextEditor")
@@ -53,21 +57,17 @@ class MarkdownTextView(QWidget):
         return not self._editor.isReadOnly()
 
     def load_path(self, path: Path, *, editable: bool = False) -> None:
-        data = path.read_text(encoding="utf-8", errors="replace")
+        loaded = read_text_file(path)
         self._path = path.resolve()
-        self._loading = True
-        self._editor.setPlainText(data)
-        self._loading = False
-        self._set_dirty(False)
+        self._format = loaded
+        self._replace_text(loaded.text)
         self._set_editable(editable)
         self.path_changed.emit(self._path)
 
     def load_untitled(self, *, title_hint: str = "未命名.md") -> None:
         self._path = None
-        self._loading = True
-        self._editor.setPlainText("")
-        self._loading = False
-        self._set_dirty(False)
+        self._format = _UNTITLED_MARKDOWN
+        self._replace_text("")
         self._set_editable(True)
         self.setProperty("readerUntitledTitle", title_hint)
         self.path_changed.emit(None)
@@ -76,19 +76,21 @@ class MarkdownTextView(QWidget):
         self._set_editable(True)
 
     def save(self) -> bool:
-        if self._path is None:
+        if self._path is None or not self._format.lossless:
             return False
-        self._path.write_text(self.text(), encoding="utf-8", newline="\n")
-        self._set_dirty(False)
+        write_text_file(self._path, self.text(), self._format)
+        self._mark_clean()
         return True
 
     def save_as(self, path: Path) -> None:
         path = path.resolve()
         if path.suffix.lower() == "":
             path = path.with_suffix(".md")
-        path.write_text(self.text(), encoding="utf-8", newline="\n")
+        fmt = self._format if self._format.lossless else _UNTITLED_MARKDOWN
+        write_text_file(path, self.text(), fmt)
+        self._format = fmt
         self._path = path
-        self._set_dirty(False)
+        self._mark_clean()
         self.path_changed.emit(self._path)
 
     def display_title(self) -> str:
@@ -98,7 +100,19 @@ class MarkdownTextView(QWidget):
             name = str(self.property("readerUntitledTitle") or "未命名.md")
         return f"*{name}" if self._dirty else name
 
+    def _replace_text(self, text: str) -> None:
+        self._loading = True
+        self._editor.setPlainText(text)
+        self._loading = False
+        self._editor.document().clearUndoRedoStacks()
+        self._mark_clean()
+
+    def _mark_clean(self) -> None:
+        self._editor.document().setModified(False)
+        self._set_dirty(False)
+
     def _set_editable(self, editable: bool) -> None:
+        editable = editable and self._format.lossless
         self._allow_edit = editable
         self._editor.setReadOnly(not editable)
         if editable:
@@ -113,7 +127,9 @@ class MarkdownTextView(QWidget):
     def _on_text_changed(self) -> None:
         if self._loading or self._editor.isReadOnly():
             return
-        self._set_dirty(True)
+        document = self._editor.document()
+        # Undo back to the saved state is the only change that leaves the view clean.
+        self._set_dirty(document.isModified() or not document.isRedoAvailable())
 
     def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802
         if watched in {self._editor, self._editor.viewport()}:

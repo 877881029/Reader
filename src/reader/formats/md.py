@@ -3,13 +3,14 @@ from pathlib import Path
 from markdown_it import MarkdownIt
 
 from reader.preview.result import PreviewResult
+from reader.text_io import read_text_file
 from reader.theme import wrap_document_html
 
 _MD = MarkdownIt("commonmark", {"html": False}).enable("table")
 
 
 def _read(path: Path) -> str:
-    return Path(path).read_text(encoding="utf-8", errors="replace")
+    return read_text_file(Path(path)).text
 
 
 def to_html(path: Path) -> PreviewResult:

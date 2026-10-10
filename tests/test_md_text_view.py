@@ -71,3 +71,77 @@ def test_markdown_editor_is_frameless_white(qtbot):
         editor.backgroundRole()
     ).name().lower() == "#f4efe6"
     assert editor.document().documentMargin() == 8
+
+
+def _append(view, text: str) -> None:
+    from PySide6.QtGui import QTextCursor
+
+    view.enable_editing()
+    cursor = view._editor.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.End)
+    view._editor.setTextCursor(cursor)
+    view._editor.insertPlainText(text)
+
+
+def test_markdown_save_preserves_bom_and_crlf(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    path = tmp_path / "a.md"
+    path.write_bytes(b"\xef\xbb\xbf# t\r\nbody\r\n")
+    view = MarkdownTextView()
+    qtbot.addWidget(view)
+    view.load_path(path)
+
+    _append(view, "more")
+    assert view.save() is True
+
+    assert path.read_bytes() == b"\xef\xbb\xbf# t\r\nbody\r\nmore"
+
+
+def test_markdown_save_preserves_gb18030(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    path = tmp_path / "zh.md"
+    path.write_bytes("# 标题\n".encode("gb18030"))
+    view = MarkdownTextView()
+    qtbot.addWidget(view)
+    view.load_path(path)
+
+    assert view.text() == "# 标题\n"
+    _append(view, "正文")
+    view.save()
+
+    assert path.read_bytes() == "# 标题\n正文".encode("gb18030")
+
+
+def test_markdown_lossy_file_never_becomes_editable(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    raw = b"# x \x80\x81\xfe\xff\xff"
+    path = tmp_path / "bad.md"
+    path.write_bytes(raw)
+    view = MarkdownTextView()
+    qtbot.addWidget(view)
+    view.load_path(path, editable=True)
+
+    view.enable_editing()
+    assert view.is_editable() is False
+    assert view.save() is False
+    assert path.read_bytes() == raw
+
+
+def test_markdown_undo_to_load_state_is_clean(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    path = tmp_path / "u.md"
+    path.write_bytes(b"x")
+    view = MarkdownTextView()
+    qtbot.addWidget(view)
+    view.load_path(path, editable=True)
+    assert view._editor.document().isUndoAvailable() is False
+
+    _append(view, "y")
+    assert view.dirty is True
+    view._editor.undo()
+
+    assert view.dirty is False
