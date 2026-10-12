@@ -130,3 +130,70 @@ def _find_plain(
         cursor.movePosition(QTextCursor.MoveOperation.End)
     editor.setTextCursor(cursor)
     return editor.find(query, flags)
+
+
+def _find_flags(case_sensitive: bool) -> QTextDocument.FindFlag:
+    flags = QTextDocument.FindFlag(0)
+    if case_sensitive:
+        flags |= QTextDocument.FindFlag.FindCaseSensitively
+    return flags
+
+
+def _selection_matches(editor: QPlainTextEdit, query: str, case_sensitive: bool) -> bool:
+    selected = editor.textCursor().selectedText()
+    if case_sensitive:
+        return selected == query
+    return selected.casefold() == query.casefold()
+
+
+def replace_current(
+    editor: QPlainTextEdit,
+    query: str,
+    replacement: str,
+    *,
+    case_sensitive: bool,
+) -> bool:
+    """Replace the selected match (if any), then select the next match.
+
+    Returns whether a following match was found.
+    """
+    if not query or editor.isReadOnly():
+        return False
+    if _selection_matches(editor, query, case_sensitive):
+        editor.textCursor().insertText(replacement)
+    return _find_plain(
+        editor,
+        query,
+        forward=True,
+        case_sensitive=case_sensitive,
+        wrap=True,
+    )
+
+
+def replace_all(
+    editor: QPlainTextEdit,
+    query: str,
+    replacement: str,
+    *,
+    case_sensitive: bool,
+) -> int:
+    """Replace every match as a single undo step and return the count."""
+    if not query or editor.isReadOnly():
+        return 0
+    document = editor.document()
+    flags = _find_flags(case_sensitive)
+    spans: list[tuple[int, int]] = []
+    found = document.find(query, 0, flags)
+    while not found.isNull():
+        spans.append((found.selectionStart(), found.selectionEnd()))
+        found = document.find(query, found.selectionEnd(), flags)
+    if not spans:
+        return 0
+    cursor = QTextCursor(document)
+    cursor.beginEditBlock()
+    for start, end in reversed(spans):
+        cursor.setPosition(start)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        cursor.insertText(replacement)
+    cursor.endEditBlock()
+    return len(spans)
