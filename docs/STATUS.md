@@ -8,7 +8,7 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
 **用户 2026-10-12 连续需求队列（按顺序执行，每项独立规格/计划/TDD/提交）**
 
 1. 主页（欢迎页）改为 Copilot 式简约中性配色，布局不变 — 已完成（发布门留到队列末尾统一执行）。规格 `docs/superpowers/specs/2026-10-12-welcome-neutral-theme-design.md`，计划 `docs/superpowers/plans/2026-10-12-welcome-neutral-theme.md`。墨色 `#1f1d1a` 主按钮、细线边框次按钮、`#fbf9f5` 卡片 + `#e6dfd4` 细线、`#f0ebe3` 灰色徽章、墨色强调条、去掉蓝色水印 R、全部改 Segoe UI；去除全部 cobalt。RED：新调色板测试 `1 failed`；GREEN：window/welcome_lookup/find `173 passed`（`test_welcome_lookup` 旧 CARD/LINE 断言按新规格更新）。截图确认。
-2. P2：查找替换（`Ctrl+H`）、跳转指定行（`Ctrl+G`）— 待开始。
+2. P2：查找替换（`Ctrl+H`）、跳转指定行（`Ctrl+G`）— 执行中。规格 `docs/superpowers/specs/2026-10-12-p2-find-replace-goto-design.md`，计划 `docs/superpowers/plans/2026-10-12-p2-find-replace-goto.md`（4 任务）。
 3. `+` 菜单 Browser 实现 — 待开始。
 4. `+` 菜单 Terminal 实现 — 待开始。
 
