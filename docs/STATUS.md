@@ -12,6 +12,8 @@ Git：二进制查看器文档 `5d77429` 已同步；本边界提交状态栏 / 
 - 二进制查看器 Task 4（发布门 + 安装）并入本目标 Task 3 一起执行（发布门在用户插入新需求时中止，未产生结论）。
 - Task 1 完成：`CodeTextView` 去掉顶部工具栏（行号框/跳转/换行/A-/A+），改为底部只读状态栏 `codeStatusBar`：`Ln x, Col y` | `Size n pt` | `Type JSON`（细竖线分隔，标签 NoFocus + NoTextInteraction，无任何按钮/输入框），lossy 文件右侧显示只读提示；类型名映射 JSON/YAML/XML/C/C++/C/C++ Header/C++ Header/Plain text。字号改由编辑器内 `Ctrl+=`/`Ctrl++`/`Ctrl+-`/`Ctrl+0` 与 `Ctrl+滚轮`（8–24pt，同步 gutter/tab/状态栏），换行 `Alt+Z`（在 `CodeEditor.keyPressEvent`/`wheelEvent` 处理，`QShortcut` 在窗口未激活时不触发）。代码页安装时页面布局边距归零，状态栏贴窗口下边界与左边界。RED：code_view `12 failed`、贴边测试 `1 failed`；GREEN：window+code_view+find `207 passed`；截图确认。
 - Task 2 完成：新增 `shell/goto_bar.py::GotoLineBar`（`goToLineBar`，与查找条同位置同样式：输入框占位「转到行（1–N）」、提示 `goToLineMessage`、×）；`actionGoToLine` 快捷键 `Ctrl+J`（保留 `Ctrl+G` 别名），回车跳转（限幅）并关闭、非数字提示「无效行号」、Esc/× 关闭；与查找/替换条互斥；适用于所有纯文本页（代码/TXT、Markdown 编辑），其他页忽略。移除旧 `QInputDialog` 弹窗与 `goto_line_prompt`。RED：`4 failed`；GREEN：window+find+find_replace `186 passed`；截图确认。
+- Task 3：README / 功能全解同步（状态栏、`Ctrl+J`、字号/换行快捷键；顺带补回 P1 文档里被 PowerShell 吃掉的 `Ctrl+S`/`Ctrl+N` 反引号）。`verify.ps1 -Release` 通过：Python `587 passed, 1 skipped`、PPTX/MD Web、冻结构建与全部 smoke；`dist\Reader\Reader.exe` SHA256 `4687B4380E9782A1A8D8A1AFE5C988205D3E8BE387E843FA1355ADECBF8F5027`。
+- 事故与修复：中止上一轮发布门（rel5）时 vite 刚清空 `assets/pptx-viewer`，其后规格提交 `10c0e41`（`git add -A`）误删了 `THIRD_PARTY_NOTICES.txt` 与 `manifest.sha256`。本次发布门重新生成，内容与 `d77da16` 逐字节一致，已恢复入库；新增卫生测试要求两个 Web bundle 的 notices/manifest/index 均被 git 跟踪（未暂存时 RED `1 failed`，恢复后 GREEN `6 passed`）。规则：中断发布门后提交前必须先跑快速门或检查 `git status` 中 `assets/` 删除。
 
 ## 上一目标：`.bin` 二进制（十六进制）查看器（Task 1–3 完成，发布并入当前目标）
 
