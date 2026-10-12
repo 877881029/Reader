@@ -1,9 +1,18 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-12
-Git：P1 最终状态 `1ef77f3` 已同步；本边界提交 `+` 新建菜单规格与计划。
+Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页中性配色规格与计划。
 
 ## 当前目标
+
+**用户 2026-10-12 连续需求队列（按顺序执行，每项独立规格/计划/TDD/提交）**
+
+1. 主页（欢迎页）改为 Copilot 式简约中性配色，布局不变 — 执行中。规格 `docs/superpowers/specs/2026-10-12-welcome-neutral-theme-design.md`，计划 `docs/superpowers/plans/2026-10-12-welcome-neutral-theme.md`。
+2. P2：查找替换（`Ctrl+H`）、跳转指定行（`Ctrl+G`）— 待开始。
+3. `+` 菜单 Browser 实现 — 待开始。
+4. `+` 菜单 Terminal 实现 — 待开始。
+
+## 上一目标：`+` 新建菜单与 Markdown 编辑/预览切换（已完成）
 
 **`+` 新建菜单（Copilot 式图标下拉）与 Markdown 编辑/预览切换按钮**（已完成）
 
