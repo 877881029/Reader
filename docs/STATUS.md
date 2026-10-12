@@ -1,9 +1,17 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-12
-Git：状态栏/二进制发布最终状态 `ca41fe8` 已同步；本边界提交 hex 视图对齐与自适应布局规格与计划。
+Git：hex 布局最终状态 `cb8fe66` 已同步；本边界提交真终端（ConPTY + xterm.js）规格与计划。
 
 ## 当前目标
+
+**真终端：ConPTY + xterm.js，Command Prompt / PowerShell，Copilot 主题配色**（执行中）
+
+- 用户需求：Terminal 能力与 Copilot 右侧终端一致，包含 Command 与 PowerShell；配色与 Copilot 一致。管理员模式经确认放弃（普通权限 Reader 无法在自身标签内承载提权 shell），只做普通权限。
+- 预研：`pywinpty 3.0.5` 在本机 ConPTY 可用，中文往返正确；ConPTY 启动会发终端查询（`ESC[c`），由 xterm.js 自动应答。
+- 规格：`docs/superpowers/specs/2026-10-12-real-terminal-design.md`；计划：`docs/superpowers/plans/2026-10-12-real-terminal.md`（5 任务）。
+
+## 上一目标：Hex 视图对齐与自适应布局（已完成）
 
 **Hex 视图：高亮与鼠标对齐 + 按窗口宽度自适应字号/列宽**（已完成）
 
