@@ -4754,14 +4754,14 @@ def test_terminal_menu_opens_in_current_file_folder(qtbot, tmp_path: Path):
     window.actionMenuTerminal.trigger()
 
     assert window._tabs.count() == 2
-    assert window.tab_title(1) == "终端"
+    assert window.tab_title(1) == "PowerShell"
     page = window.findChild(TerminalPage)
     assert page is not None and page.cwd() == folder.resolve()
-    qtbot.waitUntil(page.is_ready, timeout=20000)
-    process = page.process()
+    qtbot.waitUntil(page.is_ready, timeout=25000)
+    session = page.session()
     window.unsaved_prompt = lambda _name: pytest.fail("terminal must not prompt")
     window.close_tab(1)
-    assert process.state() == process.ProcessState.NotRunning
+    assert session.is_running() is False
     assert window._tabs.count() == 1
 
 

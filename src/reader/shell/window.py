@@ -1413,7 +1413,7 @@ class MainWindow(QMainWindow):
         self.actionMenuTerminal = QAction(line_icon("terminal"), "Terminal", menu)
         self.actionMenuTerminal.setObjectName("actionMenuTerminal")
         self.actionMenuTerminal.setToolTip("在新标签中打开 PowerShell")
-        self.actionMenuTerminal.triggered.connect(self.add_terminal_tab)
+        self.actionMenuTerminal.triggered.connect(lambda _checked=False: self.add_terminal_tab())
         menu.addAction(self.actionMenuNewFile)
         menu.addAction(self.actionMenuOpenFile)
         menu.addSeparator()
@@ -1611,12 +1611,12 @@ class MainWindow(QMainWindow):
                 pass
         return Path.home()
 
-    def add_terminal_tab(self) -> None:
+    def add_terminal_tab(self, profile: str = "powershell") -> None:
         from reader.shell.terminal_page import TerminalPage
 
-        view = TerminalPage(self._terminal_start_dir())
-        self._add_tool_tab(view, "终端", "终端")
-        view.focus_input()
+        view = TerminalPage(profile, self._terminal_start_dir())
+        self._add_tool_tab(view, view.title(), view.title())
+        view.focus_terminal()
 
     def add_untitled_text_tab(self) -> None:
         from reader.preview.code_view import CodeTextView

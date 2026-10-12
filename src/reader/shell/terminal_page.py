@@ -1,313 +1,212 @@
-"""Line-based PowerShell console tab (``+`` → Terminal)."""
+"""Terminal tab: ConPTY shell rendered by an offline xterm.js page."""
 
 from __future__ import annotations
 
-import base64
-import codecs
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QProcess, Qt
-from PySide6.QtGui import QFont, QKeyEvent, QTextCursor
-from PySide6.QtWidgets import (
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPlainTextEdit,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
+from PySide6.QtCore import QObject, QUrl, Signal, Slot
+from PySide6.QtGui import QColor
+from PySide6.QtWebChannel import QWebChannel
+from PySide6.QtWebEngineCore import (
+    QWebEnginePage,
+    QWebEngineProfile,
+    QWebEngineUrlRequestInterceptor,
 )
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
-from reader.theme import CARD, HOVER, INK, LINE, MUTED, PAPER
+from reader.resources import resource_path
+from reader.terminal.pty_session import SHELL_PROFILES, PtySession
 
-MARKER = "\x1e"
-_EXITED = "[进程已退出]"
-_STARTUP = (
-    "$__u = [Text.UTF8Encoding]::new($false); "
-    "[Console]::InputEncoding = $__u; [Console]::OutputEncoding = $__u; "
-    "$OutputEncoding = $__u; Remove-Variable __u"
-)
-_REPORT_CWD = "[Console]::Out.WriteLine([char]30 + (Get-Location).ProviderPath)"
+EXIT_HINT = "[进程已退出，按 Enter 重新启动]"
+_BACKGROUND = "#fbf9f5"
+_ALLOWED_SCHEMES = frozenset({"qrc", "data", "blob"})
 
 
-def _encoded_command(command: str) -> str:
-    # PowerShell decodes piped stdin with the OEM code page, so ship the command
-    # as ASCII Base64 of its UTF-8 bytes and evaluate it in the global scope.
-    payload = base64.b64encode(command.encode("utf-8")).decode("ascii")
-    return (
-        "Invoke-Expression ([Text.Encoding]::UTF8.GetString("
-        f"[Convert]::FromBase64String('{payload}')))"
-    )
+def _canonical(path: str | Path) -> str:
+    return os.path.normcase(os.path.realpath(os.fspath(path)))
 
 
-def powershell_program() -> str:
-    root = os.environ.get("SystemRoot", r"C:\Windows")
-    candidate = Path(root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-    return str(candidate) if candidate.is_file() else "powershell.exe"
+class _BundleOnlyInterceptor(QWebEngineUrlRequestInterceptor):
+    """Only the terminal bundle and Qt resources may load; nothing else."""
+
+    def __init__(self, bundle_root: Path, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._root = _canonical(bundle_root)
+
+    def allows(self, url: QUrl) -> bool:
+        scheme = url.scheme().lower()
+        if scheme in _ALLOWED_SCHEMES:
+            return True
+        if scheme != "file" or not url.toLocalFile():
+            return False
+        candidate = _canonical(url.toLocalFile())
+        try:
+            return os.path.commonpath((candidate, self._root)) == self._root
+        except ValueError:
+            return False
+
+    def interceptRequest(self, info) -> None:  # noqa: N802 - Qt virtual method
+        if not self.allows(info.requestUrl()):
+            info.block(True)
+
+
+class TerminalBridge(QObject):
+    """QWebChannel object shared with the xterm.js page."""
+
+    output = Signal(str)
+
+    def __init__(self, owner: TerminalPage) -> None:
+        super().__init__(owner)
+        self._owner = owner
+
+    @Slot(int, int)
+    def ready(self, cols: int, rows: int) -> None:
+        self._owner._on_ready(cols, rows)
+
+    @Slot(str)
+    def input(self, data: str) -> None:
+        self._owner._on_input(data)
+
+    @Slot(int, int)
+    def resize(self, cols: int, rows: int) -> None:
+        self._owner._on_resize(cols, rows)
+
+    @Slot(str)
+    def copyText(self, text: str) -> None:  # noqa: N802 - JS-facing name
+        QApplication.clipboard().setText(text)
 
 
 class TerminalPage(QWidget):
-    """Runs PowerShell over pipes; not a PTY, so full-screen TUIs are unsupported."""
-
-    def __init__(self, cwd: Path | None = None, parent: QWidget | None = None) -> None:
+    def __init__(self, profile: str, cwd: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("terminalPage")
-        self._cwd = Path(cwd) if cwd is not None else Path.home()
-        self._history: list[str] = []
-        self._history_index = 0
-        self._ready = False
+        self._profile_key = profile
+        self._profile = SHELL_PROFILES[profile]
+        self._cwd = Path(cwd)
+        self._session: PtySession | None = None
+        self._size = (80, 24)
+        self._exited = False
         self._shutdown = False
-        self._pending = ""
-        self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        self._process: QProcess | None = None
 
-        toolbar = QWidget(self)
-        toolbar.setObjectName("terminalToolbar")
-        toolbar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        toolbar.setFixedHeight(36)
-        bar = QHBoxLayout(toolbar)
-        bar.setContentsMargins(12, 4, 12, 4)
-        bar.setSpacing(4)
-        title = QLabel("PowerShell", toolbar)
-        title.setObjectName("terminalTitle")
-        bar.addWidget(title)
-        bar.addStretch(1)
-        self._clear_button = self._tool_button(toolbar, "terminalClear", "清屏")
-        self._restart_button = self._tool_button(toolbar, "terminalRestart", "重启")
-        bar.addWidget(self._clear_button)
-        bar.addWidget(self._restart_button)
+        app = QApplication.instance()
+        if app is None:
+            raise RuntimeError("TerminalPage requires QApplication")
+        index = resource_path("assets", "terminal-viewer", "index.html").resolve()
+        self._bundle_root = index.parent
+        # No storage name => off-the-record; isolated from every other view.
+        self._web_profile: QWebEngineProfile | None = QWebEngineProfile(app)
+        self._interceptor = _BundleOnlyInterceptor(self._bundle_root, self._web_profile)
+        self._web_profile.setUrlRequestInterceptor(self._interceptor)
+        self._web_page: QWebEnginePage | None = QWebEnginePage(self._web_profile, self._web_profile)
+        self._web_page.setBackgroundColor(QColor(_BACKGROUND))
+        self._channel = QWebChannel(self._web_page)
+        self._bridge = TerminalBridge(self)
+        self._channel.registerObject("bridge", self._bridge)
+        self._web_page.setWebChannel(self._channel)
 
-        mono = QFont("Cascadia Mono")
-        mono.setStyleHint(QFont.StyleHint.Monospace)
-        mono.setFamilies(["Cascadia Mono", "Consolas", "Courier New"])
-        mono.setPointSize(10)
-
-        self._output = QPlainTextEdit(self)
-        self._output.setObjectName("terminalOutput")
-        self._output.setReadOnly(True)
-        self._output.setFont(mono)
-        self._output.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
-        self._output.setMaximumBlockCount(5000)
-
-        input_row = QWidget(self)
-        input_row.setObjectName("terminalInputRow")
-        input_row.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        row = QHBoxLayout(input_row)
-        row.setContentsMargins(12, 6, 12, 8)
-        row.setSpacing(6)
-        self._prompt = QLabel(input_row)
-        self._prompt.setObjectName("terminalPrompt")
-        self._prompt.setFont(mono)
-        self._input = QLineEdit(input_row)
-        self._input.setObjectName("terminalInput")
-        self._input.setFont(mono)
-        self._input.setPlaceholderText("输入命令后回车")
-        self._input.installEventFilter(self)
-        row.addWidget(self._prompt)
-        row.addWidget(self._input, 1)
-
+        self._view = QWebEngineView(self)
+        self._view.setObjectName("terminalView")
+        self._view.setPage(self._web_page)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(toolbar)
-        layout.addWidget(self._output, 1)
-        layout.addWidget(input_row)
+        layout.addWidget(self._view)
+        self._view.load(QUrl.fromLocalFile(str(index)))
 
-        self.setStyleSheet(
-            f"""
-            QWidget#terminalToolbar, QWidget#terminalInputRow {{
-                background: {PAPER};
-            }}
-            QWidget#terminalToolbar {{ border-bottom: 1px solid {LINE}; }}
-            QWidget#terminalInputRow {{ border-top: 1px solid {LINE}; }}
-            QLabel#terminalTitle {{ color: {MUTED}; font-size: 12px; }}
-            QLabel#terminalPrompt {{ color: {MUTED}; }}
-            QToolButton#terminalClear, QToolButton#terminalRestart {{
-                background: transparent;
-                border: none;
-                border-radius: 4px;
-                padding: 2px 10px;
-                color: {INK};
-            }}
-            QToolButton#terminalClear:hover, QToolButton#terminalRestart:hover {{
-                background: {HOVER};
-            }}
-            QPlainTextEdit#terminalOutput {{
-                background: {CARD};
-                color: {INK};
-                border: none;
-                padding: 8px 12px;
-            }}
-            QLineEdit#terminalInput {{
-                background: {CARD};
-                color: {INK};
-                border: 1px solid {LINE};
-                border-radius: 6px;
-                padding: 4px 8px;
-            }}
-            """
-        )
+    # -- public API -----------------------------------------------------------------
 
-        self._clear_button.clicked.connect(self.clear)
-        self._restart_button.clicked.connect(self.restart)
-        self._input.returnPressed.connect(self._submit)
-        self._update_prompt()
-        self._start()
+    def title(self) -> str:
+        return self._profile.title
 
-    @staticmethod
-    def _tool_button(parent: QWidget, name: str, text: str) -> QToolButton:
-        button = QToolButton(parent)
-        button.setObjectName(name)
-        button.setText(text)
-        button.setAutoRaise(True)
-        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        return button
-
-    def process(self) -> QProcess | None:
-        return self._process
-
-    def is_ready(self) -> bool:
-        return self._ready
+    def profile_key(self) -> str:
+        return self._profile_key
 
     def cwd(self) -> Path:
         return self._cwd
 
-    def input_edit(self) -> QLineEdit:
-        return self._input
+    def view(self) -> QWebEngineView:
+        return self._view
 
-    def focus_input(self) -> None:
-        self._input.setFocus(Qt.FocusReason.OtherFocusReason)
+    def bridge(self) -> TerminalBridge:
+        return self._bridge
 
-    def clear(self) -> None:
-        self._output.clear()
+    def bundle_root(self) -> Path:
+        return self._bundle_root
 
-    def _start(self) -> None:
-        self._ready = False
-        self._pending = ""
-        self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        process = QProcess(self)
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.setWorkingDirectory(str(self._cwd))
-        process.readyReadStandardOutput.connect(self._read_output)
-        process.finished.connect(lambda *_args, p=process: self._on_finished(p))
-        self._process = process
-        process.start(
-            powershell_program(),
-            ["-NoLogo", "-NoProfile", "-Command", "-"],
-        )
-        self._write(_STARTUP)
-        self._write(_REPORT_CWD)
+    def allows_url(self, url: QUrl) -> bool:
+        return self._interceptor.allows(url)
 
-    def _stop(self, process: QProcess | None) -> None:
-        if process is None:
-            return
-        try:
-            process.readyReadStandardOutput.disconnect(self._read_output)
-        except (RuntimeError, TypeError):
-            pass
-        try:
-            process.finished.disconnect()
-        except (RuntimeError, TypeError):
-            pass
-        if process.state() != QProcess.ProcessState.NotRunning:
-            process.kill()
-            process.waitForFinished(3000)
-        process.deleteLater()
+    def session(self) -> PtySession | None:
+        return self._session
 
-    def restart(self) -> None:
-        if self._shutdown:
-            return
-        old = self._process
-        self._process = None
-        self._stop(old)
-        self._append_lines(["[重新启动]"])
-        self._start()
+    def is_ready(self) -> bool:
+        return self._session is not None and self._session.is_running()
+
+    def focus_terminal(self) -> None:
+        self._view.setFocus()
+        if self._web_page is not None:
+            self._web_page.runJavaScript(
+                "window.readerTerminal && window.readerTerminal.terminal.focus()"
+            )
 
     def shutdown(self) -> None:
         if self._shutdown:
             return
         self._shutdown = True
-        process = self._process
-        self._stop(process)
-        self._ready = False
+        self._stop_session()
+        self._view.stop()
+        self._view.setPage(QWebEnginePage(self._view))
+        for obj in (self._web_page, self._web_profile):
+            if obj is not None:
+                obj.setParent(None)
+                obj.deleteLater()
+        self._web_page = None
+        self._web_profile = None
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
         self.shutdown()
         super().closeEvent(event)
 
-    def _write(self, line: str) -> None:
-        process = self._process
-        if process is None or process.state() == QProcess.ProcessState.NotRunning:
+    # -- bridge callbacks -----------------------------------------------------------
+
+    def _on_ready(self, cols: int, rows: int) -> None:
+        self._size = (cols, rows)
+        if self._session is None and not self._exited:
+            self._start_session()
+
+    def _on_input(self, data: str) -> None:
+        if self._session is not None:
+            self._session.write(data)
+        elif self._exited and "\r" in data:
+            self._exited = False
+            self._start_session()
+
+    def _on_resize(self, cols: int, rows: int) -> None:
+        self._size = (cols, rows)
+        if self._session is not None:
+            self._session.resize(cols, rows)
+
+    # -- session --------------------------------------------------------------------
+
+    def _start_session(self) -> None:
+        if self._shutdown:
             return
-        process.write((line + "\n").encode("utf-8"))
+        session = PtySession(self._profile_key, self._cwd, self)
+        session.output.connect(self._bridge.output)
+        session.exited.connect(self._on_exited)
+        self._session = session
+        session.start(*self._size)
 
-    def _submit(self) -> None:
-        command = self._input.text()
-        self._input.clear()
-        if command.strip():
-            self._history.append(command)
-        self._history_index = len(self._history)
-        if command.strip().lower() in {"cls", "clear", "clear-host"}:
-            self.clear()
-            return
-        self._append_lines([f"PS {self._cwd}> {command}"])
-        if self._process is None or self._process.state() == QProcess.ProcessState.NotRunning:
-            self._append_lines([_EXITED])
-            return
-        self._write(_encoded_command(command))
-        self._write(_REPORT_CWD)
+    def _stop_session(self) -> None:
+        session, self._session = self._session, None
+        if session is not None:
+            session.shutdown()
+            session.deleteLater()
 
-    def _read_output(self) -> None:
-        process = self._process
-        if process is None:
-            return
-        chunk = bytes(process.readAllStandardOutput().data())
-        self._pending += self._decoder.decode(chunk)
-        *lines, self._pending = self._pending.split("\n")
-        shown: list[str] = []
-        for raw in lines:
-            line = raw.rstrip("\r")
-            if line.startswith(MARKER):
-                self._cwd = Path(line[len(MARKER):].strip() or str(self._cwd))
-                self._ready = True
-                self._update_prompt()
-                continue
-            shown.append(line.replace(MARKER, ""))
-        if shown:
-            self._append_lines(shown)
-
-    def _on_finished(self, process: QProcess) -> None:
-        if process is not self._process:
-            return
-        self._read_output()
-        if self._pending:
-            self._append_lines([self._pending.replace(MARKER, "")])
-            self._pending = ""
-        self._ready = False
-        self._append_lines([_EXITED])
-
-    def _append_lines(self, lines: list[str]) -> None:
-        self._output.appendPlainText("\n".join(lines))
-        self._output.moveCursor(QTextCursor.MoveOperation.End)
-
-    def _update_prompt(self) -> None:
-        self._prompt.setText(f"PS {self._cwd}>")
-
-    def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802
-        if (
-            watched is self._input
-            and event.type() == QEvent.Type.KeyPress
-            and isinstance(event, QKeyEvent)
-            and event.key() in {Qt.Key.Key_Up, Qt.Key.Key_Down}
-        ):
-            if event.key() == Qt.Key.Key_Up:
-                self._history_index = max(self._history_index - 1, 0)
-            else:
-                self._history_index = min(self._history_index + 1, len(self._history))
-            if self._history_index < len(self._history):
-                self._input.setText(self._history[self._history_index])
-            else:
-                self._input.clear()
-            return True
-        return super().eventFilter(watched, event)
+    def _on_exited(self, _code: int) -> None:
+        session, self._session = self._session, None
+        if session is not None:
+            session.deleteLater()
+        self._exited = True
+        self._bridge.output.emit(f"\r\n\x1b[90m{EXIT_HINT}\x1b[0m\r\n")

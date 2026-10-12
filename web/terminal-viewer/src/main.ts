@@ -30,7 +30,14 @@ if (transport && QWebChannelCtor) {
       const buffer = controller.terminal.buffer.active;
       const lines: string[] = [];
       for (let index = 0; index < buffer.length; index += 1) {
-        lines.push(buffer.getLine(index)?.translateToString(true) ?? "");
+        const line = buffer.getLine(index);
+        const text = line?.translateToString(true) ?? "";
+        // Soft-wrapped rows continue the previous logical line.
+        if (line?.isWrapped && lines.length > 0) {
+          lines[lines.length - 1] += text;
+        } else {
+          lines.push(text);
+        }
       }
       return lines.join("\n");
     };
