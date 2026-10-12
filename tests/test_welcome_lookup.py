@@ -6,7 +6,6 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QListWidget, QWidget
 from reader.preview.result import PreviewResult
 from reader.shell.recent import remember_recent
 from reader.shell.window import MainWindow
-from reader.theme import CARD, INK, LINE
 
 
 def _window() -> MainWindow:
@@ -78,9 +77,11 @@ def test_ctrl_f_shows_hidden_lookup_on_recent_row(qtbot):
         page, right.rect().topLeft()
     ).x()
     sheet = page.styleSheet().replace(" ", "").lower()
-    assert CARD.lower() in sheet
-    assert LINE.lower() in sheet
-    assert INK.lower() in sheet
+    from reader.shell.welcome import HAIRLINE_HEX, INK_HEX, SURFACE_HEX
+
+    assert SURFACE_HEX in sheet
+    assert HAIRLINE_HEX in sheet
+    assert INK_HEX in sheet
 
 
 def test_enter_directory_lists_files_like_recents(qtbot, tmp_path: Path):

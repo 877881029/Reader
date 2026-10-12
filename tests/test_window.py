@@ -2682,7 +2682,6 @@ def test_welcome_keeps_actions_left_of_recents_with_filled_open(qtbot):
     recent = window.findChild(QListWidget, "welcomeRecentList")
     assert page is not None and open_btn is not None and recent is not None
     compact = page.styleSheet().replace(" ", "").replace("\n", "").lower()
-    assert "background:#2563eb" in compact
     assert "qpushbutton#welcomeopenbutton" in compact
     assert open_btn.mapTo(page, open_btn.rect().topLeft()).x() < recent.mapTo(
         page, recent.rect().topLeft()
@@ -4540,3 +4539,22 @@ def test_markdown_mode_switch_is_interactive_chrome(qtbot, tmp_path: Path):
     qtbot.waitUntil(switch.isVisible)
     assert hit_test_for_window(window, edit.mapToGlobal(edit.rect().center())) == HTCLIENT
     assert window._title_chrome._is_caption_handle(edit) is False
+
+
+def test_welcome_uses_neutral_copilot_palette(qtbot, tmp_path: Path, monkeypatch):
+    from reader.shell import welcome
+
+    recent = tmp_path / "notes.md"
+    recent.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(welcome, "visible_recent", lambda: [recent])
+    page = welcome.WelcomePage()
+    qtbot.addWidget(page)
+    page.reload_recent()
+    compact = page.styleSheet().replace(" ", "").replace("\n", "").lower()
+    for cobalt in ("#2563eb", "#1d4ed8", "#1e40af", "#eaf0ff", "rgba(37,99,235"):
+        assert cobalt not in compact
+    open_rule = compact.split("qpushbutton#welcomeopenbutton{", 1)[1].split("}", 1)[0]
+    assert "background:#1f1d1a" in open_rule
+    badge_rule = compact.split("qlabel#welcomerecentbadge{", 1)[1].split("}", 1)[0]
+    assert "background:#f0ebe3" in badge_rule
+    assert not hasattr(welcome, "GHOST") and not hasattr(welcome, "COBALT")

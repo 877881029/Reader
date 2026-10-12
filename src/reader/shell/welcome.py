@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QKeyEvent, QPainter, QPen
+from PySide6.QtGui import QColor, QKeyEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -23,10 +23,19 @@ from reader.theme import PAPER as PAPER_HEX
 from reader.version import product_version
 
 PAPER = QColor(PAPER_HEX)
-INK = QColor("#1c1915")
-COBALT = QColor("#2563eb")
-RULE = QColor(37, 99, 235, 36)
-GHOST = QColor(37, 99, 235, 16)
+
+# Copilot-style neutral palette: monochrome ink on paper, hairline structure.
+INK_HEX = "#1f1d1a"
+INK_HOVER_HEX = "#3a3631"
+SECONDARY_HEX = "#5f5850"
+MUTED_HEX = "#8f877d"
+HAIRLINE_HEX = "#e6dfd4"
+SURFACE_HEX = "#fbf9f5"
+HOVER_HEX = "#f0ebe3"
+SELECTED_HEX = "#e9e3d9"
+FOCUS_HEX = "#b9b0a3"
+RULE = QColor(HAIRLINE_HEX)
+_UI_FONT = '"Segoe UI Variable Text", "Segoe UI", sans-serif'
 
 _BADGE_BY_SUFFIX = {
     ".md": "MD",
@@ -174,135 +183,139 @@ class WelcomePage(QWidget):
         self.setAutoFillBackground(False)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(
-            """
-            QWidget#welcomePage {
+            f"""
+            QWidget#welcomePage {{
                 background: transparent;
-            }
+            }}
             QWidget#welcomeBrandColumn,
-            QWidget#welcomeRecentColumn {
+            QWidget#welcomeRecentColumn {{
                 background: transparent;
-            }
-            QFrame#welcomeAccent {
-                background: #2563eb;
+            }}
+            QFrame#welcomeAccent {{
+                background: {INK_HEX};
                 border: none;
                 border-radius: 2px;
-            }
-            QLabel#welcomeBrand {
-                color: #1c1915;
-                font-family: "Palatino Linotype", "Book Antiqua", "Georgia", serif;
+            }}
+            QLabel#welcomeBrand {{
+                color: {INK_HEX};
+                font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
                 font-size: 46px;
                 font-weight: 600;
                 letter-spacing: -0.5px;
-            }
-            QLabel#welcomeVersion {
-                color: #8a8176;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+            }}
+            QLabel#welcomeVersion {{
+                color: {MUTED_HEX};
+                font-family: {_UI_FONT};
                 font-size: 11px;
                 letter-spacing: 2px;
-            }
-            QPushButton#welcomeOpenButton {
-                background: #2563eb;
+            }}
+            QPushButton#welcomeOpenButton {{
+                background: {INK_HEX};
                 border: none;
                 border-radius: 8px;
-                color: #f7f4ee;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+                color: {PAPER_HEX};
+                font-family: {_UI_FONT};
                 font-size: 14px;
                 font-weight: 600;
                 padding: 9px 18px;
                 min-width: 168px;
                 min-height: 36px;
-            }
-            QPushButton#welcomeOpenButton:hover {
-                background: #1d4ed8;
-            }
-            QPushButton#welcomeOpenButton:pressed {
-                background: #1e40af;
-            }
-            QPushButton#welcomeNewButton {
+            }}
+            QPushButton#welcomeOpenButton:hover {{
+                background: {INK_HOVER_HEX};
+            }}
+            QPushButton#welcomeOpenButton:pressed {{
+                background: {SECONDARY_HEX};
+            }}
+            QPushButton#welcomeNewButton {{
                 background: transparent;
-                border: 1px solid #2563eb;
+                border: 1px solid {HAIRLINE_HEX};
                 border-radius: 8px;
-                color: #2563eb;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+                color: {INK_HEX};
+                font-family: {_UI_FONT};
                 font-size: 14px;
                 padding: 8px 18px;
                 min-width: 168px;
                 min-height: 36px;
-            }
-            QPushButton#welcomeNewButton:hover {
-                background: rgba(37, 99, 235, 0.08);
-            }
-            QLabel#emptyWindowHint {
-                color: #9a9186;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+            }}
+            QPushButton#welcomeNewButton:hover {{
+                background: {HOVER_HEX};
+                border: 1px solid {FOCUS_HEX};
+            }}
+            QPushButton#welcomeNewButton:pressed {{
+                background: {SELECTED_HEX};
+            }}
+            QLabel#emptyWindowHint {{
+                color: {MUTED_HEX};
+                font-family: {_UI_FONT};
                 font-size: 12px;
-            }
-            QLabel#welcomeRecentHeading {
-                color: #3f3a34;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+            }}
+            QLabel#welcomeRecentHeading {{
+                color: {SECONDARY_HEX};
+                font-family: {_UI_FONT};
                 font-size: 12px;
                 font-weight: 600;
                 letter-spacing: 1.4px;
-            }
-            QLineEdit#welcomeLookup {
-                background: #fffaf2;
-                color: #1c1915;
-                border: 1px solid #e4d9c7;
+            }}
+            QLineEdit#welcomeLookup {{
+                background: {SURFACE_HEX};
+                color: {INK_HEX};
+                border: 1px solid {HAIRLINE_HEX};
                 border-radius: 8px;
                 padding: 4px 8px;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+                font-family: {_UI_FONT};
                 font-size: 12px;
                 min-height: 24px;
-            }
-            QLineEdit#welcomeLookup:focus {
-                border: 1px solid #2563eb;
-            }
-            QLabel#welcomeRecentEmpty {
-                color: #9a9186;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+            }}
+            QLineEdit#welcomeLookup:focus {{
+                border: 1px solid {FOCUS_HEX};
+            }}
+            QLabel#welcomeRecentEmpty {{
+                color: {MUTED_HEX};
+                font-family: {_UI_FONT};
                 font-size: 12px;
-            }
-            QListWidget#welcomeRecentList {
+            }}
+            QListWidget#welcomeRecentList {{
                 background: transparent;
                 border: none;
                 outline: none;
                 padding: 0px;
-            }
-            QListWidget#welcomeRecentList::item {
-                background: #fffaf2;
-                border: 1px solid #e4d9c7;
+            }}
+            QListWidget#welcomeRecentList::item {{
+                background: {SURFACE_HEX};
+                border: 1px solid {HAIRLINE_HEX};
                 border-radius: 10px;
                 color: transparent;
                 margin-bottom: 8px;
-            }
-            QListWidget#welcomeRecentList::item:hover {
-                background: #fff6e8;
-                border: 1px solid #d7c4a6;
-            }
-            QListWidget#welcomeRecentList::item:selected {
-                background: #eaf0ff;
-                border: 1px solid #2563eb;
-            }
-            QLabel#welcomeRecentBadge {
-                background: #2563eb;
+            }}
+            QListWidget#welcomeRecentList::item:hover {{
+                background: {HOVER_HEX};
+                border: 1px solid {HAIRLINE_HEX};
+            }}
+            QListWidget#welcomeRecentList::item:selected {{
+                background: {SELECTED_HEX};
+                border: 1px solid {FOCUS_HEX};
+            }}
+            QLabel#welcomeRecentBadge {{
+                background: {HOVER_HEX};
                 border-radius: 8px;
-                color: #f7f4ee;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+                color: {SECONDARY_HEX};
+                font-family: {_UI_FONT};
                 font-size: 10px;
-                font-weight: 700;
+                font-weight: 600;
                 letter-spacing: 0.8px;
-            }
-            QLabel#welcomeRecentName {
-                color: #1c1915;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+            }}
+            QLabel#welcomeRecentName {{
+                color: {INK_HEX};
+                font-family: {_UI_FONT};
                 font-size: 14px;
                 font-weight: 600;
-            }
-            QLabel#welcomeRecentPath {
-                color: #8a8176;
-                font-family: "Candara", "Calibri", "Segoe UI", sans-serif;
+            }}
+            QLabel#welcomeRecentPath {{
+                color: {MUTED_HEX};
+                font-family: {_UI_FONT};
                 font-size: 11px;
-            }
+            }}
             """
         )
 
@@ -441,10 +454,6 @@ class WelcomePage(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.fillRect(self.rect(), PAPER)
-        ghost = QFont("Palatino Linotype", 220, QFont.Weight.Bold)
-        painter.setFont(ghost)
-        painter.setPen(GHOST)
-        painter.drawText(self.rect().adjusted(18, -12, 0, 0), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, "R")
         column = self.findChild(QWidget, "welcomeRecentColumn")
         if column is not None and column.x() > 40:
             x = column.x() - 28

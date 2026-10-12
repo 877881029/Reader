@@ -1,6 +1,6 @@
 # Welcome Page Neutral Theme Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background
