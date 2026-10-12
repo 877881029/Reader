@@ -4420,8 +4420,7 @@ def test_plus_click_pops_new_tab_menu_with_icons(qtbot):
     actions = [a for a in menu.actions() if not a.isSeparator()]
     assert [a.text() for a in actions] == ["新建文件", "打开文件", "Browser", "Terminal"]
     assert all(not a.icon().isNull() for a in actions)
-    assert [a.isEnabled() for a in actions] == [True, True, True, False]
-    assert actions[3].toolTip() == "即将推出"
+    assert all(a.isEnabled() for a in actions)
     menu.hide()
     assert window._tabs.count() == 0
 
@@ -4449,10 +4448,6 @@ def test_new_tab_menu_open_file_uses_supported_dialog(qtbot, monkeypatch):
     assert captured and "*.md" in captured[0] and "*.pdf" in captured[0]
 
 
-def test_new_tab_menu_placeholders_do_nothing(qtbot):
-    window = _new_menu_window(qtbot)
-    window.actionMenuTerminal.trigger()
-    assert window._tabs.count() == 0
 
 
 def _md_switch_window(qtbot, tmp_path):
@@ -4717,3 +4712,38 @@ def test_browser_menu_opens_browser_tab_without_recent_or_prompt(qtbot, tmp_path
     window.close_tab(0)
     assert window._documents == {}
     assert visible_recent() == []
+
+
+def test_terminal_menu_opens_in_current_file_folder(qtbot, tmp_path: Path):
+    from reader.shell.terminal_page import TerminalPage
+
+    folder = tmp_path / "proj"
+    folder.mkdir()
+    source = folder / "a.txt"
+    source.write_bytes(b"x")
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, source)
+    assert window.actionMenuTerminal.isEnabled() is True
+
+    window.actionMenuTerminal.trigger()
+
+    assert window._tabs.count() == 2
+    assert window.tab_title(1) == "终端"
+    page = window.findChild(TerminalPage)
+    assert page is not None and page.cwd() == folder.resolve()
+    qtbot.waitUntil(page.is_ready, timeout=20000)
+    process = page.process()
+    window.unsaved_prompt = lambda _name: pytest.fail("terminal must not prompt")
+    window.close_tab(1)
+    assert process.state() == process.ProcessState.NotRunning
+    assert window._tabs.count() == 1
+
+
+def test_terminal_without_file_starts_in_home(qtbot):
+    from reader.shell.terminal_page import TerminalPage
+
+    window = _new_menu_window(qtbot)
+    window.actionMenuTerminal.trigger()
+    page = window.findChild(TerminalPage)
+    assert page is not None and page.cwd() == Path.home()
+    page.shutdown()

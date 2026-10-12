@@ -1384,8 +1384,8 @@ class MainWindow(QMainWindow):
         self.actionMenuBrowser.triggered.connect(self.add_browser_tab)
         self.actionMenuTerminal = QAction(line_icon("terminal"), "Terminal", menu)
         self.actionMenuTerminal.setObjectName("actionMenuTerminal")
-        self.actionMenuTerminal.setToolTip("即将推出")
-        self.actionMenuTerminal.setEnabled(False)
+        self.actionMenuTerminal.setToolTip("在新标签中打开 PowerShell")
+        self.actionMenuTerminal.triggered.connect(self.add_terminal_tab)
         menu.addAction(self.actionMenuNewFile)
         menu.addAction(self.actionMenuOpenFile)
         menu.addSeparator()
@@ -1571,6 +1571,24 @@ class MainWindow(QMainWindow):
             lambda title, did=document_id: self._set_tool_tab_title(did, title, "浏览器")
         )
         view.focus_address()
+
+    def _terminal_start_dir(self) -> Path:
+        document_id = self._current_document_id()
+        document = self._documents.get(document_id) if document_id else None
+        if document is not None:
+            try:
+                if document.path.is_file():
+                    return document.path.resolve().parent
+            except OSError:
+                pass
+        return Path.home()
+
+    def add_terminal_tab(self) -> None:
+        from reader.shell.terminal_page import TerminalPage
+
+        view = TerminalPage(self._terminal_start_dir())
+        self._add_tool_tab(view, "终端", "终端")
+        view.focus_input()
 
     def add_untitled_text_tab(self) -> None:
         from reader.preview.code_view import CodeTextView
