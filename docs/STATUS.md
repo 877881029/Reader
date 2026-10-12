@@ -11,6 +11,7 @@ Git：PPTX 居中最终状态 `2ef5c3b` 已同步；本边界提交二进制查�
 - 假设（已在规格写明）：「bit/word/DW」理解为 Byte/Word/DWord 分组，Word/DWord 以小端值显示；仅新增 `.bin` 扩展名。
 - 方案：`mmap` 只读映射 + 只绘制可见行的 `QAbstractScrollArea`，打开不读全文件。
 - 规格：`docs/superpowers/specs/2026-10-12-binary-viewer-design.md`；计划：`docs/superpowers/plans/2026-10-12-binary-viewer.md`（4 任务）。
+- Task 1 完成：`preview/hex_view.py` 纯函数 `format_hex_row`（Byte/Word/DWord，小端，残缺单元高位补 `--`）、`hex_unit_spans`、`format_ascii_row`（0x20–0x7E 原样，其余 `.`）、`offset_width`（≥8 位，按最大偏移加宽）；`ByteSource` 只读 `mmap`（空文件不映射；映射失败回退 seek/read），`close()` 释放映射与句柄。RED：收集错误；GREEN：`12 passed`。
 
 ## 上一目标：PPTX 居中（已完成）
 
