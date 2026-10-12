@@ -4455,3 +4455,88 @@ def test_new_tab_menu_placeholders_do_nothing(qtbot):
     window.actionMenuBrowser.trigger()
     window.actionMenuTerminal.trigger()
     assert window._tabs.count() == 0
+
+
+def _md_switch_window(qtbot, tmp_path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "note.md"
+    path.write_text("hello", encoding="utf-8")
+    window = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: FakeMarkdownVisual(),
+    )
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    return window, path
+
+
+def _mode_buttons(window):
+    switch = window.findChild(QWidget, "markdownModeSwitch")
+    edit = window.findChild(QWidget, "markdownEditButton")
+    preview = window.findChild(QWidget, "markdownPreviewButton")
+    assert switch is not None and edit is not None and preview is not None
+    return switch, edit, preview
+
+
+def test_markdown_mode_switch_hidden_without_markdown_tab(qtbot, tmp_path: Path):
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    switch, _edit, _preview = _mode_buttons(window)
+    assert switch.isVisible() is False
+    window.actionNewText.trigger()
+    assert switch.isVisible() is False
+
+
+def test_markdown_mode_switch_tracks_and_toggles_mode(qtbot, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window, _path = _md_switch_window(qtbot, tmp_path)
+    window.open_paths([str(_path)])
+    switch, edit, preview = _mode_buttons(window)
+    qtbot.waitUntil(switch.isVisible)
+    assert edit.text() == "编辑" and preview.text() == "预览"
+    assert preview.isChecked() and not edit.isChecked()
+
+    qtbot.mouseClick(edit, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    assert window.findChild(MarkdownTextView).is_editable() is True
+    assert edit.isChecked() and not preview.isChecked()
+
+    qtbot.mouseClick(preview, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
+    assert preview.isChecked() and not edit.isChecked()
+
+
+def test_markdown_mode_switch_reverts_when_preview_cancelled(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window = make_window(lambda *_a, **_k: markdown_visual_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    window.add_untitled_markdown_tab()
+    window.findChild(MarkdownTextView)._editor.setPlainText("draft")
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: ("", ""))
+    switch, edit, preview = _mode_buttons(window)
+    assert switch.isVisible() and edit.isChecked()
+
+    qtbot.mouseClick(preview, Qt.MouseButton.LeftButton)
+    assert window.findChild(MarkdownTextView) is not None
+    assert edit.isChecked() and not preview.isChecked()
+
+
+def test_markdown_mode_switch_is_interactive_chrome(qtbot, tmp_path: Path):
+    from reader.shell.title_chrome import HTCLIENT, hit_test_for_window
+
+    window, path = _md_switch_window(qtbot, tmp_path)
+    window.open_paths([str(path)])
+    switch, edit, _preview = _mode_buttons(window)
+    qtbot.waitUntil(switch.isVisible)
+    assert hit_test_for_window(window, edit.mapToGlobal(edit.rect().center())) == HTCLIENT
+    assert window._title_chrome._is_caption_handle(edit) is False

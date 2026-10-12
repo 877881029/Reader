@@ -8,6 +8,7 @@ from ctypes import wintypes
 from PySide6.QtCore import QEvent, QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QIcon, QMouseEvent
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -37,6 +38,9 @@ HTCLOSE = 20
 RESIZE_BORDER_PX = 4
 _INTERACTIVE_CHROME = {
     "tabNewButton",
+    "markdownModeSwitch",
+    "markdownEditButton",
+    "markdownPreviewButton",
     "titleMinButton",
     "titleMaxButton",
     "titleCloseButton",
@@ -124,6 +128,7 @@ class TitleChrome(QWidget):
     minimize_requested = Signal()
     maximize_requested = Signal()
     close_requested = Signal()
+    markdown_mode_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -168,6 +173,34 @@ class TitleChrome(QWidget):
         row.addWidget(self._caption, 1)
         self._icon.installEventFilter(self)
         self._caption.installEventFilter(self)
+
+        self._mode_switch = QWidget(self)
+        self._mode_switch.setObjectName("markdownModeSwitch")
+        self._mode_switch.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        switch_row = QHBoxLayout(self._mode_switch)
+        switch_row.setContentsMargins(2, 2, 2, 2)
+        switch_row.setSpacing(2)
+        self._mode_group = QButtonGroup(self._mode_switch)
+        self._mode_group.setExclusive(True)
+        self._mode_buttons: dict[str, QToolButton] = {}
+        for mode, name, text, tip in (
+            ("text", "markdownEditButton", "编辑", "编辑模式 (Ctrl+I)"),
+            ("visual", "markdownPreviewButton", "预览", "浏览模式 (Ctrl+T)"),
+        ):
+            button = QToolButton(self._mode_switch)
+            button.setObjectName(name)
+            button.setText(text)
+            button.setToolTip(tip)
+            button.setCheckable(True)
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.clicked.connect(lambda _checked=False, m=mode: self._request_mode(m))
+            self._mode_group.addButton(button)
+            switch_row.addWidget(button)
+            self._mode_buttons[mode] = button
+        self._mode_switch.hide()
+        self._current_mode: str | None = None
+        row.addWidget(self._mode_switch, 0, Qt.AlignmentFlag.AlignVCenter)
+        row.addSpacing(6)
 
         self._min_button = QToolButton(self)
         self._min_button.setObjectName("titleMinButton")
@@ -243,6 +276,28 @@ class TitleChrome(QWidget):
             QToolButton#tabNewButton:hover {{
                 background: {HOVER};
             }}
+            QWidget#markdownModeSwitch {{
+                background: {HOVER};
+                border-radius: 6px;
+            }}
+            QToolButton#markdownEditButton,
+            QToolButton#markdownPreviewButton {{
+                background: transparent;
+                border: none;
+                border-radius: 4px;
+                padding: 2px 10px;
+                font-size: 12px;
+                color: {MUTED};
+            }}
+            QToolButton#markdownEditButton:hover,
+            QToolButton#markdownPreviewButton:hover {{
+                color: {INK};
+            }}
+            QToolButton#markdownEditButton:checked,
+            QToolButton#markdownPreviewButton:checked {{
+                background: {PAPER};
+                color: {INK};
+            }}
             QToolButton#titleMinButton,
             QToolButton#titleMaxButton,
             QToolButton#titleCloseButton {{
@@ -293,6 +348,20 @@ class TitleChrome(QWidget):
         tab_bar.setFixedWidth(width)
         self._tab_host.adjustSize()
         self._tab_cluster.adjustSize()
+
+    def set_markdown_mode(self, mode: str | None) -> None:
+        """Show the edit/preview switch for Markdown tabs; ``None`` hides it."""
+        self._current_mode = mode if mode in self._mode_buttons else None
+        if self._current_mode is None:
+            self._mode_switch.hide()
+            return
+        self._mode_buttons[self._current_mode].setChecked(True)
+        self._mode_switch.show()
+
+    def _request_mode(self, mode: str) -> None:
+        if mode != self._current_mode:
+            self.markdown_mode_requested.emit(mode)
+        self.set_markdown_mode(self._current_mode)
 
     def set_plus_handler(self, callback: Callable[[], None]) -> None:
         self._plus.clicked.connect(callback)

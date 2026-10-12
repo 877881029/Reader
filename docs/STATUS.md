@@ -11,7 +11,8 @@ Git：P1 最终状态 `1ef77f3` 已同步；本边界提交 `+` 新建菜单规�
 - 规格：`docs/superpowers/specs/2026-10-12-new-tab-menu-design.md`
 - 计划：`docs/superpowers/plans/2026-10-12-new-tab-menu.md`（3 个顺序 TDD 任务）
 - Task 1 完成：`+` 弹出 `tabNewMenu`（圆角卡片色，`src/reader/shell/icons.py` 运行时绘制线框图标，无资源文件）：新建文件（`add_untitled_markdown_tab`，同原行为）、打开文件（`_open_dialog` 支持格式过滤）、分隔线、Browser / Terminal（禁用，提示「即将推出」）。`actionNewTab`/`add_blank_tab` 不变。RED：`4 failed`；GREEN：window+title_chrome `160 passed`。
-- 下一步：Task 2 Markdown 编辑/预览切换按钮。
+- Task 2 完成：标题栏右侧（窗口按钮左）新增分段切换 `markdownModeSwitch`「编辑 | 预览」，仅 Markdown 标签可见；选中段由 `_refresh_preview_actions` 按 `document.mode` 同步；点击复用 `actionMarkdownEdit` / `actionMarkdownPreview`（与 Ctrl+I / Ctrl+T 同语义，保存被取消时回弹到原选中段）；按钮登记为交互 chrome，不触发拖动窗口。RED：`4 failed`；GREEN：window+title_chrome `164 passed`。
+- 下一步：Task 3 文档同步与发布门。
 
 ## 上一目标：记事本级文本编辑 P1（已完成）
 

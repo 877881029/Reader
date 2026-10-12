@@ -737,6 +737,7 @@ class MainWindow(QMainWindow):
         self.actionMarkdownPreview.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.actionMarkdownPreview.triggered.connect(self._shortcut_markdown_preview)
         self.addAction(self.actionMarkdownPreview)
+        self._title_chrome.markdown_mode_requested.connect(self._on_markdown_mode_requested)
 
         self.actionSave = QAction("保存", self)
         self.actionSave.setObjectName("actionSave")
@@ -1160,6 +1161,9 @@ class MainWindow(QMainWindow):
         )
         self.actionMarkdownPreview.setEnabled(
             is_md and document is not None and document.mode != "visual"
+        )
+        self._title_chrome.set_markdown_mode(
+            document.mode if is_md and document is not None else None
         )
         self.statusBar().showMessage(document.status_label if document is not None else "")
 
@@ -1673,6 +1677,11 @@ class MainWindow(QMainWindow):
         if suffix != ".pptx":
             return
         self._restart_preview(document_id, "text")
+
+    def _on_markdown_mode_requested(self, mode: str) -> None:
+        action = self.actionMarkdownEdit if mode == "text" else self.actionMarkdownPreview
+        action.trigger()
+        self._refresh_preview_actions()
 
     def _shortcut_markdown_edit(self) -> None:
         document_id = self._current_document_id()
