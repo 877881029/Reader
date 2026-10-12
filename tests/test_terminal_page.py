@@ -64,9 +64,16 @@ def test_typed_command_output_reaches_xterm_with_copilot_theme(qtbot, cmd_page, 
     assert background == "rgb(251, 249, 245)"
 
 
-def test_copy_text_goes_to_clipboard(qtbot, cmd_page):
+def test_copy_text_goes_to_clipboard(qtbot, cmd_page, monkeypatch):
+    copied: list[str] = []
+
+    class FakeClipboard:
+        def setText(self, text: str) -> None:  # noqa: N802 - Qt API
+            copied.append(text)
+
+    monkeypatch.setattr(QApplication, "clipboard", staticmethod(lambda: FakeClipboard()))
     cmd_page.bridge().copyText("from terminal")
-    assert QApplication.clipboard().text() == "from terminal"
+    assert copied == ["from terminal"]
 
 
 def test_exit_shows_hint_and_enter_restarts(qtbot, cmd_page):
