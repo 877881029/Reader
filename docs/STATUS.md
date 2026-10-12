@@ -5,7 +5,7 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
 
 ## 当前目标
 
-**用户 2026-10-12 连续需求队列（按顺序执行，每项独立规格/计划/TDD/提交）**
+**用户 2026-10-12 连续需求队列（按顺序执行，每项独立规格/计划/TDD/提交）— 全部完成**
 
 1. 主页（欢迎页）改为 Copilot 式简约中性配色，布局不变 — 已完成（发布门留到队列末尾统一执行）。规格 `docs/superpowers/specs/2026-10-12-welcome-neutral-theme-design.md`，计划 `docs/superpowers/plans/2026-10-12-welcome-neutral-theme.md`。墨色 `#1f1d1a` 主按钮、细线边框次按钮、`#fbf9f5` 卡片 + `#e6dfd4` 细线、`#f0ebe3` 灰色徽章、墨色强调条、去掉蓝色水印 R、全部改 Segoe UI；去除全部 cobalt。RED：新调色板测试 `1 failed`；GREEN：window/welcome_lookup/find `173 passed`（`test_welcome_lookup` 旧 CARD/LINE 断言按新规格更新）。截图确认。
 2. P2：查找替换（`Ctrl+H`）、跳转指定行（`Ctrl+G`）— 已完成。规格 `docs/superpowers/specs/2026-10-12-p2-find-replace-goto-design.md`，计划 `docs/superpowers/plans/2026-10-12-p2-find-replace-goto.md`（4 任务）。
@@ -16,9 +16,12 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
 3. `+` 菜单 Browser 实现 — 已完成（Task 3 文档同步，规格/计划 Implemented）。规格 `docs/superpowers/specs/2026-10-12-browser-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-browser-tab.md`（3 任务）。
    - Task 1 完成：`browser_page.normalize_address`：http/https/file 原样；无空格且像域名 → `https://`，`localhost[:port]` → `http://`；其他（含 `javascript:`/`data:`）一律转 Bing 搜索；空输入返回 None。RED：收集错误；GREEN：`13 passed`。
    - Task 2 完成：`BrowserPage`（`browserPage`）：后退/前进/刷新 + 地址栏「输入网址或搜索」，独立 off-the-record `QWebEngineProfile`（不落盘、不共享离线查看器 profile，无 WebChannel），关闭时换 inert page 再释放 page/profile；`MainWindow.add_browser_tab` 通过通用 `_add_tool_tab` 建标签「浏览器」，标题跟随网页标题（>32 字截断，tooltip 全称），不进最近文件、关闭不提示；`Ctrl+F` 走既有 WebEngine 查找。菜单 Browser 启用，Terminal 仍禁用。RED：`4 failed`；GREEN：browser_page+window `185 passed`；截图确认工具栏高度 42px。
-4. `+` 菜单 Terminal 实现 — 执行中。规格 `docs/superpowers/specs/2026-10-12-terminal-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-terminal-tab.md`（3 任务）。
+4. `+` 菜单 Terminal 实现 — 已完成。规格 `docs/superpowers/specs/2026-10-12-terminal-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-terminal-tab.md`（3 任务）。
    - Task 1 完成（`7e67498`）：`TerminalPage`（`terminalPage`）：`%SystemRoot%` 下绝对路径 PowerShell 5.1 经 `QProcess`（合并 stdout/stderr）`-NoLogo -NoProfile -Command -`；启动切 UTF-8 输出；**每条命令以 Base64(UTF-8) 经 `Invoke-Expression` 送入**（实测 stdin 按 OEM 代码页解码会把中文命令弄乱；测试原先因本地回显行误通过，已收紧为整行匹配后 RED→GREEN）；每条命令后发隐藏标记行 `\x1e$PWD` 更新提示符并从输出剔除；`cls/clear` 本地清屏，↑/↓ 历史，「重启」同目录重启，退出显示「[进程已退出]」，`shutdown` kill 并等待。RED：收集错误、中文输入 `1 failed`；GREEN：`6 passed`；人工验证变量持久、错误输出、中文。
    - Task 2 完成：菜单 Terminal 启用（`add_terminal_tab`），标签「终端」，起始目录为当前标签真实文件所在文件夹，否则用户主目录；复用 `_add_tool_tab`；关闭不提示且 kill 进程。`+` 菜单四项全部可用。RED：`3 failed`；GREEN：`3 passed`，全量 Python `549 passed, 1 skipped`。
+   - Task 3 完成：README / 功能全解新增 5.9 终端并去掉「即将推出」；规格与计划 Implemented。
+5. 队列统一发布门：`verify.ps1 -Release` 通过（Python `549 passed, 1 skipped`、PPTX/MD Web、冻结构建、PPTX/MD/TXT/C++/IPC smoke）。`dist\Reader\Reader.exe` SHA256 `40A71EB4C59F8DC9EC46293BBB707E49D7D737BC70A45E3145E2936ACF5D6C71`。
+6. 下一步建议：P3 编码选择与换行转换（状态栏显示并可切换 UTF-8/GB18030、CRLF/LF）、P2 剩余的 `Ctrl+滚轮/Ctrl+0` 缩放与底部状态栏；终端可升级 ConPTY 以支持颜色与全屏程序。
 
 ## 上一目标：`+` 新建菜单与 Markdown 编辑/预览切换（已完成）
 
