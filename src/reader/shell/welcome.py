@@ -65,6 +65,7 @@ _BADGE_BY_SUFFIX = {
     ".gif": "GIF",
     ".webp": "WEBP",
     ".bmp": "BMP",
+    ".bin": "BIN",
 }
 
 

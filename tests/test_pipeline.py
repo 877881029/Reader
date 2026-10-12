@@ -317,3 +317,20 @@ def test_png_uses_image_preview_without_office(tmp_path: Path):
     assert builtin.asset_dir is None
     assert visual.kind == "image"
     assert office.calls == []
+
+
+def test_bin_uses_binary_preview_without_reading_or_office(tmp_path: Path, monkeypatch):
+    office = FakeOffice(available=True)
+    path = tmp_path / "fw.bin"
+    path.write_bytes(b"\x00" * 64)
+
+    def no_read(*_args, **_kwargs):
+        raise AssertionError("binary preview must not read the file")
+
+    monkeypatch.setattr(Path, "read_bytes", no_read)
+    for mode in ("builtin", "visual", "text"):
+        result = preview(path, office=office, mode=mode)
+        assert result.kind == "binary"
+        assert result.binary_path == path.resolve()
+        assert result.status_label == "二进制预览"
+    assert office.calls == []

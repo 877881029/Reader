@@ -86,7 +86,7 @@ def test_ctrl_f_shows_hidden_lookup_on_recent_row(qtbot):
 
 def test_enter_directory_lists_files_like_recents(qtbot, tmp_path: Path):
     (tmp_path / "note.md").write_text("hello", encoding="utf-8")
-    (tmp_path / "skip.bin").write_bytes(b"x")
+    (tmp_path / "skip.exe").write_bytes(b"x")
     window = _window()
     qtbot.addWidget(window)
     window.show()

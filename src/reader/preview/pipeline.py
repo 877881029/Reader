@@ -2,6 +2,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal, Protocol
 
+from reader.formats import binary as fmt_binary
 from reader.formats import code as fmt_code
 from reader.formats import docx as fmt_docx
 from reader.formats import image as fmt_image
@@ -57,6 +58,8 @@ def preview(
         return fmt_pdf.to_preview(path)
     if suffix == ".svg":
         return fmt_svg.to_preview(path)
+    if suffix in fmt_binary.BINARY_SUFFIXES:
+        return fmt_binary.to_preview(path)
     if suffix in fmt_image.IMAGE_SUFFIXES:
         return fmt_image.to_preview(path)
     if suffix in fmt_code.CODE_SUFFIXES:

@@ -2,7 +2,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-PreviewKind = Literal["html", "pdf", "pptx", "markdown", "code", "svg", "image", "error"]
+PreviewKind = Literal[
+    "html", "pdf", "pptx", "markdown", "code", "svg", "image", "binary", "error"
+]
 
 
 @dataclass(frozen=True)
@@ -14,5 +16,6 @@ class PreviewResult:
     pdf_path: Path | None = None
     svg_path: Path | None = None
     image_path: Path | None = None
+    binary_path: Path | None = None
     fallback_html: str | None = None
     error: str | None = None

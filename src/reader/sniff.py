@@ -29,6 +29,7 @@ SUPPORTED_EXTENSIONS = frozenset(
         ".gif",
         ".webp",
         ".bmp",
+        ".bin",
     }
 )
 

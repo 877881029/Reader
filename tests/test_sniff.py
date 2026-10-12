@@ -4,7 +4,7 @@ from reader.sniff import sniff, SniffError, SUPPORTED_EXTENSIONS
 
 def test_supported_extensions():
     assert SUPPORTED_EXTENSIONS == frozenset(
-        {".docx", ".pptx", ".xlsx", ".md", ".pdf", ".json", ".yaml", ".yml", ".xml", ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx", ".inl", ".ipp", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+        {".docx", ".pptx", ".xlsx", ".md", ".pdf", ".json", ".yaml", ".yml", ".xml", ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx", ".inl", ".ipp", ".txt", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".bin"}
     )
 
 @pytest.mark.parametrize("name,suffix", [
@@ -34,6 +34,7 @@ def test_supported_extensions():
     ("m.jpeg", ".jpeg"),
     ("n.gif", ".gif"),
     ("o.webp", ".webp"),
+        ("fw.BIN", ".bin"),
     ("p.BMP", ".bmp"),
 ])
 def test_sniff_accepts_supported(tmp_file, name, suffix):

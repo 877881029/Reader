@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from reader.formats.binary import BINARY_SUFFIXES
 from reader.formats.code import CODE_SUFFIXES
 from reader.formats.image import IMAGE_SUFFIXES
 from reader.open import decide_open
@@ -270,6 +271,7 @@ class _PreviewWorker(QRunnable):
                 and suffix != ".svg"
                 and suffix not in IMAGE_SUFFIXES
                 and suffix not in CODE_SUFFIXES
+                and suffix not in BINARY_SUFFIXES
             ):
                 try:
                     cache = self.cache_factory()
@@ -517,6 +519,12 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
 
         view = SvgView()
         view.load_path(result.svg_path or source_path)
+        return view
+    if result.kind == "binary":
+        from reader.preview.hex_view import HexView
+
+        view = HexView()
+        view.load_path(result.binary_path or source_path)
         return view
     if result.kind == "image":
         from reader.preview.image_view import ImageView
@@ -1664,7 +1672,7 @@ class MainWindow(QMainWindow):
             self,
             "打开",
             "",
-            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.c *.h *.cpp *.hpp *.cc *.cxx *.hh *.hxx *.inl *.ipp *.txt *.svg *.png *.jpg *.jpeg *.gif *.webp *.bmp)",
+            "Documents (*.docx *.pptx *.xlsx *.md *.pdf *.json *.yaml *.yml *.xml *.c *.h *.cpp *.hpp *.cc *.cxx *.hh *.hxx *.inl *.ipp *.txt *.svg *.png *.jpg *.jpeg *.gif *.webp *.bmp *.bin)",
         )
         if paths:
             self.open_paths([str(path) for path in paths])

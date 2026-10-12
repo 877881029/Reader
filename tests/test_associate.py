@@ -84,6 +84,7 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
         ".gif",
         ".webp",
         ".bmp",
+        ".bin",
     )
     assert command_path in wr.created
     for ext in EXTENSIONS:

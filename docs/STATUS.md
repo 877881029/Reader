@@ -13,6 +13,7 @@ Git：PPTX 居中最终状态 `2ef5c3b` 已同步；本边界提交二进制查�
 - 规格：`docs/superpowers/specs/2026-10-12-binary-viewer-design.md`；计划：`docs/superpowers/plans/2026-10-12-binary-viewer.md`（4 任务）。
 - Task 1 完成：`preview/hex_view.py` 纯函数 `format_hex_row`（Byte/Word/DWord，小端，残缺单元高位补 `--`）、`hex_unit_spans`、`format_ascii_row`（0x20–0x7E 原样，其余 `.`）、`offset_width`（≥8 位，按最大偏移加宽）；`ByteSource` 只读 `mmap`（空文件不映射；映射失败回退 seek/read），`close()` 释放映射与句柄。RED：收集错误；GREEN：`12 passed`。
 - Task 2 完成：`HexView`（工具栏 Byte/Word/DWord 分段按钮 + 悬停信息「偏移 / 值（十进制）」+ 文件大小；内部 `_HexArea(QAbstractScrollArea)` 只格式化并绘制可见行，滚动范围按行，横向按字符；表头显示列偏移，ASCII 列前分隔线）；悬停 hex 单元或 ASCII 字符时两侧高亮同一单元（按当前分组对齐，末尾残缺单元截断）；`shutdown()` 释放映射后文件可删除。实测 1 GiB：`load_path` 2 ms、首帧 0.3 s。测试夹具改用 NTFS 稀疏文件（Python `truncate` 在 Windows 会写零，耗时 11 s）。RED：收集错误；GREEN：`18 passed`（5.6 s）；截图确认 DWord 悬停联动高亮。
+- Task 3 完成：`.bin` 加入 `SUPPORTED_EXTENSIONS`、关联 `EXTENSIONS`、打开对话框过滤器与欢迎页徽章 `BIN`；`PreviewResult` 新增 `kind="binary"` 与 `binary_path`；`formats/binary.py::to_preview` 不读文件；pipeline 在 Office/视觉分支前处理；预览 worker 跳过缓存；`_default_viewer` 构建 `HexView`，关闭标签经 `_dispose_widget → shutdown` 释放映射。`test_welcome_lookup` 原用 `.bin` 当「不支持」样例，改为 `.exe`。RED：`6 failed`；GREEN：全量 Python `578 passed, 1 skipped`。
 
 ## 上一目标：PPTX 居中（已完成）
 

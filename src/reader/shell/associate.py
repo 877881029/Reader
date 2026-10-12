@@ -37,6 +37,7 @@ EXTENSIONS = (
     ".gif",
     ".webp",
     ".bmp",
+    ".bin",
 )
 _ICON_INDEX_RE = re.compile(r'^(?:"(?P<quoted>.*)"|(?P<plain>.*)),(?P<index>-?\d+)$')
 

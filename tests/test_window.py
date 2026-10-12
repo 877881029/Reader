@@ -4747,3 +4747,51 @@ def test_terminal_without_file_starts_in_home(qtbot):
     page = window.findChild(TerminalPage)
     assert page is not None and page.cwd() == Path.home()
     page.shutdown()
+
+
+def test_default_viewer_factory_uses_hex_view(qtbot, tmp_path: Path):
+    from reader.preview.hex_view import HexView
+    from reader.shell.window import _default_viewer
+
+    source = tmp_path / "fw.bin"
+    source.write_bytes(bytes(range(40)))
+    result = PreviewResult(html="", status_label="二进制预览", kind="binary", binary_path=source)
+    widget = _default_viewer(result, source)
+    qtbot.addWidget(widget)
+    try:
+        assert isinstance(widget, HexView)
+        assert widget.row_count() == 3
+    finally:
+        widget.shutdown()
+
+
+def test_bin_open_skips_cache_and_shows_hex_view(qtbot, tmp_path: Path, monkeypatch):
+    from reader.preview.hex_view import HexView
+    from reader.preview.pipeline import preview
+    from reader.shell.window import MainWindow, _default_viewer
+
+    path = tmp_path / "fw.bin"
+    path.write_bytes(b"\x55\xaa" * 32)
+    cache = FakeCache()
+    window = MainWindow(preview_fn=preview, cache_factory=lambda: cache, viewer_factory=_default_viewer)
+    qtbot.addWidget(window)
+
+    window.open_paths([str(path)])
+
+    qtbot.waitUntil(lambda: window.findChild(HexView) is not None)
+    assert cache.calls == []
+    assert window.tab_title(0) == "fw.bin"
+
+
+def test_open_dialog_filter_includes_bin(qtbot, monkeypatch):
+    captured: list[str] = []
+    window = make_window(lambda *_args, **_kwargs: builtin_result())
+    qtbot.addWidget(window)
+
+    def fake_dialog(*args, **kwargs):
+        captured.append(str(kwargs.get("filter") or (args[3] if len(args) >= 4 else "")))
+        return [], ""
+
+    monkeypatch.setattr("reader.shell.window.QFileDialog.getOpenFileNames", fake_dialog)
+    window._open_dialog()
+    assert "*.bin" in captured[0]
