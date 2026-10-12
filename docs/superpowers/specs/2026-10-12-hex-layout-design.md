@@ -1,6 +1,6 @@
 # Hex View Alignment and Adaptive Layout Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background

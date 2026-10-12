@@ -1,6 +1,6 @@
 # Hex View Alignment and Adaptive Layout Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-12-hex-layout-design.md`
 

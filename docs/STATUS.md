@@ -5,13 +5,14 @@ Git：状态栏/二进制发布最终状态 `ca41fe8` 已同步；本边界提�
 
 ## 当前目标
 
-**Hex 视图：高亮与鼠标对齐 + 按窗口宽度自适应字号/列宽**（执行中）
+**Hex 视图：高亮与鼠标对齐 + 按窗口宽度自适应字号/列宽**（已完成）
 
 - 用户反馈：高亮与鼠标不在同一字节上；一行太窄、右侧大量空白，希望调节字号和列宽改善观感。
 - 根因：列位置用 `QFontMetrics.horizontalAdvance`（取整像素），而整行文本按小数字宽绘制，误差随列累积。
 - 规格：`docs/superpowers/specs/2026-10-12-hex-layout-design.md`；计划：`docs/superpowers/plans/2026-10-12-hex-layout.md`（3 任务）。
 - Task 1 完成：字宽改用 `QFontMetricsF` 浮点值；偏移、每个 hex 单元、每个 ASCII 字符和表头都按各自浮点坐标单独绘制，命中测试与高亮矩形（新 `highlight_rects()`）共用同一几何；hex 区按最近单元中心命中（单元间隙归最近单元，无死区）；第 7/8 字节之间加 1 字符半行间隔（`hex_unit_layout`，文本格式化函数不变）。RED：渲染像素测试（高亮边缘不得切到字形、内部必须有字形墨迹）Byte/Word/DWord 3 例 + 间隙命中 + 往返共 `5 failed`；GREEN：`23 passed`。
 - Task 2 完成：自动字号——按视口宽度与行字符数（偏移+3+hex+3+16）计算像素字号，限制 13–22px，因小字号 hinting 偏宽时逐级回退直到放得下；达到上限后整块水平居中；最小字号仍放不下时保留横向滚动。手动缩放：`Ctrl+滚轮`、`Ctrl+=`/`Ctrl++`、`Ctrl+-`（10–32px，退出自动），`Ctrl+0` 恢复自动；分组切换/加载/窗口缩放都会重新布局。RED：`4 failed`；GREEN：hex `27 passed`，hex+bin 窗口 `31 passed`；截图确认高亮正落在鼠标所在字节、行铺满宽度。
+- Task 3 完成：功能全解 5.10 与快捷键表同步；`verify.ps1 -Release` 通过（Python `597 passed, 1 skipped`、PPTX/MD Web、冻结构建与全部 smoke，未中断）；`install_local.ps1` 安装，SHA256 `F735F537D9CB928D61D64A22C8B415F33682D01F1FA9412D9828559E2D515179`；规格/计划 Implemented。
 
 ## 上一目标：代码页 Notepad 式底部状态栏 + Ctrl+J 转到行（已完成）
 
