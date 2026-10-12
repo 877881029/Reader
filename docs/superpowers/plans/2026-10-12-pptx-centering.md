@@ -1,6 +1,6 @@
 # PPTX Slide Centering Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-12-pptx-centering-design.md`
 

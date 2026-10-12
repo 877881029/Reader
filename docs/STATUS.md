@@ -5,13 +5,14 @@ Git：本地安装最终状态 `10f0d0f` 已同步；本边界提交 PPTX 居中
 
 ## 当前目标
 
-**PPTX 打开即居中、去掉画布滚动条、保留缩放快捷键**（执行中）
+**PPTX 打开即居中、去掉画布滚动条、保留缩放快捷键**（已完成）
 
 - 用户反馈：PPTX 默认打开时幻灯片不在中间（偏右下、被裁），每次都要调整；要求去掉上下左右滚动条，保留放大缩小快捷键。
 - 根因：`.viewer-shell__host` 以原尺寸参与布局、仅用 `transform: scale()` 视觉缩小（原点在中心），网格居中与 `overflow: auto` 按未缩放尺寸计算，导致偏移和滚动条；fit 也未扣除 16px 内边距。
 - 规格：`docs/superpowers/specs/2026-10-12-pptx-centering-design.md`；计划：`docs/superpowers/plans/2026-10-12-pptx-centering.md`（3 任务）。
 - Task 1 完成：新增 `.viewer-shell__canvas` 包裹层（绝对定位，宽高=缩放后尺寸，`left/top = (舞台 - 缩放尺寸)/2`），host 以左上角为原点缩放；舞台 `overflow: hidden`、去掉网格居中与内边距；fit 扣除 `STAGE_GUTTER=16` 两侧留白；非 fit 模式下尺寸变化也重新居中。两个旧 fit 断言按新留白更新。RED：vitest `4 failed, 31 passed`；GREEN：`35 passed`，typecheck 通过。
 - Task 2 完成：`Ctrl+=`/`Ctrl++` 放大、`Ctrl+-` 缩小、`Ctrl+0` 适合窗口、`Ctrl+滚轮` 缩放，均 `preventDefault` 阻止 Chromium 页面缩放；幻灯片大于舞台时可鼠标拖动或滚轮（Shift+滚轮横向）平移，平移限制在留白边界内，适合窗口时归零；可平移时光标为抓手。RED：`3 failed, 35 passed`；GREEN：`38 passed`，typecheck 通过。
+- Task 3 完成：重建 `assets/pptx-viewer` bundle（`d77da16`）；真实 WebEngine 用用户的 `presentation_en.pptx` 截图确认首屏居中、四周留边、无滚动条；`verify.ps1 -Release` 通过（Python `555 passed, 1 skipped`、PPTX/MD Web、冻结构建与全部 smoke）；`install_local.ps1` 已安装到 `%LOCALAPPDATA%\Programs\Reader`，SHA256 `70A73B72AEFD7B79F1C14A53E24EB3F18821A1EAF7D17C128EDC60E89A4F1C75`，桌面快捷方式指向该处。功能全解同步；规格/计划 Implemented。本目标完成。
 
 ## 上一目标：稳定本地安装 + 桌面快捷方式刷新（已完成）
 

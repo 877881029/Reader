@@ -1,6 +1,6 @@
 # PPTX Slide Centering and Scrollbar-Free Stage Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background
