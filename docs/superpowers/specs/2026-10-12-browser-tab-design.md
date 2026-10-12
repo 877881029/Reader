@@ -1,6 +1,6 @@
 # Browser Tab Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background

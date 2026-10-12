@@ -1,6 +1,6 @@
 # Browser Tab Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-12-browser-tab-design.md`
 

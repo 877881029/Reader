@@ -13,7 +13,7 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
    - Task 2 完成：`Ctrl+H`（`actionReplace`）仅对可写文本页（`_writable_text_editor`：可编辑视图且非只读）生效，查找条显示「替换为」输入框与「替换 / 全部替换」；`Ctrl+F` 回到纯查找隐藏替换行；全部替换结果显示「已替换 N 处 / 未找到」；替换文本回车即替换；修改走编辑器使标签变 `*`。RED：`4 failed`；GREEN：window+find+find_replace `176 passed`。
    - Task 3 完成：`Ctrl+G`（`actionGoToLine`）对任意纯文本页（含只读代码/TXT、Markdown 编辑）弹「转到行」（`QInputDialog.getInt`，默认当前行，范围 1..行数，可注入 `goto_line_prompt`），光标移到行首并居中；取消不动；欢迎页/非文本页不弹。RED：`4 failed`；GREEN：window+find+find_replace+code_view `199 passed`。
    - Task 4 完成：README（顺带修复上一轮重复的半句）与功能全解查找章节、快捷键表同步；规格与计划标记 Implemented。P2 完成。
-3. `+` 菜单 Browser 实现 — 执行中。规格 `docs/superpowers/specs/2026-10-12-browser-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-browser-tab.md`（3 任务）。
+3. `+` 菜单 Browser 实现 — 已完成（Task 3 文档同步，规格/计划 Implemented）。规格 `docs/superpowers/specs/2026-10-12-browser-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-browser-tab.md`（3 任务）。
    - Task 1 完成：`browser_page.normalize_address`：http/https/file 原样；无空格且像域名 → `https://`，`localhost[:port]` → `http://`；其他（含 `javascript:`/`data:`）一律转 Bing 搜索；空输入返回 None。RED：收集错误；GREEN：`13 passed`。
    - Task 2 完成：`BrowserPage`（`browserPage`）：后退/前进/刷新 + 地址栏「输入网址或搜索」，独立 off-the-record `QWebEngineProfile`（不落盘、不共享离线查看器 profile，无 WebChannel），关闭时换 inert page 再释放 page/profile；`MainWindow.add_browser_tab` 通过通用 `_add_tool_tab` 建标签「浏览器」，标题跟随网页标题（>32 字截断，tooltip 全称），不进最近文件、关闭不提示；`Ctrl+F` 走既有 WebEngine 查找。菜单 Browser 启用，Terminal 仍禁用。RED：`4 failed`；GREEN：browser_page+window `185 passed`；截图确认工具栏高度 42px。
 4. `+` 菜单 Terminal 实现 — 待开始。
