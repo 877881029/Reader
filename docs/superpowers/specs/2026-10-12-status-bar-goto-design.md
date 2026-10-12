@@ -1,6 +1,6 @@
 # Notepad-Style Status Bar and Ctrl+J Go To Line Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background

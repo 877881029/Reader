@@ -5,7 +5,7 @@ Git：二进制查看器文档 `5d77429` 已同步；本边界提交状态栏 / 
 
 ## 当前目标
 
-**代码页 Notepad 式底部状态栏 + Ctrl+J 转到行**（执行中）
+**代码页 Notepad 式底部状态栏 + Ctrl+J 转到行**（已完成，含二进制查看器发布）
 
 - 用户需求：把代码页顶部工具栏（行号框/跳转/换行/A-/A+）改为窗口下边界的只读状态栏，显示「Ln xx, Col xx | Size xx pt | Type json」，不可点击，对齐 Notepad；跳转行改 `Ctrl+J`，交互与 `Ctrl+F` 一致。
 - 规格：`docs/superpowers/specs/2026-10-12-status-bar-goto-design.md`；计划：`docs/superpowers/plans/2026-10-12-status-bar-goto.md`（3 任务）。字号改 `Ctrl+滚轮`/`Ctrl+=`/`Ctrl+-`/`Ctrl+0`，换行 `Alt+Z`。
@@ -14,6 +14,7 @@ Git：二进制查看器文档 `5d77429` 已同步；本边界提交状态栏 / 
 - Task 2 完成：新增 `shell/goto_bar.py::GotoLineBar`（`goToLineBar`，与查找条同位置同样式：输入框占位「转到行（1–N）」、提示 `goToLineMessage`、×）；`actionGoToLine` 快捷键 `Ctrl+J`（保留 `Ctrl+G` 别名），回车跳转（限幅）并关闭、非数字提示「无效行号」、Esc/× 关闭；与查找/替换条互斥；适用于所有纯文本页（代码/TXT、Markdown 编辑），其他页忽略。移除旧 `QInputDialog` 弹窗与 `goto_line_prompt`。RED：`4 failed`；GREEN：window+find+find_replace `186 passed`；截图确认。
 - Task 3：README / 功能全解同步（状态栏、`Ctrl+J`、字号/换行快捷键；顺带补回 P1 文档里被 PowerShell 吃掉的 `Ctrl+S`/`Ctrl+N` 反引号）。`verify.ps1 -Release` 通过：Python `587 passed, 1 skipped`、PPTX/MD Web、冻结构建与全部 smoke；`dist\Reader\Reader.exe` SHA256 `4687B4380E9782A1A8D8A1AFE5C988205D3E8BE387E843FA1355ADECBF8F5027`。
 - 事故与修复：中止上一轮发布门（rel5）时 vite 刚清空 `assets/pptx-viewer`，其后规格提交 `10c0e41`（`git add -A`）误删了 `THIRD_PARTY_NOTICES.txt` 与 `manifest.sha256`。本次发布门重新生成，内容与 `d77da16` 逐字节一致，已恢复入库；新增卫生测试要求两个 Web bundle 的 notices/manifest/index 均被 git 跟踪（未暂存时 RED `1 failed`，恢复后 GREEN `6 passed`）。规则：中断发布门后提交前必须先跑快速门或检查 `git status` 中 `assets/` 删除。
+- 已用 `install_local.ps1` 安装到 `%LOCALAPPDATA%\Programs\Reader`（SHA256 `4687B438…8F5027`），桌面快捷方式与 `.bin` 关联指向该处。规格/计划（状态栏、二进制查看器）标记 Implemented。
 
 ## 上一目标：`.bin` 二进制（十六进制）查看器（Task 1–3 完成，发布并入当前目标）
 

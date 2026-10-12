@@ -1,6 +1,6 @@
 # Binary (Hex) Viewer Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background
