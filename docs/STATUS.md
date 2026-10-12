@@ -1,11 +1,19 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-12
-Git：PPTX 居中最终状态 `2ef5c3b` 已同步；本边界提交二进制查看器规格与计划。
+Git：二进制查看器文档 `5d77429` 已同步；本边界提交状态栏 / Ctrl+J 规格与计划。
 
 ## 当前目标
 
-**`.bin` 二进制（十六进制）查看器**（执行中）
+**代码页 Notepad 式底部状态栏 + Ctrl+J 转到行**（执行中）
+
+- 用户需求：把代码页顶部工具栏（行号框/跳转/换行/A-/A+）改为窗口下边界的只读状态栏，显示「Ln xx, Col xx | Size xx pt | Type json」，不可点击，对齐 Notepad；跳转行改 `Ctrl+J`，交互与 `Ctrl+F` 一致。
+- 规格：`docs/superpowers/specs/2026-10-12-status-bar-goto-design.md`；计划：`docs/superpowers/plans/2026-10-12-status-bar-goto.md`（3 任务）。字号改 `Ctrl+滚轮`/`Ctrl+=`/`Ctrl+-`/`Ctrl+0`，换行 `Alt+Z`。
+- 二进制查看器 Task 4（发布门 + 安装）并入本目标 Task 3 一起执行（发布门在用户插入新需求时中止，未产生结论）。
+
+## 上一目标：`.bin` 二进制（十六进制）查看器（Task 1–3 完成，发布并入当前目标）
+
+**`.bin` 二进制（十六进制）查看器**
 
 - 用户需求：快速打开 bin，每行 16 字节，Byte / Word / DWord 切换，右侧 ASCII 列，鼠标悬停时 hex 单元与 ASCII 双向联动高亮；大文件要快（流式或其他方式）。
 - 假设（已在规格写明）：「bit/word/DW」理解为 Byte/Word/DWord 分组，Word/DWord 以小端值显示；仅新增 `.bin` 扩展名。
