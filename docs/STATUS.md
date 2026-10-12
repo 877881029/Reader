@@ -10,6 +10,7 @@ Git：hex 布局最终状态 `cb8fe66` 已同步；本边界提交真终端（Co
 - 用户需求：Terminal 能力与 Copilot 右侧终端一致，包含 Command 与 PowerShell；配色与 Copilot 一致。管理员模式经确认放弃（普通权限 Reader 无法在自身标签内承载提权 shell），只做普通权限。
 - 预研：`pywinpty 3.0.5` 在本机 ConPTY 可用，中文往返正确；ConPTY 启动会发终端查询（`ESC[c`），由 xterm.js 自动应答。
 - 规格：`docs/superpowers/specs/2026-10-12-real-terminal-design.md`；计划：`docs/superpowers/plans/2026-10-12-real-terminal.md`（5 任务）。
+- Task 1 完成：`reader/terminal/pty_session.py`：`SHELL_PROFILES`（PowerShell → `System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo`，命令提示符 → `System32\cmd.exe`，均绝对路径）；`PtySession(QObject)` 以真实行列 spawn ConPTY，守护线程阻塞读，经 Queued 内部信号回到主线程发 `output`/`exited`；`write`/`resize`/`shutdown`（强制结束，关闭后不再发信号）；`DA1_RESPONSE` 常量供测试/自检应答 ConPTY 设备属性查询。`pyproject.toml` 新增 `pywinpty==3.0.5`。RED：收集错误；GREEN：`6 passed`（cmd 中文、起始目录、`mode con` 尺寸、PowerShell 求值、exit/shutdown）。
 
 ## 上一目标：Hex 视图对齐与自适应布局（已完成）
 
