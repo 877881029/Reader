@@ -224,7 +224,7 @@ describe("viewer controls", () => {
 
     setStage(800, 600);
     callbacks[0]?.([], {} as ResizeObserver);
-    expect(viewer.state.zoom).toBeCloseTo(0.5, 6);
+    expect(viewer.state.zoom).toBeCloseTo(fitScale(800 - 32, 600 - 32, 1600, 900), 6);
 
     viewer.destroy();
     expect(disconnect).toHaveBeenCalledTimes(1);
@@ -291,6 +291,46 @@ describe("viewer controls", () => {
     expect(second.state.currentIndex).toBe(2);
     second.destroy();
     globalThis.ResizeObserver = originalObserver;
+  });
+});
+
+describe("stage layout", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function px(value: string): number {
+    return Number.parseFloat(value);
+  }
+
+  it("centres the scaled slide with a 16px fit gutter at any zoom", () => {
+    const root = mountRoot();
+    const viewer = createViewer(root, { slideCount: 1, slideWidth: 1600, slideHeight: 900 });
+    trackElementSize(viewer.elements.stage, 1000, 800);
+
+    viewer.fit();
+    const zoom = viewer.state.zoom;
+    expect(zoom).toBeCloseTo(fitScale(1000 - 32, 800 - 32, 1600, 900), 6);
+    const canvas = viewer.elements.canvas;
+    expect(canvas.parentElement).toBe(viewer.elements.stage);
+    expect(viewer.elements.host.parentElement).toBe(canvas);
+    expect(px(canvas.style.width)).toBeCloseTo(1600 * zoom, 3);
+    expect(px(canvas.style.height)).toBeCloseTo(900 * zoom, 3);
+    expect(px(canvas.style.left)).toBeCloseTo((1000 - 1600 * zoom) / 2, 3);
+    expect(px(canvas.style.top)).toBeCloseTo((800 - 900 * zoom) / 2, 3);
+    expect(viewer.elements.host.style.transformOrigin.replace(/px/g, "").trim()).toBe("0 0");
+
+    viewer.setZoom(4);
+    expect(px(canvas.style.left)).toBeCloseTo((1000 - 6400) / 2, 3);
+    expect(px(canvas.style.top)).toBeCloseTo((800 - 3600) / 2, 3);
+    viewer.destroy();
+  });
+
+  it("never gives the stage scrollbars", async () => {
+    const css = await readFile(resolve(process.cwd(), "src/style.css"), "utf-8");
+    const stageRule = css.split(".viewer-shell__stage {")[1]?.split("}")[0] ?? "";
+    expect(stageRule).toContain("overflow: hidden");
+    expect(stageRule).not.toContain("overflow: auto");
   });
 });
 
@@ -406,7 +446,7 @@ describe("official renderer integration", () => {
       ),
     );
     const expectedFit = Math.round(
-      fitScale(1000, 500, presentation.slideSize.width, presentation.slideSize.height) * 100,
+      fitScale(1000 - 32, 500 - 32, presentation.slideSize.width, presentation.slideSize.height) * 100,
     );
     expect(controller.elements.zoom.textContent).toBe(`${expectedFit}%`);
     resizeCallbacks[0]?.([], {} as ResizeObserver);

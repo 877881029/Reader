@@ -15,6 +15,7 @@ export interface ViewerBridge {
 export interface ViewerElements {
   rail: HTMLElement;
   stage: HTMLElement;
+  canvas: HTMLElement;
   host: HTMLElement;
   page: HTMLOutputElement;
   zoom: HTMLOutputElement;
@@ -42,6 +43,9 @@ export interface ViewerController {
   zoomBy(delta: number): number;
   destroy(): void;
 }
+
+/** Empty space kept around the slide when fitting it to the stage. */
+export const STAGE_GUTTER = 16;
 
 const ROOT_CONTROLLER_KEY = Symbol("reader-pptx-viewer-controller");
 type ViewerRoot = HTMLElement & { [ROOT_CONTROLLER_KEY]?: ViewerController };
@@ -71,7 +75,9 @@ export function buildViewerDom(root: HTMLElement): ViewerElements {
           <button type="button" data-action="fit" aria-label="适合窗口">适合窗口</button>
         </header>
         <div class="viewer-shell__stage">
-          <div class="viewer-shell__host" role="img" aria-label="幻灯片画布"></div>
+          <div class="viewer-shell__canvas">
+            <div class="viewer-shell__host" role="img" aria-label="幻灯片画布"></div>
+          </div>
         </div>
       </article>
     </section>
@@ -80,6 +86,7 @@ export function buildViewerDom(root: HTMLElement): ViewerElements {
   return {
     rail: root.querySelector<HTMLElement>(".viewer-shell__rail")!,
     stage: root.querySelector<HTMLElement>(".viewer-shell__stage")!,
+    canvas: root.querySelector<HTMLElement>(".viewer-shell__canvas")!,
     host: root.querySelector<HTMLElement>(".viewer-shell__host")!,
     page: root.querySelector<HTMLOutputElement>(".viewer-shell__page")!,
     zoom: root.querySelector<HTMLOutputElement>(".viewer-shell__zoom")!,
@@ -118,8 +125,19 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
     }
   };
 
+  // The host keeps its native slide size and scales from the top-left corner;
+  // the canvas carries the scaled size so the slide is centred in the stage.
   const applyScale = (): void => {
+    const scaledWidth = options.slideWidth * state.zoom;
+    const scaledHeight = options.slideHeight * state.zoom;
+    const stageWidth = elements.stage.clientWidth;
+    const stageHeight = elements.stage.clientHeight;
+    elements.host.style.transformOrigin = "0 0";
     elements.host.style.transform = `scale(${state.zoom})`;
+    elements.canvas.style.width = `${scaledWidth}px`;
+    elements.canvas.style.height = `${scaledHeight}px`;
+    elements.canvas.style.left = `${(stageWidth - scaledWidth) / 2}px`;
+    elements.canvas.style.top = `${(stageHeight - scaledHeight) / 2}px`;
   };
 
   const updateStatus = (): void => {
@@ -155,7 +173,14 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
 
   const fit = (): number => {
     fitEnabled = true;
-    state.setZoom(fitScale(elements.stage.clientWidth, elements.stage.clientHeight, options.slideWidth, options.slideHeight));
+    state.setZoom(
+      fitScale(
+        elements.stage.clientWidth - 2 * STAGE_GUTTER,
+        elements.stage.clientHeight - 2 * STAGE_GUTTER,
+        options.slideWidth,
+        options.slideHeight,
+      ),
+    );
     updateStatus();
     return state.zoom;
   };
@@ -269,6 +294,8 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
         : new resizeObserverCtor(() => {
             if (fitEnabled) {
               fit();
+            } else {
+              applyScale();
             }
           });
     observer?.observe(elements.stage);

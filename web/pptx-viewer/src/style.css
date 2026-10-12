@@ -100,18 +100,21 @@ body,
 }
 
 .viewer-shell__stage {
+  position: relative;
   border: 1px solid #e4d9c7;
   border-radius: 8px;
   background: #efe8dc;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
+}
+
+.viewer-shell__canvas {
+  position: absolute;
+  overflow: visible;
 }
 
 .viewer-shell__host {
-  transform-origin: center;
+  transform-origin: 0 0;
   background: white;
   color: #1c1915;
   border-radius: 2px;

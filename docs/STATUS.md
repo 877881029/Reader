@@ -10,6 +10,7 @@ Git：本地安装最终状态 `10f0d0f` 已同步；本边界提交 PPTX 居中
 - 用户反馈：PPTX 默认打开时幻灯片不在中间（偏右下、被裁），每次都要调整；要求去掉上下左右滚动条，保留放大缩小快捷键。
 - 根因：`.viewer-shell__host` 以原尺寸参与布局、仅用 `transform: scale()` 视觉缩小（原点在中心），网格居中与 `overflow: auto` 按未缩放尺寸计算，导致偏移和滚动条；fit 也未扣除 16px 内边距。
 - 规格：`docs/superpowers/specs/2026-10-12-pptx-centering-design.md`；计划：`docs/superpowers/plans/2026-10-12-pptx-centering.md`（3 任务）。
+- Task 1 完成：新增 `.viewer-shell__canvas` 包裹层（绝对定位，宽高=缩放后尺寸，`left/top = (舞台 - 缩放尺寸)/2`），host 以左上角为原点缩放；舞台 `overflow: hidden`、去掉网格居中与内边距；fit 扣除 `STAGE_GUTTER=16` 两侧留白；非 fit 模式下尺寸变化也重新居中。两个旧 fit 断言按新留白更新。RED：vitest `4 failed, 31 passed`；GREEN：`35 passed`，typecheck 通过。
 
 ## 上一目标：稳定本地安装 + 桌面快捷方式刷新（已完成）
 
