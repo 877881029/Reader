@@ -1,9 +1,18 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-12
-Git：本地安装最终状态 `10f0d0f` 已同步；本边界提交 PPTX 居中规格与计划。
+Git：PPTX 居中最终状态 `2ef5c3b` 已同步；本边界提交二进制查看器规格与计划。
 
 ## 当前目标
+
+**`.bin` 二进制（十六进制）查看器**（执行中）
+
+- 用户需求：快速打开 bin，每行 16 字节，Byte / Word / DWord 切换，右侧 ASCII 列，鼠标悬停时 hex 单元与 ASCII 双向联动高亮；大文件要快（流式或其他方式）。
+- 假设（已在规格写明）：「bit/word/DW」理解为 Byte/Word/DWord 分组，Word/DWord 以小端值显示；仅新增 `.bin` 扩展名。
+- 方案：`mmap` 只读映射 + 只绘制可见行的 `QAbstractScrollArea`，打开不读全文件。
+- 规格：`docs/superpowers/specs/2026-10-12-binary-viewer-design.md`；计划：`docs/superpowers/plans/2026-10-12-binary-viewer.md`（4 任务）。
+
+## 上一目标：PPTX 居中（已完成）
 
 **PPTX 打开即居中、去掉画布滚动条、保留缩放快捷键**（已完成）
 
