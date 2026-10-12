@@ -41,6 +41,10 @@ OFFSET_GAP = 3
 HALF_GAP = 1
 ASCII_GAP = 3
 DEFAULT_PIXEL_SIZE = 14
+AUTO_MIN_PIXEL = 13
+AUTO_MAX_PIXEL = 22
+ZOOM_MIN_PIXEL = 10
+ZOOM_MAX_PIXEL = 32
 
 
 def hex_unit_layout(group: int) -> list[tuple[int, int]]:
@@ -115,7 +119,30 @@ class _HexArea(QAbstractScrollArea):
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
-        self._owner._update_scrollbars()
+        self._owner._relayout()
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 - Qt API
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta:
+                self._owner.zoom_by(1 if delta > 0 else -1)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 - Qt API
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            key = event.key()
+            if key in (Qt.Key.Key_Equal, Qt.Key.Key_Plus):
+                self._owner.zoom_by(1)
+                return
+            if key in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
+                self._owner.zoom_by(-1)
+                return
+            if key == Qt.Key.Key_0:
+                self._owner.reset_zoom()
+                return
+        super().keyPressEvent(event)
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt API
         self._owner._paint(self.viewport())
@@ -177,7 +204,11 @@ class HexView(QWidget):
         layout.addWidget(self._area, 1)
 
         self._left = float(MARGIN)
+        self._auto_fit = True
         self._apply_pixel_size(DEFAULT_PIXEL_SIZE)
+        probe = QFont(self._area.font())
+        probe.setPixelSize(100)
+        self._advance_ratio = QFontMetricsF(probe).horizontalAdvance("0") / 100.0
 
         self.setStyleSheet(
             f"""
@@ -223,8 +254,7 @@ class HexView(QWidget):
         self._highlight = None
         self._info.clear()
         self._area.verticalScrollBar().setValue(0)
-        self._update_scrollbars()
-        self._area.viewport().update()
+        self._relayout()
 
     def shutdown(self) -> None:
         if self._source is not None:
@@ -251,8 +281,7 @@ class HexView(QWidget):
         self._group_buttons[group].setChecked(True)
         self._highlight = None
         self._info.clear()
-        self._update_scrollbars()
-        self._area.viewport().update()
+        self._relayout()
 
     def highlighted(self) -> tuple[int, int] | None:
         return self._highlight
@@ -343,6 +372,46 @@ class HexView(QWidget):
 
     def pixel_size(self) -> int:
         return self._pixel_size
+
+    def auto_fit(self) -> bool:
+        return self._auto_fit
+
+    def zoom_by(self, steps: int) -> None:
+        self._auto_fit = False
+        size = max(ZOOM_MIN_PIXEL, min(ZOOM_MAX_PIXEL, self._pixel_size + steps))
+        self._apply_pixel_size(size)
+        self._relayout()
+
+    def reset_zoom(self) -> None:
+        self._auto_fit = True
+        self._relayout()
+
+    def content_bounds(self) -> tuple[float, float]:
+        """Left/right edge of the drawn block in viewport coordinates."""
+        dx = -self._area.horizontalScrollBar().value()
+        return self._offset_x() + dx, self._ascii_x() + BYTES_PER_ROW * self._char_width + dx
+
+    def _layout_chars(self) -> int:
+        return offset_width(self.size_bytes()) + OFFSET_GAP + self._hex_chars() + ASCII_GAP + BYTES_PER_ROW
+
+    def _relayout(self) -> None:
+        viewport_width = self._area.viewport().width()
+        chars = self._layout_chars()
+        if self._auto_fit and viewport_width > 0:
+            fitted = int((viewport_width - 2 * MARGIN) / (chars * self._advance_ratio))
+            fitted = max(AUTO_MIN_PIXEL, min(AUTO_MAX_PIXEL, fitted))
+            if fitted != self._pixel_size:
+                self._apply_pixel_size(fitted)
+            # Hinting can make small sizes slightly wider than the 100px ratio.
+            while (
+                self._pixel_size > AUTO_MIN_PIXEL
+                and chars * self._char_width + 2 * MARGIN > viewport_width
+            ):
+                self._apply_pixel_size(self._pixel_size - 1)
+        block = chars * self._char_width
+        self._left = max(float(MARGIN), (viewport_width - block) / 2)
+        self._update_scrollbars()
+        self._area.viewport().update()
 
     def _header_height(self) -> int:
         return self._row_height + 6

@@ -315,3 +315,91 @@ def test_cell_centres_round_trip_with_half_gap(hex_view):
     gap_7_8 = view.cell_center(8, "hex").x() - view.cell_center(7, "hex").x()
     gap_6_7 = view.cell_center(7, "hex").x() - view.cell_center(6, "hex").x()
     assert gap_7_8 > gap_6_7
+
+
+# --- adaptive font and zoom -------------------------------------------------------
+
+
+@pytest.fixture
+def layout_view(qtbot, tmp_path: Path):
+    path = tmp_path / "w.bin"
+    path.write_bytes(bytes(range(256)) * 8)
+    view = HexView()
+    qtbot.addWidget(view)
+    view.load_path(path)
+    view.show()
+    qtbot.waitExposed(view)
+    yield view
+    view.shutdown()
+
+
+def _resize(qtbot, view: HexView, width: int) -> None:
+    view.resize(width, 500)
+    qtbot.waitUntil(lambda: view.area().viewport().width() > 0)
+    QApplication.processEvents()
+
+
+def test_font_grows_with_width_and_fills_row(qtbot, layout_view):
+    view = layout_view
+    _resize(qtbot, view, 1000)
+    mid = view.pixel_size()
+    left, right = view.content_bounds()
+    viewport_width = view.area().viewport().width()
+    assert 13 <= mid <= 22
+    assert viewport_width - (right - left) < 0.2 * viewport_width
+
+    _resize(qtbot, view, 1300)
+    assert view.pixel_size() > mid
+
+
+def test_font_caps_then_centres_block(qtbot, layout_view):
+    view = layout_view
+    _resize(qtbot, view, 2600)
+    assert view.pixel_size() == 22
+    left, right = view.content_bounds()
+    viewport_width = view.area().viewport().width()
+    assert abs(left - (viewport_width - right)) <= 2
+    assert left > 100
+
+
+def test_minimum_font_scrolls_horizontally(qtbot, layout_view):
+    view = layout_view
+    _resize(qtbot, view, 420)
+    assert view.pixel_size() == 13
+    assert view.area().horizontalScrollBar().maximum() > 0
+
+
+def _ctrl_wheel(view: HexView, delta: int) -> None:
+    from PySide6.QtGui import QWheelEvent
+
+    viewport = view.area().viewport()
+    event = QWheelEvent(
+        QPointF(20, 60), QPointF(viewport.mapToGlobal(QPoint(20, 60))), QPoint(0, 0), QPoint(0, delta),
+        Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier, Qt.ScrollPhase.NoScrollPhase, False,
+    )
+    QApplication.sendEvent(viewport, event)
+
+
+def test_zoom_shortcuts_override_and_reset_auto_fit(qtbot, layout_view):
+    view = layout_view
+    _resize(qtbot, view, 1000)
+    fitted = view.pixel_size()
+
+    _ctrl_wheel(view, 120)
+    assert view.pixel_size() == fitted + 1 and view.auto_fit() is False
+    _resize(qtbot, view, 1300)
+    assert view.pixel_size() == fitted + 1
+
+    area = view.area()
+    qtbot.keyClick(area, Qt.Key.Key_Equal, Qt.KeyboardModifier.ControlModifier)
+    assert view.pixel_size() == fitted + 2
+    for _ in range(60):
+        qtbot.keyClick(area, Qt.Key.Key_Minus, Qt.KeyboardModifier.ControlModifier)
+    assert view.pixel_size() == 10
+    for _ in range(60):
+        _ctrl_wheel(view, 120)
+    assert view.pixel_size() == 32
+
+    qtbot.keyClick(area, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
+    assert view.auto_fit() is True
+    assert view.pixel_size() > fitted
