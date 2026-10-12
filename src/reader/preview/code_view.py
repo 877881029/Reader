@@ -17,8 +17,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
-    QPushButton,
-    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -43,6 +41,10 @@ class _LineNumberArea(QWidget):
 
 
 class CodeEditor(QPlainTextEdit):
+    zoom_requested = Signal(int)
+    zoom_reset_requested = Signal()
+    wrap_toggle_requested = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("codeTextEditor")
@@ -72,6 +74,36 @@ class CodeEditor(QPlainTextEdit):
 
     def line_number_area(self) -> QWidget:
         return self._gutter
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 - Qt API
+        modifiers = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
+        key = event.key()
+        if modifiers == Qt.KeyboardModifier.ControlModifier or modifiers == (
+            Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
+        ):
+            if key in (Qt.Key.Key_Equal, Qt.Key.Key_Plus):
+                self.zoom_requested.emit(1)
+                return
+            if key in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
+                self.zoom_requested.emit(-1)
+                return
+            if key == Qt.Key.Key_0 and modifiers == Qt.KeyboardModifier.ControlModifier:
+                self.zoom_reset_requested.emit()
+                return
+        if modifiers == Qt.KeyboardModifier.AltModifier and key == Qt.Key.Key_Z:
+            self.wrap_toggle_requested.emit()
+            return
+        super().keyPressEvent(event)
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 - Qt API
+        # Route Ctrl+wheel to the view so the gutter and status bar stay in sync.
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta:
+                self.zoom_requested.emit(1 if delta > 0 else -1)
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def line_number_area_width(self) -> int:
         digits = max(2, len(str(max(1, self.blockCount()))))
@@ -137,9 +169,29 @@ class CodeEditor(QPlainTextEdit):
         self.setExtraSelections([selection])
 
 
+_TYPE_NAMES = {
+    ".txt": "Plain text",
+    ".json": "JSON",
+    ".yaml": "YAML",
+    ".yml": "YAML",
+    ".xml": "XML",
+    ".c": "C",
+    ".h": "C/C++ Header",
+    ".cpp": "C++",
+    ".cc": "C++",
+    ".cxx": "C++",
+    ".inl": "C++",
+    ".ipp": "C++",
+    ".hpp": "C++ Header",
+    ".hh": "C++ Header",
+    ".hxx": "C++ Header",
+}
+
+
 class CodeTextView(QWidget):
     MIN_FONT_SIZE = 8
     MAX_FONT_SIZE = 24
+    DEFAULT_FONT_SIZE = 12
 
     dirty_changed = Signal(bool)
     path_changed = Signal(object)
@@ -152,77 +204,53 @@ class CodeTextView(QWidget):
         self._format: TextFile | None = None
         self._highlighter = None
         self._editor = CodeEditor(self)
-        self._toolbar = QFrame(self)
-        self._toolbar.setObjectName("codeToolbar")
-        toolbar_layout = QHBoxLayout(self._toolbar)
-        toolbar_layout.setContentsMargins(10, 6, 10, 6)
-        toolbar_layout.setSpacing(6)
-
-        line_label = QLabel("行", self._toolbar)
-        self._line_spin = QSpinBox(self._toolbar)
-        self._line_spin.setObjectName("codeLineSpin")
-        self._line_spin.setRange(1, 1)
-        self._line_spin.setKeyboardTracking(False)
-        self._line_spin.setFixedWidth(72)
-        self._jump_button = QPushButton("跳转", self._toolbar)
-        self._jump_button.setObjectName("codeLineJump")
-        self._wrap_button = QPushButton("换行", self._toolbar)
-        self._wrap_button.setObjectName("codeWrapToggle")
-        self._wrap_button.setCheckable(True)
-        self._font_decrease = QPushButton("A-", self._toolbar)
-        self._font_decrease.setObjectName("codeFontDecrease")
-        self._font_increase = QPushButton("A+", self._toolbar)
-        self._font_increase.setObjectName("codeFontIncrease")
-        self._font_size_label = QLabel("12 pt", self._toolbar)
-        self._font_size_label.setObjectName("codeFontSize")
-        self._position_label = QLabel("行 1，列 1", self._toolbar)
-        self._position_label.setObjectName("codeCursorPosition")
-        self._readonly_notice = QLabel("只读：无法无损识别编码", self._toolbar)
-        self._readonly_notice.setObjectName("codeReadOnlyNotice")
+        self._status_bar = QFrame(self)
+        self._status_bar.setObjectName("codeStatusBar")
+        status_layout = QHBoxLayout(self._status_bar)
+        status_layout.setContentsMargins(14, 0, 14, 0)
+        status_layout.setSpacing(0)
+        self._position_label = self._status_label("codeStatusPosition", "Ln 1, Col 1")
+        self._font_size_label = self._status_label("codeStatusSize", "Size 12 pt")
+        self._type_label = self._status_label("codeStatusType", "Type Plain text")
+        self._readonly_notice = self._status_label("codeReadOnlyNotice", "只读：无法无损识别编码")
         self._readonly_notice.hide()
-
-        toolbar_layout.addWidget(line_label)
-        toolbar_layout.addWidget(self._line_spin)
-        toolbar_layout.addWidget(self._jump_button)
-        toolbar_layout.addWidget(self._wrap_button)
-        toolbar_layout.addWidget(self._font_decrease)
-        toolbar_layout.addWidget(self._font_increase)
-        toolbar_layout.addWidget(self._font_size_label)
-        toolbar_layout.addStretch(1)
-        toolbar_layout.addWidget(self._readonly_notice)
-        toolbar_layout.addWidget(self._position_label)
+        for index, label in enumerate((self._position_label, self._font_size_label, self._type_label)):
+            if index:
+                status_layout.addWidget(self._status_separator())
+            status_layout.addWidget(label)
+        status_layout.addStretch(1)
+        status_layout.addWidget(self._readonly_notice)
+        self._status_bar.setFixedHeight(26)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._toolbar)
         layout.addWidget(self._editor)
+        layout.addWidget(self._status_bar)
         self.setStyleSheet(
             f"""
             #codeTextView {{ background: {PAPER}; }}
-            #codeToolbar {{
+            #codeStatusBar {{
                 background: {CHROME};
-                border-bottom: 1px solid {LINE};
+                border-top: 1px solid {LINE};
             }}
-            #codeToolbar QLabel {{ color: {MUTED}; }}
-            #codeToolbar QPushButton {{
-                min-height: 24px;
-                padding: 0 8px;
-                border: 1px solid {LINE};
-                border-radius: 4px;
-                background: {PAPER};
-                color: {INK};
+            #codeStatusBar QLabel {{
+                color: {MUTED};
+                font-size: 12px;
+                padding: 0 12px;
             }}
-            #codeToolbar QPushButton:checked {{ background: {HOVER}; }}
+            #codeStatusBar QFrame#codeStatusSeparator {{
+                background: {LINE};
+                border: none;
+            }}
             """
         )
-        self._jump_button.clicked.connect(self._jump_to_requested_line)
-        self._wrap_button.toggled.connect(self._set_wrap_enabled)
-        self._font_decrease.clicked.connect(self._decrease_font_size)
-        self._font_increase.clicked.connect(self._increase_font_size)
-        self._editor.blockCountChanged.connect(self._sync_line_range)
+        self._editor.blockCountChanged.connect(lambda _count: self._sync_position())
         self._editor.cursorPositionChanged.connect(self._sync_position)
         self._editor.document().modificationChanged.connect(self.dirty_changed)
+        self._editor.zoom_requested.connect(lambda steps: self._set_font_size(self.font_size() + steps))
+        self._editor.zoom_reset_requested.connect(lambda: self._set_font_size(self.DEFAULT_FONT_SIZE))
+        self._editor.wrap_toggle_requested.connect(lambda: self.set_wrap(not self.wrap_enabled()))
         self._sync_font_controls()
 
     @property
@@ -300,14 +328,29 @@ class CodeTextView(QWidget):
     def highlighter(self):
         return self._highlighter
 
-    def _jump_to_requested_line(self) -> None:
-        line = max(1, min(self._line_spin.value(), self._editor.blockCount()))
+    def _status_label(self, name: str, text: str) -> QLabel:
+        label = QLabel(text, self._status_bar)
+        label.setObjectName(name)
+        label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        return label
+
+    def _status_separator(self) -> QFrame:
+        separator = QFrame(self._status_bar)
+        separator.setObjectName("codeStatusSeparator")
+        separator.setFixedSize(1, 14)
+        return separator
+
+    def jump_to_line(self, line: int) -> None:
+        line = max(1, min(int(line), self._editor.blockCount()))
         block = self._editor.document().findBlockByNumber(line - 1)
-        cursor = QTextCursor(block)
-        self._editor.setTextCursor(cursor)
+        self._editor.setTextCursor(QTextCursor(block))
         self._editor.centerCursor()
 
-    def _set_wrap_enabled(self, enabled: bool) -> None:
+    def wrap_enabled(self) -> bool:
+        return self._editor.lineWrapMode() != QPlainTextEdit.LineWrapMode.NoWrap
+
+    def set_wrap(self, enabled: bool) -> None:
         mode = (
             QPlainTextEdit.LineWrapMode.WidgetWidth
             if enabled
@@ -315,11 +358,8 @@ class CodeTextView(QWidget):
         )
         self._editor.setLineWrapMode(mode)
 
-    def _decrease_font_size(self) -> None:
-        self._set_font_size(self._editor.font().pointSize() - 1)
-
-    def _increase_font_size(self) -> None:
-        self._set_font_size(self._editor.font().pointSize() + 1)
+    def font_size(self) -> int:
+        return self._editor.font().pointSize()
 
     def _set_font_size(self, requested: int) -> None:
         point_size = max(self.MIN_FONT_SIZE, min(requested, self.MAX_FONT_SIZE))
@@ -335,24 +375,17 @@ class CodeTextView(QWidget):
         self._sync_font_controls()
 
     def _sync_font_controls(self) -> None:
-        point_size = self._editor.font().pointSize()
-        self._font_size_label.setText(f"{point_size} pt")
-        self._font_decrease.setEnabled(point_size > self.MIN_FONT_SIZE)
-        self._font_increase.setEnabled(point_size < self.MAX_FONT_SIZE)
+        self._font_size_label.setText(f"Size {self.font_size()} pt")
 
-    def _sync_line_range(self, block_count: int) -> None:
-        maximum = max(1, block_count)
-        self._line_spin.setRange(1, maximum)
-        self._line_spin.setValue(
-            min(self._editor.textCursor().blockNumber() + 1, maximum)
-        )
+    def _sync_type(self) -> None:
+        name = _TYPE_NAMES.get(self._suffix.lower()) or (self._suffix.lstrip(".").upper() or "Plain text")
+        self._type_label.setText(f"Type {name}")
 
     def _sync_position(self) -> None:
         cursor = self._editor.textCursor()
         line = cursor.blockNumber() + 1
         column = cursor.positionInBlock() + 1
-        self._line_spin.setValue(line)
-        self._position_label.setText(f"行 {line}，列 {column}")
+        self._position_label.setText(f"Ln {line}, Col {column}")
 
     def load_path(self, path: Path) -> None:
         path = Path(path)
@@ -379,5 +412,5 @@ class CodeTextView(QWidget):
         self._editor._update_gutter_width(0)
         self._editor.viewport().update()
         self._editor.line_number_area().update()
-        self._sync_line_range(self._editor.blockCount())
+        self._sync_type()
         self._sync_position()

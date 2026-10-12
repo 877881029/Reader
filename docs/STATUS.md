@@ -10,6 +10,7 @@ Git：二进制查看器文档 `5d77429` 已同步；本边界提交状态栏 / 
 - 用户需求：把代码页顶部工具栏（行号框/跳转/换行/A-/A+）改为窗口下边界的只读状态栏，显示「Ln xx, Col xx | Size xx pt | Type json」，不可点击，对齐 Notepad；跳转行改 `Ctrl+J`，交互与 `Ctrl+F` 一致。
 - 规格：`docs/superpowers/specs/2026-10-12-status-bar-goto-design.md`；计划：`docs/superpowers/plans/2026-10-12-status-bar-goto.md`（3 任务）。字号改 `Ctrl+滚轮`/`Ctrl+=`/`Ctrl+-`/`Ctrl+0`，换行 `Alt+Z`。
 - 二进制查看器 Task 4（发布门 + 安装）并入本目标 Task 3 一起执行（发布门在用户插入新需求时中止，未产生结论）。
+- Task 1 完成：`CodeTextView` 去掉顶部工具栏（行号框/跳转/换行/A-/A+），改为底部只读状态栏 `codeStatusBar`：`Ln x, Col y` | `Size n pt` | `Type JSON`（细竖线分隔，标签 NoFocus + NoTextInteraction，无任何按钮/输入框），lossy 文件右侧显示只读提示；类型名映射 JSON/YAML/XML/C/C++/C/C++ Header/C++ Header/Plain text。字号改由编辑器内 `Ctrl+=`/`Ctrl++`/`Ctrl+-`/`Ctrl+0` 与 `Ctrl+滚轮`（8–24pt，同步 gutter/tab/状态栏），换行 `Alt+Z`（在 `CodeEditor.keyPressEvent`/`wheelEvent` 处理，`QShortcut` 在窗口未激活时不触发）。代码页安装时页面布局边距归零，状态栏贴窗口下边界与左边界。RED：code_view `12 failed`、贴边测试 `1 failed`；GREEN：window+code_view+find `207 passed`；截图确认。
 
 ## 上一目标：`.bin` 二进制（十六进制）查看器（Task 1–3 完成，发布并入当前目标）
 

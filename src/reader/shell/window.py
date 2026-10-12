@@ -2059,6 +2059,7 @@ class MainWindow(QMainWindow):
             _dispose_widget(widget)
         self._bind_visual_events(document_id, generation, content)
         if content.objectName() == "codeTextView":
+            layout.setContentsMargins(0, 0, 0, 0)
             self._bind_editable_view(document_id, content)
         start = getattr(content, "start", None)
         if callable(start):

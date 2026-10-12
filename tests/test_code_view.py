@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import QLabel, QPlainTextEdit, QPushButton, QSpinBox
+from PySide6.QtWidgets import QFrame, QLabel, QPlainTextEdit, QPushButton, QSpinBox, QToolButton
 
 from reader.preview.code_view import CodeTextView
 from reader.preview.syntax import (
@@ -131,102 +131,114 @@ def test_code_view_load_path_is_editable_with_gutter(qtbot, tmp_path: Path):
     assert PAPER.lower() in sheet
 
 
-def test_code_view_exposes_named_reading_controls(qtbot):
+def _status(view) -> tuple[str, str, str]:
+    return tuple(
+        view.findChild(QLabel, name).text()
+        for name in ("codeStatusPosition", "codeStatusSize", "codeStatusType")
+    )
+
+
+def _ctrl_key(qtbot, view, key) -> None:
+    qtbot.keyClick(view.editor(), key, Qt.KeyboardModifier.ControlModifier)
+
+
+def test_code_view_has_display_only_bottom_status_bar(qtbot):
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.load_text("one\ntwo\nthree", ".json")
+
+    bar = view.findChild(QFrame, "codeStatusBar")
+    assert bar is not None
+    layout = view.layout()
+    assert layout.indexOf(bar) == layout.count() - 1
+    assert layout.indexOf(view.editor()) < layout.indexOf(bar)
+    assert view.findChildren(QPushButton) == []
+    assert view.findChildren(QSpinBox) == []
+    assert view.findChildren(QToolButton) == []
+    for label in bar.findChildren(QLabel):
+        assert label.focusPolicy() == Qt.FocusPolicy.NoFocus
+        assert label.textInteractionFlags() == Qt.TextInteractionFlag.NoTextInteraction
+    assert _status(view) == ("Ln 1, Col 1", "Size 12 pt", "Type JSON")
+
+
+def test_status_position_and_type_follow_caret_and_file(qtbot):
     view = CodeTextView()
     qtbot.addWidget(view)
     view.load_text("one\ntwo\nthree", ".cpp")
 
-    line_spin = view.findChild(QSpinBox, "codeLineSpin")
-    jump_button = view.findChild(QPushButton, "codeLineJump")
-    wrap_button = view.findChild(QPushButton, "codeWrapToggle")
-    font_decrease = view.findChild(QPushButton, "codeFontDecrease")
-    font_increase = view.findChild(QPushButton, "codeFontIncrease")
-    font_label = view.findChild(QLabel, "codeFontSize")
-    position_label = view.findChild(QLabel, "codeCursorPosition")
-
-    assert view.editor().isReadOnly()
-    assert line_spin is not None
-    assert jump_button is not None
-    assert wrap_button is not None and wrap_button.isCheckable()
-    assert font_decrease is not None
-    assert font_increase is not None
-    assert font_label is not None and font_label.text() == "12 pt"
-    assert position_label is not None and position_label.text() == "行 1，列 1"
-
-
-def test_code_view_line_jump_clamps_and_updates_position(qtbot):
-    view = CodeTextView()
-    qtbot.addWidget(view)
-    view.load_text("one\ntwo\nthree", ".cpp")
-    line_spin = view.findChild(QSpinBox, "codeLineSpin")
-    jump_button = view.findChild(QPushButton, "codeLineJump")
-    position_label = view.findChild(QLabel, "codeCursorPosition")
-    assert line_spin is not None
-    assert jump_button is not None
-    assert position_label is not None
-
-    assert (line_spin.minimum(), line_spin.maximum()) == (1, 3)
-    line_spin.setValue(99)
-    qtbot.mouseClick(jump_button, Qt.MouseButton.LeftButton)
+    view.jump_to_line(99)
     assert view.editor().textCursor().blockNumber() == 2
-    assert view.editor().textCursor().positionInBlock() == 0
-    assert position_label.text() == "行 3，列 1"
-
+    assert _status(view)[0] == "Ln 3, Col 1"
     view.editor().moveCursor(QTextCursor.MoveOperation.EndOfBlock)
-    assert position_label.text() == "行 3，列 6"
-
-
-def test_code_view_wrap_and_font_controls_are_bounded(qtbot):
-    view = CodeTextView()
-    qtbot.addWidget(view)
-    view.load_text("\n".join(str(index) for index in range(100)), ".cpp")
-    editor = view.editor()
-    wrap_button = view.findChild(QPushButton, "codeWrapToggle")
-    font_decrease = view.findChild(QPushButton, "codeFontDecrease")
-    font_increase = view.findChild(QPushButton, "codeFontIncrease")
-    font_label = view.findChild(QLabel, "codeFontSize")
-    assert wrap_button is not None
-    assert font_decrease is not None
-    assert font_increase is not None
-    assert font_label is not None
-
-    assert editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.NoWrap
-    qtbot.mouseClick(wrap_button, Qt.MouseButton.LeftButton)
-    assert editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.WidgetWidth
-
-    initial_tab_stop = editor.tabStopDistance()
-    for _ in range(20):
-        qtbot.mouseClick(font_increase, Qt.MouseButton.LeftButton)
-    wide_gutter = view.line_number_area_width()
-    assert editor.font().pointSize() == 24
-    assert font_label.text() == "24 pt"
-    assert editor.tabStopDistance() > initial_tab_stop
-
-    for _ in range(30):
-        qtbot.mouseClick(font_decrease, Qt.MouseButton.LeftButton)
-    assert editor.font().pointSize() == 8
-    assert font_label.text() == "8 pt"
-    assert view.line_number_area_width() < wide_gutter
-
-
-def test_code_view_loading_resets_navigation_without_losing_highlighter(qtbot):
-    view = CodeTextView()
-    qtbot.addWidget(view)
-    view.load_text("one\ntwo\nthree", ".cpp")
-    line_spin = view.findChild(QSpinBox, "codeLineSpin")
-    jump_button = view.findChild(QPushButton, "codeLineJump")
-    position_label = view.findChild(QLabel, "codeCursorPosition")
-    assert line_spin is not None
-    assert jump_button is not None
-    assert position_label is not None
-    line_spin.setValue(3)
-    qtbot.mouseClick(jump_button, Qt.MouseButton.LeftButton)
+    assert _status(view)[0] == "Ln 3, Col 6"
 
     view.load_text("only", ".yaml")
-
-    assert (line_spin.minimum(), line_spin.maximum(), line_spin.value()) == (1, 1, 1)
-    assert position_label.text() == "行 1，列 1"
+    assert _status(view) == ("Ln 1, Col 1", "Size 12 pt", "Type YAML")
     assert isinstance(view.highlighter(), YamlHighlighter)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "name"),
+    [(".txt", "Plain text"), (".xml", "XML"), (".c", "C"), (".h", "C/C++ Header"),
+     (".hpp", "C++ Header"), (".cc", "C++"), (".yml", "YAML"), (".ipp", "C++")],
+)
+def test_status_type_names(qtbot, suffix: str, name: str):
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.load_text("x", suffix)
+    assert _status(view)[2] == f"Type {name}"
+
+
+def test_font_shortcuts_and_ctrl_wheel_are_bounded(qtbot):
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtGui import QWheelEvent
+    from PySide6.QtWidgets import QApplication
+
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.show()
+    qtbot.waitExposed(view)
+    view.load_text("\n".join(str(index) for index in range(100)), ".cpp")
+    editor = view.editor()
+    initial_tab_stop = editor.tabStopDistance()
+
+    for _ in range(20):
+        _ctrl_key(qtbot, view, Qt.Key.Key_Equal)
+    assert editor.font().pointSize() == 24
+    assert _status(view)[1] == "Size 24 pt"
+    assert editor.tabStopDistance() > initial_tab_stop
+    wide_gutter = view.line_number_area_width()
+
+    for _ in range(30):
+        _ctrl_key(qtbot, view, Qt.Key.Key_Minus)
+    assert editor.font().pointSize() == 8
+    assert view.line_number_area_width() < wide_gutter
+
+    _ctrl_key(qtbot, view, Qt.Key.Key_0)
+    assert editor.font().pointSize() == 12
+
+    viewport = editor.viewport()
+    event = QWheelEvent(
+        QPointF(10, 10), QPointF(viewport.mapToGlobal(QPoint(10, 10))), QPoint(0, 0), QPoint(0, 120),
+        Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier, Qt.ScrollPhase.NoScrollPhase, False,
+    )
+    QApplication.sendEvent(viewport, event)
+    assert editor.font().pointSize() == 13
+    assert _status(view)[1] == "Size 13 pt"
+
+
+def test_alt_z_toggles_wrap(qtbot):
+    view = CodeTextView()
+    qtbot.addWidget(view)
+    view.show()
+    qtbot.waitExposed(view)
+    view.load_text("x" * 500, ".txt")
+    editor = view.editor()
+    assert editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.NoWrap
+    qtbot.keyClick(editor, Qt.Key.Key_Z, Qt.KeyboardModifier.AltModifier)
+    assert editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.WidgetWidth
+    qtbot.keyClick(editor, Qt.Key.Key_Z, Qt.KeyboardModifier.AltModifier)
+    assert editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.NoWrap
 
 
 # --- P1 editing -------------------------------------------------------------

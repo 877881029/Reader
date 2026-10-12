@@ -4795,3 +4795,20 @@ def test_open_dialog_filter_includes_bin(qtbot, monkeypatch):
     monkeypatch.setattr("reader.shell.window.QFileDialog.getOpenFileNames", fake_dialog)
     window._open_dialog()
     assert "*.bin" in captured[0]
+
+
+def test_code_status_bar_sits_on_window_bottom_edge(qtbot, tmp_path: Path):
+    from PySide6.QtWidgets import QFrame
+
+    path = tmp_path / "s.json"
+    path.write_bytes(b"{}")
+    window = _code_window(qtbot)
+    window.resize(900, 500)
+    window.show()
+    qtbot.waitExposed(window)
+    view = _open_code(qtbot, window, path)
+    qtbot.waitUntil(lambda: view.isVisible())
+    bar = view.findChild(QFrame, "codeStatusBar")
+    bottom_left = bar.mapTo(window, QPoint(0, bar.height()))
+    assert bottom_left.x() == 0
+    assert bottom_left.y() == window.height()
