@@ -17,6 +17,8 @@ class FindBar(QWidget):
     next_requested = Signal()
     previous_requested = Signal()
     hide_requested = Signal()
+    replace_requested = Signal()
+    replace_all_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -27,7 +29,7 @@ class FindBar(QWidget):
                 background: {CHROME};
                 border-bottom: 1px solid {LINE};
             }}
-            QLineEdit#findQuery {{
+            QLineEdit#findQuery, QLineEdit#findReplace {{
                 background: {CARD};
                 color: {INK};
                 border: 1px solid {LINE};
@@ -68,6 +70,21 @@ class FindBar(QWidget):
         self._not_found.setObjectName("findNotFound")
         self._not_found.hide()
 
+        self._replace = QLineEdit(self)
+        self._replace.setObjectName("findReplace")
+        self._replace.setPlaceholderText("替换为")
+        self._replace.installEventFilter(self)
+
+        self._replace_one = QToolButton(self)
+        self._replace_one.setObjectName("findReplaceOne")
+        self._replace_one.setText("替换")
+        self._replace_one.clicked.connect(self.replace_requested.emit)
+
+        self._replace_all = QToolButton(self)
+        self._replace_all.setObjectName("findReplaceAll")
+        self._replace_all.setText("全部替换")
+        self._replace_all.clicked.connect(self.replace_all_requested.emit)
+
         close = QToolButton(self)
         close.setObjectName("findClose")
         close.setText("×")
@@ -78,8 +95,12 @@ class FindBar(QWidget):
         layout.addWidget(self._match_case)
         layout.addWidget(previous)
         layout.addWidget(nxt)
+        layout.addWidget(self._replace, 1)
+        layout.addWidget(self._replace_one)
+        layout.addWidget(self._replace_all)
         layout.addWidget(self._not_found)
         layout.addWidget(close)
+        self.set_replace_mode(False)
         self.hide()
 
     def query_edit(self) -> QLineEdit:
@@ -95,7 +116,25 @@ class FindBar(QWidget):
         return self._match_case.isChecked()
 
     def set_not_found(self, visible: bool) -> None:
+        self._not_found.setText("未找到")
         self._not_found.setVisible(visible)
+
+    def set_message(self, text: str) -> None:
+        self._not_found.setText(text)
+        self._not_found.setVisible(bool(text))
+
+    def set_replace_mode(self, enabled: bool) -> None:
+        for widget in (self._replace, self._replace_one, self._replace_all):
+            widget.setVisible(enabled)
+
+    def replace_mode(self) -> bool:
+        return not self._replace.isHidden()
+
+    def replacement(self) -> str:
+        return self._replace.text()
+
+    def set_replacement(self, text: str) -> None:
+        self._replace.setText(text)
 
     def not_found_visible(self) -> bool:
         return self._not_found.isVisible()
@@ -120,5 +159,8 @@ class FindBar(QWidget):
                     self.previous_requested.emit()
                 else:
                     self.next_requested.emit()
+                return True
+            if watched is self._replace and event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter}:
+                self.replace_requested.emit()
                 return True
         return super().eventFilter(watched, event)

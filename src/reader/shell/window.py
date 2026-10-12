@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QStackedWidget,
     QStatusBar,
     QTabWidget,
@@ -44,7 +45,13 @@ from reader.preview.cache import PreviewCache
 from reader.preview.office import Win32OfficeBackend
 from reader.preview.pipeline import PreviewMode, preview
 from reader.preview.result import PreviewResult
-from reader.preview.find_support import clear_find_highlights, find_in_widget
+from reader.preview.find_support import (
+    clear_find_highlights,
+    find_in_widget,
+    replace_all,
+    replace_current,
+    resolve_find_target,
+)
 from reader.resources import resource_path
 from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
@@ -674,6 +681,8 @@ class MainWindow(QMainWindow):
         self._find_bar.next_requested.connect(lambda: self._find_step(True))
         self._find_bar.previous_requested.connect(lambda: self._find_step(False))
         self._find_bar.hide_requested.connect(self._hide_find_bar)
+        self._find_bar.replace_requested.connect(self._replace_step)
+        self._find_bar.replace_all_requested.connect(self._replace_all)
 
         root.addWidget(self._title_chrome)
         root.addWidget(self._find_bar)
@@ -761,6 +770,13 @@ class MainWindow(QMainWindow):
         self.actionFind.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.actionFind.triggered.connect(self._shortcut_find)
         self.addAction(self.actionFind)
+
+        self.actionReplace = QAction("替换", self)
+        self.actionReplace.setObjectName("actionReplace")
+        self.actionReplace.setShortcut(QKeySequence("Ctrl+H"))
+        self.actionReplace.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionReplace.triggered.connect(self._shortcut_replace)
+        self.addAction(self.actionReplace)
 
         self.actionFindNext = QAction("查找下一个", self)
         self.actionFindNext.setObjectName("actionFindNext")
@@ -1035,9 +1051,55 @@ class MainWindow(QMainWindow):
             return
         if self._current_preview_widget() is None:
             return
+        self._find_bar.set_replace_mode(False)
         self._find_bar.show()
         self.actionFindClose.setEnabled(True)
         self._find_bar.focus_query()
+
+    def _writable_text_editor(self) -> QPlainTextEdit | None:
+        document_id = self._current_document_id()
+        view = self._editable_view(self._documents.get(document_id) if document_id else None)
+        if view is None:
+            return None
+        editor = resolve_find_target(view)
+        if not isinstance(editor, QPlainTextEdit) or editor.isReadOnly():
+            return None
+        return editor
+
+    def _shortcut_replace(self) -> None:
+        if self._writable_text_editor() is None:
+            return
+        self._find_bar.set_replace_mode(True)
+        self._find_bar.set_not_found(False)
+        self._find_bar.show()
+        self.actionFindClose.setEnabled(True)
+        self._find_bar.focus_query()
+
+    def _replace_step(self) -> None:
+        editor = self._writable_text_editor()
+        query = self._find_bar.query()
+        if editor is None or not query:
+            return
+        found = replace_current(
+            editor,
+            query,
+            self._find_bar.replacement(),
+            case_sensitive=self._find_bar.match_case(),
+        )
+        self._find_bar.set_not_found(not found)
+
+    def _replace_all(self) -> None:
+        editor = self._writable_text_editor()
+        query = self._find_bar.query()
+        if editor is None or not query:
+            return
+        count = replace_all(
+            editor,
+            query,
+            self._find_bar.replacement(),
+            case_sensitive=self._find_bar.match_case(),
+        )
+        self._find_bar.set_message(f"已替换 {count} 处" if count else "未找到")
 
     def _shortcut_find_step(self, forward: bool) -> None:
         if self._current_preview_widget() is None:

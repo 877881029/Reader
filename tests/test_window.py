@@ -4558,3 +4558,73 @@ def test_welcome_uses_neutral_copilot_palette(qtbot, tmp_path: Path, monkeypatch
     badge_rule = compact.split("qlabel#welcomerecentbadge{", 1)[1].split("}", 1)[0]
     assert "background:#f0ebe3" in badge_rule
     assert not hasattr(welcome, "GHOST") and not hasattr(welcome, "COBALT")
+
+
+# --- P2 replace / go to line ---------------------------------------------------
+
+
+def test_ctrl_h_replace_all_on_text_tab_dirties_and_reports(qtbot, tmp_path: Path):
+    path = tmp_path / "r.txt"
+    path.write_bytes(b"cat Cat cat\r\n")
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, path)
+    window.show()
+    assert window.actionReplace.shortcut().toString() == "Ctrl+H"
+
+    window.actionReplace.trigger()
+
+    bar = window.find_bar()
+    replace_edit = bar.findChild(QWidget, "findReplace")
+    assert bar.isVisible() and replace_edit is not None and replace_edit.isVisible()
+    bar.set_query("cat")
+    bar.set_replacement("dog")
+    bar.findChild(QWidget, "findReplaceAll").click()
+
+    assert view.text() == "dog dog dog\n"
+    assert window._tabs.tabText(0) == "*r.txt"
+    assert bar.findChild(QLabel, "findNotFound").text() == "已替换 3 处"
+
+
+def test_ctrl_h_replace_one_advances(qtbot, tmp_path: Path):
+    path = tmp_path / "r.txt"
+    path.write_bytes(b"a a a")
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, path)
+    window.show()
+    window.actionReplace.trigger()
+    bar = window.find_bar()
+    bar.set_query("a")
+    bar.set_replacement("b")
+    replace = bar.findChild(QWidget, "findReplaceOne")
+
+    replace.click()
+    replace.click()
+
+    assert view.text() == "b a a"
+
+
+def test_plain_find_hides_replace_row(qtbot, tmp_path: Path):
+    path = tmp_path / "r.txt"
+    path.write_bytes(b"x")
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, path)
+    window.show()
+    window.actionReplace.trigger()
+    window.actionFind.trigger()
+    assert window.find_bar().findChild(QWidget, "findReplace").isVisible() is False
+
+
+def test_ctrl_h_ignored_for_read_only_and_non_text(qtbot, tmp_path: Path):
+    path = tmp_path / "bad.txt"
+    path.write_bytes(b"\x80\x81\xfe\xff\xff")
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, path)
+    window.show()
+    window.actionReplace.trigger()
+    assert window.find_bar().isVisible() is False
+
+    other = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(other)
+    other.show()
+    other.actionReplace.trigger()
+    assert other.find_bar().isVisible() is False
