@@ -108,6 +108,15 @@ body,
   min-height: 0;
 }
 
+.viewer-shell__stage.is-pannable {
+  cursor: grab;
+}
+
+.viewer-shell__stage.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
 .viewer-shell__canvas {
   position: absolute;
   overflow: visible;

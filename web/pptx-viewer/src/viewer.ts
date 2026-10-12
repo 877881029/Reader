@@ -105,6 +105,10 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   let fitEnabled = true;
   let disposed = false;
   let observer: ResizeObserver | null = null;
+  let panX = 0;
+  let panY = 0;
+  let drag: { x: number; y: number } | null = null;
+  const view = root.ownerDocument.defaultView ?? window;
 
   elements.host.style.width = `${options.slideWidth}px`;
   elements.host.style.height = `${options.slideHeight}px`;
@@ -127,17 +131,39 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
 
   // The host keeps its native slide size and scales from the top-left corner;
   // the canvas carries the scaled size so the slide is centred in the stage.
+  // How far the slide may be panned from centre on each axis (0 when it fits).
+  const panLimits = (): { x: number; y: number } => {
+    const usableWidth = elements.stage.clientWidth - 2 * STAGE_GUTTER;
+    const usableHeight = elements.stage.clientHeight - 2 * STAGE_GUTTER;
+    return {
+      x: Math.max(0, (options.slideWidth * state.zoom - usableWidth) / 2),
+      y: Math.max(0, (options.slideHeight * state.zoom - usableHeight) / 2),
+    };
+  };
+
+  // The host keeps its native slide size and scales from the top-left corner;
+  // the canvas carries the scaled size so the slide is centred in the stage.
   const applyScale = (): void => {
     const scaledWidth = options.slideWidth * state.zoom;
     const scaledHeight = options.slideHeight * state.zoom;
     const stageWidth = elements.stage.clientWidth;
     const stageHeight = elements.stage.clientHeight;
+    const limits = panLimits();
+    panX = Math.max(-limits.x, Math.min(limits.x, panX));
+    panY = Math.max(-limits.y, Math.min(limits.y, panY));
+    elements.stage.classList.toggle("is-pannable", limits.x > 0 || limits.y > 0);
     elements.host.style.transformOrigin = "0 0";
     elements.host.style.transform = `scale(${state.zoom})`;
     elements.canvas.style.width = `${scaledWidth}px`;
     elements.canvas.style.height = `${scaledHeight}px`;
-    elements.canvas.style.left = `${(stageWidth - scaledWidth) / 2}px`;
-    elements.canvas.style.top = `${(stageHeight - scaledHeight) / 2}px`;
+    elements.canvas.style.left = `${(stageWidth - scaledWidth) / 2 + panX}px`;
+    elements.canvas.style.top = `${(stageHeight - scaledHeight) / 2 + panY}px`;
+  };
+
+  const panBy = (dx: number, dy: number): void => {
+    panX += dx;
+    panY += dy;
+    applyScale();
   };
 
   const updateStatus = (): void => {
@@ -173,6 +199,8 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
 
   const fit = (): number => {
     fitEnabled = true;
+    panX = 0;
+    panY = 0;
     state.setZoom(
       fitScale(
         elements.stage.clientWidth - 2 * STAGE_GUTTER,
@@ -230,6 +258,19 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
   };
 
   const onKeyDown = (event: KeyboardEvent): void => {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+      if (event.key === "=" || event.key === "+") {
+        event.preventDefault();
+        zoomBy(0.1);
+      } else if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        zoomBy(-0.1);
+      } else if (event.key === "0") {
+        event.preventDefault();
+        fit();
+      }
+      return;
+    }
     switch (event.key) {
       case "ArrowLeft":
       case "PageUp":
@@ -254,8 +295,57 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
     }
   };
 
+  const onWheel = (event: WheelEvent): void => {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      if (event.deltaY !== 0) {
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+      }
+      return;
+    }
+    const limits = panLimits();
+    if (limits.x <= 0 && limits.y <= 0) {
+      return;
+    }
+    event.preventDefault();
+    if (event.shiftKey) {
+      panBy(-(event.deltaY || event.deltaX), 0);
+    } else {
+      panBy(-event.deltaX, -event.deltaY);
+    }
+  };
+
+  const onMouseDown = (event: MouseEvent): void => {
+    const limits = panLimits();
+    if (event.button !== 0 || (limits.x <= 0 && limits.y <= 0)) {
+      return;
+    }
+    event.preventDefault();
+    drag = { x: event.clientX, y: event.clientY };
+    elements.stage.classList.add("is-panning");
+  };
+
+  const onMouseMove = (event: MouseEvent): void => {
+    if (!drag) {
+      return;
+    }
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    drag = { x: event.clientX, y: event.clientY };
+    panBy(dx, dy);
+  };
+
+  const onMouseUp = (): void => {
+    drag = null;
+    elements.stage.classList.remove("is-panning");
+  };
+
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKeyDown);
+  elements.stage.addEventListener("wheel", onWheel, { passive: false });
+  elements.stage.addEventListener("mousedown", onMouseDown);
+  view.addEventListener("mousemove", onMouseMove);
+  view.addEventListener("mouseup", onMouseUp);
 
   const controller: ViewerController = {
     state,
@@ -271,6 +361,10 @@ export function createViewer(root: HTMLElement, options: ViewerOptions): ViewerC
       disposed = true;
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKeyDown);
+      elements.stage.removeEventListener("wheel", onWheel);
+      elements.stage.removeEventListener("mousedown", onMouseDown);
+      view.removeEventListener("mousemove", onMouseMove);
+      view.removeEventListener("mouseup", onMouseUp);
       observer?.disconnect();
       try {
         options.onDestroy?.();

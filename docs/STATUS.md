@@ -11,6 +11,7 @@ Git：本地安装最终状态 `10f0d0f` 已同步；本边界提交 PPTX 居中
 - 根因：`.viewer-shell__host` 以原尺寸参与布局、仅用 `transform: scale()` 视觉缩小（原点在中心），网格居中与 `overflow: auto` 按未缩放尺寸计算，导致偏移和滚动条；fit 也未扣除 16px 内边距。
 - 规格：`docs/superpowers/specs/2026-10-12-pptx-centering-design.md`；计划：`docs/superpowers/plans/2026-10-12-pptx-centering.md`（3 任务）。
 - Task 1 完成：新增 `.viewer-shell__canvas` 包裹层（绝对定位，宽高=缩放后尺寸，`left/top = (舞台 - 缩放尺寸)/2`），host 以左上角为原点缩放；舞台 `overflow: hidden`、去掉网格居中与内边距；fit 扣除 `STAGE_GUTTER=16` 两侧留白；非 fit 模式下尺寸变化也重新居中。两个旧 fit 断言按新留白更新。RED：vitest `4 failed, 31 passed`；GREEN：`35 passed`，typecheck 通过。
+- Task 2 完成：`Ctrl+=`/`Ctrl++` 放大、`Ctrl+-` 缩小、`Ctrl+0` 适合窗口、`Ctrl+滚轮` 缩放，均 `preventDefault` 阻止 Chromium 页面缩放；幻灯片大于舞台时可鼠标拖动或滚轮（Shift+滚轮横向）平移，平移限制在留白边界内，适合窗口时归零；可平移时光标为抓手。RED：`3 failed, 35 passed`；GREEN：`38 passed`，typecheck 通过。
 
 ## 上一目标：稳定本地安装 + 桌面快捷方式刷新（已完成）
 

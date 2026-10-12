@@ -334,6 +334,104 @@ describe("stage layout", () => {
   });
 });
 
+describe("zoom shortcuts and pan", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function setup() {
+    const root = mountRoot();
+    const viewer = createViewer(root, { slideCount: 1, slideWidth: 1600, slideHeight: 900 });
+    trackElementSize(viewer.elements.stage, 1000, 800);
+    viewer.fit();
+    return { root, viewer };
+  }
+
+  function key(target: HTMLElement, keyName: string, ctrlKey = true): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", { key: keyName, ctrlKey, cancelable: true, bubbles: true });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  function wheel(target: HTMLElement, init: WheelEventInit): WheelEvent {
+    const event = new WheelEvent("wheel", { cancelable: true, bubbles: true, ...init });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  const left = (viewer: ReturnType<typeof createViewer>) => Number.parseFloat(viewer.elements.canvas.style.left);
+  const top = (viewer: ReturnType<typeof createViewer>) => Number.parseFloat(viewer.elements.canvas.style.top);
+
+  it("Ctrl+= / Ctrl++ / Ctrl+- / Ctrl+0 zoom and block browser zoom", () => {
+    const { root, viewer } = setup();
+    const fitted = viewer.state.zoom;
+
+    expect(key(root, "=").defaultPrevented).toBe(true);
+    expect(viewer.state.zoom).toBeCloseTo(fitted + 0.1, 6);
+    key(root, "+");
+    expect(viewer.state.zoom).toBeCloseTo(fitted + 0.2, 6);
+    expect(key(root, "-").defaultPrevented).toBe(true);
+    expect(viewer.state.zoom).toBeCloseTo(fitted + 0.1, 6);
+    expect(key(root, "0").defaultPrevented).toBe(true);
+    expect(viewer.state.zoom).toBeCloseTo(fitted, 6);
+
+    const plain = key(root, "=", false);
+    expect(plain.defaultPrevented).toBe(false);
+    expect(viewer.state.zoom).toBeCloseTo(fitted, 6);
+    viewer.destroy();
+  });
+
+  it("Ctrl+wheel zooms in and out and blocks browser zoom", () => {
+    const { viewer } = setup();
+    const fitted = viewer.state.zoom;
+
+    expect(wheel(viewer.elements.stage, { deltaY: -100, ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(viewer.state.zoom).toBeCloseTo(fitted + 0.1, 6);
+    wheel(viewer.elements.stage, { deltaY: 100, ctrlKey: true });
+    expect(viewer.state.zoom).toBeCloseTo(fitted, 6);
+    viewer.destroy();
+  });
+
+  it("pans by wheel and drag only when the slide overflows, clamped, reset by fit", () => {
+    const { viewer } = setup();
+    const stage = viewer.elements.stage;
+    const fittedLeft = left(viewer);
+    const fittedTop = top(viewer);
+
+    expect(wheel(stage, { deltaY: 100 }).defaultPrevented).toBe(false);
+    stage.dispatchEvent(new MouseEvent("mousedown", { button: 0, clientX: 10, clientY: 10, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200, clientY: 200, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    expect(left(viewer)).toBeCloseTo(fittedLeft, 6);
+    expect(top(viewer)).toBeCloseTo(fittedTop, 6);
+    expect(stage.classList.contains("is-pannable")).toBe(false);
+
+    viewer.setZoom(2);
+    expect(stage.classList.contains("is-pannable")).toBe(true);
+    const baseLeft = (1000 - 3200) / 2;
+    const baseTop = (800 - 1800) / 2;
+    expect(wheel(stage, { deltaY: 100 }).defaultPrevented).toBe(true);
+    expect(top(viewer)).toBeCloseTo(baseTop - 100, 6);
+    wheel(stage, { deltaY: 10000 });
+    expect(top(viewer)).toBeCloseTo(baseTop - (1800 - 768) / 2, 6);
+    wheel(stage, { deltaY: 100, shiftKey: true });
+    expect(left(viewer)).toBeCloseTo(baseLeft - 100, 6);
+
+    stage.dispatchEvent(new MouseEvent("mousedown", { button: 0, clientX: 500, clientY: 400, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mousemove", { clientX: 650, clientY: 450, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    expect(left(viewer)).toBeCloseTo(baseLeft + 50, 6);
+    expect(top(viewer)).toBeCloseTo(baseTop - (1800 - 768) / 2 + 50, 6);
+    window.dispatchEvent(new MouseEvent("mousemove", { clientX: 900, clientY: 900, bubbles: true }));
+    expect(left(viewer)).toBeCloseTo(baseLeft + 50, 6);
+
+    viewer.fit();
+    expect(left(viewer)).toBeCloseTo(fittedLeft, 6);
+    expect(top(viewer)).toBeCloseTo(fittedTop, 6);
+    viewer.destroy();
+  });
+});
+
 describe("official renderer integration", () => {
   beforeEach(() => {
     const NativeURL = globalThis.URL;
