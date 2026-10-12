@@ -4628,3 +4628,69 @@ def test_ctrl_h_ignored_for_read_only_and_non_text(qtbot, tmp_path: Path):
     other.show()
     other.actionReplace.trigger()
     assert other.find_bar().isVisible() is False
+
+
+def test_ctrl_g_jumps_to_line_on_code_tab(qtbot, tmp_path: Path):
+    path = tmp_path / "g.json"
+    path.write_bytes(b"1\n2\n3\n4\n5\n")
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, path)
+    window.show()
+    seen: list[tuple[int, int]] = []
+
+    def prompt(current: int, maximum: int) -> int | None:
+        seen.append((current, maximum))
+        return 4
+
+    window.goto_line_prompt = prompt
+    assert window.actionGoToLine.shortcut().toString() == "Ctrl+G"
+
+    window.actionGoToLine.trigger()
+
+    assert seen == [(1, 6)]
+    cursor = view.editor().textCursor()
+    assert cursor.blockNumber() == 3 and cursor.positionInBlock() == 0
+
+
+def test_ctrl_g_cancel_keeps_caret_and_works_in_markdown_text(qtbot):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    window.add_untitled_markdown_tab()
+    editor = window.findChild(MarkdownTextView)._editor
+    editor.setPlainText("a\nb\nc")
+    window.goto_line_prompt = lambda _current, _maximum: None
+    window.actionGoToLine.trigger()
+    assert editor.textCursor().blockNumber() == 0
+
+    window.goto_line_prompt = lambda _current, _maximum: 3
+    window.actionGoToLine.trigger()
+    assert editor.textCursor().blockNumber() == 2
+
+
+def test_ctrl_g_ignored_without_text_page(qtbot):
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    window.goto_line_prompt = lambda *_a: pytest.fail("no text page must not prompt")
+    window.actionGoToLine.trigger()
+
+
+def test_default_goto_prompt_uses_input_dialog(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    calls: list[tuple] = []
+
+    def fake_get_int(parent, title, label, value, minimum, maximum, step=1):
+        calls.append((title, label, value, minimum, maximum))
+        return 7, True
+
+    monkeypatch.setattr(QInputDialog, "getInt", fake_get_int)
+    assert window._ask_goto_line(3, 9) == 7
+    assert calls == [("转到行", "行号：", 3, 1, 9)]
+    monkeypatch.setattr(QInputDialog, "getInt", lambda *_a, **_k: (0, False))
+    assert window._ask_goto_line(3, 9) is None

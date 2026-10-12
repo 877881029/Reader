@@ -27,6 +27,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -571,6 +572,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
+        self.goto_line_prompt: Callable[[int, int], int | None] | None = None
         self.setWindowTitle("Reader")
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -777,6 +779,13 @@ class MainWindow(QMainWindow):
         self.actionReplace.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.actionReplace.triggered.connect(self._shortcut_replace)
         self.addAction(self.actionReplace)
+
+        self.actionGoToLine = QAction("转到行", self)
+        self.actionGoToLine.setObjectName("actionGoToLine")
+        self.actionGoToLine.setShortcut(QKeySequence("Ctrl+G"))
+        self.actionGoToLine.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.actionGoToLine.triggered.connect(self._shortcut_goto_line)
+        self.addAction(self.actionGoToLine)
 
         self.actionFindNext = QAction("查找下一个", self)
         self.actionFindNext.setObjectName("actionFindNext")
@@ -1065,6 +1074,30 @@ class MainWindow(QMainWindow):
         if not isinstance(editor, QPlainTextEdit) or editor.isReadOnly():
             return None
         return editor
+
+    def _ask_goto_line(self, current: int, maximum: int) -> int | None:
+        value, accepted = QInputDialog.getInt(
+            self, "转到行", "行号：", current, 1, maximum, 1
+        )
+        return int(value) if accepted else None
+
+    def _shortcut_goto_line(self) -> None:
+        editor = resolve_find_target(self._current_preview_widget())
+        if not isinstance(editor, QPlainTextEdit):
+            return
+        document = editor.document()
+        maximum = max(document.blockCount(), 1)
+        current = editor.textCursor().blockNumber() + 1
+        prompt = self.goto_line_prompt or self._ask_goto_line
+        line = prompt(current, maximum)
+        if line is None:
+            return
+        block = document.findBlockByNumber(min(max(int(line), 1), maximum) - 1)
+        cursor = editor.textCursor()
+        cursor.setPosition(block.position())
+        editor.setTextCursor(cursor)
+        editor.centerCursor()
+        editor.setFocus(Qt.FocusReason.ShortcutFocusReason)
 
     def _shortcut_replace(self) -> None:
         if self._writable_text_editor() is None:
