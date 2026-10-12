@@ -1,9 +1,17 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-12
-Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页中性配色规格与计划。
+Git：队列最终状态 `1835536` 已同步；本边界提交本地安装/快捷方式刷新规格与计划。
 
 ## 当前目标
+
+**稳定本地安装 + 桌面快捷方式刷新**（执行中）
+
+- 用户反馈：桌面没看到最新 Reader.exe。根因：`Reader.lnk` 仍指向主检出旧构建 `C:\Research\AgentDevelopor\READER\dist`（9/21），`create_desktop_shortcut` 从不覆盖已有快捷方式；新构建只在临时 worktree `dist`。
+- 已先行处置：最新发布构建（SHA256 `40A71EB4…5D6C71`）镜像到 `%LOCALAPPDATA%\Programs\Reader`，文件关联与桌面 `Reader.lnk` 已改指向该处。
+- 规格：`docs/superpowers/specs/2026-10-12-local-install-design.md`；计划：`docs/superpowers/plans/2026-10-12-local-install.md`（2 任务）。
+
+## 上一目标：用户 2026-10-12 连续需求队列
 
 **用户 2026-10-12 连续需求队列（按顺序执行，每项独立规格/计划/TDD/提交）— 全部完成**
 
