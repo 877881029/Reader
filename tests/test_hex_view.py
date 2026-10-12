@@ -90,3 +90,155 @@ def test_byte_source_falls_back_when_mmap_fails(tmp_path: Path, monkeypatch):
     finally:
         source.close()
     path.unlink()
+
+
+# --- HexView widget -------------------------------------------------------------
+
+
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt  # noqa: E402
+from PySide6.QtGui import QMouseEvent  # noqa: E402
+from PySide6.QtWidgets import QApplication, QLabel, QToolButton  # noqa: E402
+
+from reader.preview.hex_view import HexView  # noqa: E402
+
+
+def _hover(view: HexView, point: QPoint) -> None:
+    viewport = view.area().viewport()
+    event = QMouseEvent(
+        QEvent.Type.MouseMove,
+        QPointF(point),
+        QPointF(viewport.mapToGlobal(point)),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    QApplication.sendEvent(viewport, event)
+
+
+@pytest.fixture
+def hex_view(qtbot, tmp_path: Path):
+    path = tmp_path / "data.bin"
+    path.write_bytes(bytes(range(256)) + b"Hello, Reader!")
+    view = HexView()
+    qtbot.addWidget(view)
+    view.resize(1000, 500)
+    view.load_path(path)
+    view.show()
+    qtbot.waitExposed(view)
+    yield view, path
+    view.shutdown()
+
+
+def test_hex_view_rows_toolbar_and_size(hex_view):
+    view, _path = hex_view
+    assert view.objectName() == "hexView"
+    assert view.row_count() == 17
+    assert view.row_text(16) == ("00000100", "48 65 6C 6C 6F 2C 20 52 65 61 64 65 72 21", "Hello, Reader!")
+    assert "270 字节" in view.findChild(QLabel, "hexSize").text()
+    buttons = [view.findChild(QToolButton, n) for n in ("hexGroupByte", "hexGroupWord", "hexGroupDWord")]
+    assert [b.text() for b in buttons] == ["Byte", "Word", "DWord"]
+    assert buttons[0].isChecked()
+
+
+def test_hex_view_group_switch_reformats(hex_view):
+    view, _path = hex_view
+    view.findChild(QToolButton, "hexGroupDWord").click()
+    assert view.group() == 4
+    assert view.row_text(0)[1] == "03020100 07060504 0B0A0908 0F0E0D0C"
+    view.findChild(QToolButton, "hexGroupWord").click()
+    assert view.row_text(16)[1] == "6548 6C6C 2C6F 5220 6165 6564 2172"
+
+
+def test_hex_and_ascii_hover_highlight_same_unit(hex_view):
+    view, _path = hex_view
+    view.set_group(4)
+
+    _hover(view, view.cell_center(0x25, "hex"))
+    assert view.highlighted() == (0x24, 4)
+    assert "0x00000024" in view.findChild(QLabel, "hexInfo").text()
+    assert "0x27262524" in view.findChild(QLabel, "hexInfo").text()
+
+    _hover(view, view.cell_center(0x26, "ascii"))
+    assert view.highlighted() == (0x24, 4)
+
+    view.set_group(1)
+    _hover(view, view.cell_center(0x26, "ascii"))
+    assert view.highlighted() == (0x26, 1)
+
+    _hover(view, QPoint(2, 2))
+    assert view.highlighted() is None
+
+
+def test_hover_on_partial_last_unit_is_clamped(hex_view):
+    view, _path = hex_view
+    view.set_group(4)
+    _hover(view, view.cell_center(268, "hex"))
+    assert view.highlighted() == (268, 2)
+
+
+def _make_sparse(handle) -> None:
+    # Avoid NTFS zero-filling 1 GiB just to create the fixture.
+    import ctypes
+    import msvcrt
+    import os
+
+    if os.name != "nt":
+        return
+    from ctypes import wintypes
+
+    returned = wintypes.DWORD()
+    ctypes.windll.kernel32.DeviceIoControl(
+        wintypes.HANDLE(msvcrt.get_osfhandle(handle.fileno())),
+        0x000900C4,  # FSCTL_SET_SPARSE
+        None, 0, None, 0, ctypes.byref(returned), None,
+    )
+
+
+def test_large_sparse_file_opens_fast_and_scrolls_to_end(qtbot, tmp_path: Path):
+    import time
+
+    path = tmp_path / "big.bin"
+    with open(path, "wb") as handle:
+        _make_sparse(handle)
+        handle.seek(2**30 - 1)
+        handle.write(b"\x00")
+    view = HexView()
+    qtbot.addWidget(view)
+    view.resize(900, 500)
+    started = time.perf_counter()
+    view.load_path(path)
+    view.show()
+    qtbot.waitExposed(view)
+    view.grab()
+    elapsed = time.perf_counter() - started
+    try:
+        assert elapsed < 1.5
+        assert view.row_count() == 2**26
+        bar = view.area().verticalScrollBar()
+        bar.setValue(bar.maximum())
+        view.grab()
+        assert view.row_text(2**26 - 1) == ("3FFFFFF0", " ".join(["00"] * 16), "." * 16)
+    finally:
+        view.shutdown()
+
+
+def test_empty_file_and_shutdown_release_handle(qtbot, tmp_path: Path):
+    empty = tmp_path / "e.bin"
+    empty.write_bytes(b"")
+    view = HexView()
+    qtbot.addWidget(view)
+    view.load_path(empty)
+    assert view.row_count() == 0
+    assert "空文件" in view.findChild(QLabel, "hexSize").text()
+    view.grab()
+    view.shutdown()
+    empty.unlink()
+
+    data = tmp_path / "d.bin"
+    data.write_bytes(b"x" * 64)
+    other = HexView()
+    qtbot.addWidget(other)
+    other.load_path(data)
+    other.shutdown()
+    data.unlink()
+    assert not data.exists()
