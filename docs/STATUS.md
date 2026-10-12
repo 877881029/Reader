@@ -10,6 +10,7 @@ Git：状态栏/二进制发布最终状态 `ca41fe8` 已同步；本边界提�
 - 用户反馈：高亮与鼠标不在同一字节上；一行太窄、右侧大量空白，希望调节字号和列宽改善观感。
 - 根因：列位置用 `QFontMetrics.horizontalAdvance`（取整像素），而整行文本按小数字宽绘制，误差随列累积。
 - 规格：`docs/superpowers/specs/2026-10-12-hex-layout-design.md`；计划：`docs/superpowers/plans/2026-10-12-hex-layout.md`（3 任务）。
+- Task 1 完成：字宽改用 `QFontMetricsF` 浮点值；偏移、每个 hex 单元、每个 ASCII 字符和表头都按各自浮点坐标单独绘制，命中测试与高亮矩形（新 `highlight_rects()`）共用同一几何；hex 区按最近单元中心命中（单元间隙归最近单元，无死区）；第 7/8 字节之间加 1 字符半行间隔（`hex_unit_layout`，文本格式化函数不变）。RED：渲染像素测试（高亮边缘不得切到字形、内部必须有字形墨迹）Byte/Word/DWord 3 例 + 间隙命中 + 往返共 `5 failed`；GREEN：`23 passed`。
 
 ## 上一目标：代码页 Notepad 式底部状态栏 + Ctrl+J 转到行（已完成）
 
@@ -24,7 +25,7 @@ Git：状态栏/二进制发布最终状态 `ca41fe8` 已同步；本边界提�
 - 事故与修复：中止上一轮发布门（rel5）时 vite 刚清空 `assets/pptx-viewer`，其后规格提交 `10c0e41`（`git add -A`）误删了 `THIRD_PARTY_NOTICES.txt` 与 `manifest.sha256`。本次发布门重新生成，内容与 `d77da16` 逐字节一致，已恢复入库；新增卫生测试要求两个 Web bundle 的 notices/manifest/index 均被 git 跟踪（未暂存时 RED `1 failed`，恢复后 GREEN `6 passed`）。规则：中断发布门后提交前必须先跑快速门或检查 `git status` 中 `assets/` 删除。
 - 已用 `install_local.ps1` 安装到 `%LOCALAPPDATA%\Programs\Reader`（SHA256 `4687B438…8F5027`），桌面快捷方式与 `.bin` 关联指向该处。规格/计划（状态栏、二进制查看器）标记 Implemented。
 
-## 上一目标：`.bin` 二进制（十六进制）查看器（Task 1–3 完成，发布并入当前目标）
+## 上一目标：`.bin` 二进制（十六进制）查看器（已完成，随状态栏一并发布）
 
 **`.bin` 二进制（十六进制）查看器**
 

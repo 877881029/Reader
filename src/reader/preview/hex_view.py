@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import mmap
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter
 from PySide6.QtWidgets import (
     QAbstractScrollArea,
     QButtonGroup,
@@ -33,6 +34,22 @@ def format_hex_row(data: bytes, group: int) -> str:
         digits = chunk[::-1].hex().upper()
         units.append("--" * (group - len(chunk)) + digits)
     return " ".join(units)
+
+
+MARGIN = 12
+OFFSET_GAP = 3
+HALF_GAP = 1
+ASCII_GAP = 3
+DEFAULT_PIXEL_SIZE = 14
+
+
+def hex_unit_layout(group: int) -> list[tuple[int, int]]:
+    """Display (start column, width) of each unit, with an extra gap after byte 7."""
+    width = 2 * group
+    return [
+        (index * (width + 1) + (HALF_GAP if index * group >= BYTES_PER_ROW // 2 else 0), width)
+        for index in range(BYTES_PER_ROW // group)
+    ]
 
 
 def hex_unit_spans(group: int) -> list[tuple[int, int]]:
@@ -159,15 +176,8 @@ class HexView(QWidget):
         layout.addWidget(toolbar)
         layout.addWidget(self._area, 1)
 
-        font = QFont("Cascadia Mono")
-        font.setFamilies(["Cascadia Mono", "Consolas", "Courier New"])
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        font.setPointSize(10)
-        self._area.setFont(font)
-        metrics = QFontMetrics(font)
-        self._char_width = max(metrics.horizontalAdvance("0"), 1)
-        self._row_height = metrics.height() + 4
-        self._ascent = metrics.ascent() + 2
+        self._left = float(MARGIN)
+        self._apply_pixel_size(DEFAULT_PIXEL_SIZE)
 
         self.setStyleSheet(
             f"""
@@ -259,32 +269,55 @@ class HexView(QWidget):
     def cell_center(self, offset: int, column: str) -> QPoint:
         row = offset // BYTES_PER_ROW
         within = offset % BYTES_PER_ROW
-        y = self._header_height() + (row - self._first_row()) * self._row_height + self._row_height // 2
+        y = self._header_height() + (row - self._first_row()) * self._row_height + self._row_height / 2
         if column == "ascii":
-            x = self._ascii_x() + within * self._char_width + self._char_width // 2
+            x = self._ascii_x() + (within + 0.5) * self._char_width
         else:
-            start, width = hex_unit_spans(self._group)[within // self._group]
+            start, width = hex_unit_layout(self._group)[within // self._group]
             x = self._hex_x() + (start + width / 2) * self._char_width
-        return QPoint(int(x) - self._area.horizontalScrollBar().value(), int(y))
+        return QPoint(round(x - self._area.horizontalScrollBar().value()), round(y))
+
+    def highlight_rects(self) -> list[QRectF]:
+        """Viewport rectangles (hex, ascii) of the highlighted unit, if visible."""
+        if self._highlight is None:
+            return []
+        offset, length = self._highlight
+        row = offset // BYTES_PER_ROW
+        within = offset % BYTES_PER_ROW
+        top = self._header_height() + (row - self._first_row()) * self._row_height
+        dx = -self._area.horizontalScrollBar().value()
+        cw = self._char_width
+        start, width = hex_unit_layout(self._group)[within // self._group]
+        return [
+            QRectF(self._hex_x() + dx + (start - 0.35) * cw, top, (width + 0.7) * cw, self._row_height),
+            QRectF(self._ascii_x() + dx + within * cw, top, length * cw, self._row_height),
+        ]
 
     def unit_at(self, point: QPoint) -> tuple[int, int] | None:
         size = self.size_bytes()
         y = point.y() - self._header_height()
         if y < 0 or size == 0:
             return None
-        row = self._first_row() + y // self._row_height
+        row = self._first_row() + int(y // self._row_height)
         if row >= self.row_count():
             return None
         x = point.x() + self._area.horizontalScrollBar().value()
+        cw = self._char_width
         byte: int | None = None
-        column = (x - self._hex_x()) / self._char_width
-        for index, (start, width) in enumerate(hex_unit_spans(self._group)):
-            if start <= column < start + width:
-                byte = index * self._group
-                break
-        if byte is None:
-            ascii_column = (x - self._ascii_x()) // self._char_width
-            if 0 <= ascii_column < BYTES_PER_ROW and x >= self._ascii_x():
+        layout = hex_unit_layout(self._group)
+        column = (x - self._hex_x()) / cw
+        first_start = layout[0][0]
+        last_start, last_width = layout[-1]
+        if first_start - 1.0 <= column < last_start + last_width + 1.0:
+            # Nearest unit centre: gaps belong to the closest unit.
+            index = min(
+                range(len(layout)),
+                key=lambda i: abs(column - (layout[i][0] + layout[i][1] / 2)),
+            )
+            byte = index * self._group
+        else:
+            ascii_column = (x - self._ascii_x()) / cw
+            if 0 <= ascii_column < BYTES_PER_ROW:
                 byte = int(ascii_column)
         if byte is None:
             return None
@@ -296,24 +329,39 @@ class HexView(QWidget):
 
     # -- layout ---------------------------------------------------------------------
 
+    def _apply_pixel_size(self, pixel_size: int) -> None:
+        font = QFont("Cascadia Mono")
+        font.setFamilies(["Cascadia Mono", "Consolas", "Courier New"])
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        font.setPixelSize(int(pixel_size))
+        self._pixel_size = int(pixel_size)
+        self._area.setFont(font)
+        metrics = QFontMetricsF(font)
+        self._char_width = max(metrics.horizontalAdvance("0"), 1.0)
+        self._row_height = int(math.ceil(metrics.height())) + 6
+        self._ascent = metrics.ascent() + 3
+
+    def pixel_size(self) -> int:
+        return self._pixel_size
+
     def _header_height(self) -> int:
         return self._row_height + 6
 
-    def _offset_x(self) -> int:
-        return 12
+    def _offset_x(self) -> float:
+        return self._left
 
-    def _hex_x(self) -> int:
-        return self._offset_x() + (offset_width(self.size_bytes()) + 2) * self._char_width
+    def _hex_x(self) -> float:
+        return self._offset_x() + (offset_width(self.size_bytes()) + OFFSET_GAP) * self._char_width
 
     def _hex_chars(self) -> int:
-        start, width = hex_unit_spans(self._group)[-1]
+        start, width = hex_unit_layout(self._group)[-1]
         return start + width
 
-    def _ascii_x(self) -> int:
-        return self._hex_x() + (self._hex_chars() + 3) * self._char_width
+    def _ascii_x(self) -> float:
+        return self._hex_x() + (self._hex_chars() + ASCII_GAP) * self._char_width
 
     def _content_width(self) -> int:
-        return self._ascii_x() + (BYTES_PER_ROW + 2) * self._char_width
+        return int(math.ceil(self._ascii_x() + BYTES_PER_ROW * self._char_width + MARGIN))
 
     def _visible_rows(self) -> int:
         usable = self._area.viewport().height() - self._header_height()
@@ -332,7 +380,7 @@ class HexView(QWidget):
         width = self._area.viewport().width()
         horizontal.setRange(0, max(0, self._content_width() - width))
         horizontal.setPageStep(width)
-        horizontal.setSingleStep(self._char_width)
+        horizontal.setSingleStep(max(1, int(self._char_width)))
 
     def _row_bytes(self, row: int) -> bytes:
         if self._source is None:
@@ -369,50 +417,51 @@ class HexView(QWidget):
         header = self._header_height()
         if self.size_bytes() == 0:
             painter.setPen(QColor(MUTED))
-            painter.drawText(self._offset_x() + dx, self._ascent + 6, "空文件")
+            painter.drawText(QPointF(self._offset_x() + dx, self._ascent + 6), "空文件")
             painter.end()
             return
 
+        layout = hex_unit_layout(self._group)
+        hex_x = self._hex_x() + dx
+        ascii_x = self._ascii_x() + dx
+        # Every cell is drawn at its own float position so glyphs, hit testing
+        # and highlights share one geometry and never drift across the row.
         painter.setPen(QColor(MUTED))
-        labels = " ".join(
-            f"{index * self._group:02X}".rjust(2 * self._group)
-            for index in range(BYTES_PER_ROW // self._group)
-        )
-        painter.drawText(self._hex_x() + dx, self._ascent + 2, labels)
-        painter.drawText(self._ascii_x() + dx, self._ascent + 2, "0123456789ABCDEF")
+        header_baseline = self._ascent
+        for index, (start, width) in enumerate(layout):
+            label = f"{index * self._group:02X}"
+            painter.drawText(QPointF(hex_x + (start + width - len(label)) * cw, header_baseline), label)
+        for index in range(BYTES_PER_ROW):
+            painter.drawText(QPointF(ascii_x + index * cw, header_baseline), f"{index:X}")
         painter.setPen(QColor(LINE))
         painter.drawLine(0, header - 3, viewport.width(), header - 3)
 
         first = self._first_row()
         last = min(self.row_count(), first + self._visible_rows() + 1)
-        spans = hex_unit_spans(self._group)
         highlight = QColor(_HIGHLIGHT)
+        rects = self.highlight_rects()
+        highlight_row = self._highlight[0] // BYTES_PER_ROW if self._highlight else -1
+        offset_digits = offset_width(self.size_bytes())
         for row in range(first, last):
             top = header + (row - first) * self._row_height
-            row_offset = row * BYTES_PER_ROW
-            if self._highlight is not None:
-                start, length = self._highlight
-                if row_offset <= start < row_offset + BYTES_PER_ROW:
-                    within = start - row_offset
-                    span_start, span_width = spans[within // self._group]
-                    painter.fillRect(
-                        QRectF(self._hex_x() + dx + (span_start - 0.25) * cw, top, (span_width + 0.5) * cw, self._row_height),
-                        highlight,
-                    )
-                    painter.fillRect(
-                        QRectF(self._ascii_x() + dx + within * cw, top, length * cw, self._row_height),
-                        highlight,
-                    )
-            offset_text, hex_text, ascii_text = self.row_text(row)
+            if row == highlight_row:
+                for rect in rects:
+                    painter.fillRect(rect, highlight)
+            data = self._row_bytes(row)
             baseline = top + self._ascent
             painter.setPen(QColor(MUTED))
-            painter.drawText(self._offset_x() + dx, baseline, offset_text)
+            painter.drawText(QPointF(self._offset_x() + dx, baseline), f"{row * BYTES_PER_ROW:0{offset_digits}X}")
             painter.setPen(QColor(INK))
-            painter.drawText(self._hex_x() + dx, baseline, hex_text)
-            painter.drawText(self._ascii_x() + dx, baseline, ascii_text)
-        separator = self._ascii_x() + dx - int(1.5 * cw)
+            for index, (start, _width) in enumerate(layout):
+                chunk = data[index * self._group:(index + 1) * self._group]
+                if not chunk:
+                    break
+                painter.drawText(QPointF(hex_x + start * cw, baseline), format_hex_row(chunk, self._group))
+            for index, char in enumerate(format_ascii_row(data)):
+                painter.drawText(QPointF(ascii_x + index * cw, baseline), char)
+        separator = ascii_x - 1.5 * cw
         painter.setPen(QColor(LINE))
-        painter.drawLine(separator, header, separator, viewport.height())
+        painter.drawLine(QPointF(separator, header), QPointF(separator, viewport.height()))
         painter.end()
 
 

@@ -242,3 +242,76 @@ def test_empty_file_and_shutdown_release_handle(qtbot, tmp_path: Path):
     other.shutdown()
     data.unlink()
     assert not data.exists()
+
+
+# --- exact geometry ---------------------------------------------------------------
+
+
+def _ink_columns(image, rect, dpr: float) -> list[int]:
+    """Device x-columns inside ``rect`` (logical) that contain dark glyph pixels."""
+    top = int(rect.top() * dpr) + 2
+    bottom = int(rect.bottom() * dpr) - 2
+    columns = []
+    for x in range(int(rect.left() * dpr), int(rect.right() * dpr) + 1):
+        for y in range(top, bottom):
+            if 0 <= x < image.width() and 0 <= y < image.height() and image.pixelColor(x, y).lightness() < 110:
+                columns.append(x)
+                break
+    return columns
+
+
+@pytest.mark.parametrize("group", [1, 2, 4])
+def test_highlight_covers_hovered_glyphs_with_clean_edges(qtbot, tmp_path: Path, group: int):
+    path = tmp_path / "ink.bin"
+    path.write_bytes(b"\x88" * 64)
+    view = HexView()
+    qtbot.addWidget(view)
+    view.resize(1400, 400)
+    view.load_path(path)
+    view.show()
+    qtbot.waitExposed(view)
+    view.set_group(group)
+    try:
+        for offset in range(0, 16, group):
+            _hover(view, view.cell_center(offset, "hex"))
+            assert view.highlighted() == (offset, group)
+            hex_rect, ascii_rect = view.highlight_rects()
+            image = view.area().viewport().grab().toImage()
+            dpr = image.devicePixelRatio()
+            ink = _ink_columns(image, hex_rect, dpr)
+            assert ink, f"no glyph ink inside highlight for offset {offset}"
+            left = int(hex_rect.left() * dpr)
+            right = int(hex_rect.right() * dpr)
+            assert min(ink) > left + 1 and max(ink) < right - 1, (offset, left, right, min(ink), max(ink))
+            ascii_ink = _ink_columns(image, ascii_rect, dpr)
+            assert ascii_ink
+    finally:
+        view.shutdown()
+
+
+def test_hover_in_gap_selects_nearest_unit(hex_view):
+    view, _path = hex_view
+    view.set_group(1)
+    first = view.cell_center(0, "hex")
+    second = view.cell_center(1, "hex")
+    near_first = QPoint(first.x() + int((second.x() - first.x()) * 0.4), first.y())
+    near_second = QPoint(first.x() + int((second.x() - first.x()) * 0.6), first.y())
+    _hover(view, near_first)
+    assert view.highlighted() == (0, 1)
+    _hover(view, near_second)
+    assert view.highlighted() == (1, 1)
+
+
+def test_cell_centres_round_trip_with_half_gap(hex_view):
+    view, _path = hex_view
+    for group in (1, 2, 4):
+        view.set_group(group)
+        for offset in range(0, 32, group):
+            _hover(view, view.cell_center(offset, "hex"))
+            assert view.highlighted() == (offset, group)
+            _hover(view, view.cell_center(offset, "ascii"))
+            assert view.highlighted() == (offset, group)
+    view.set_group(1)
+    gap_7_8 = view.cell_center(8, "hex").x() - view.cell_center(7, "hex").x()
+    gap_6_7 = view.cell_center(7, "hex").x() - view.cell_center(6, "hex").x()
+    assert gap_7_8 > gap_6_7
