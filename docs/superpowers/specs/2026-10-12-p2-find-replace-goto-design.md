@@ -1,6 +1,6 @@
 # P2 Find/Replace and Go To Line Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background

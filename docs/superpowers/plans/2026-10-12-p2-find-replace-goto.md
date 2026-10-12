@@ -1,6 +1,6 @@
 # P2 Find/Replace and Go To Line Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-12-p2-find-replace-goto-design.md`
 

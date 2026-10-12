@@ -8,10 +8,11 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
 **用户 2026-10-12 连续需求队列（按顺序执行，每项独立规格/计划/TDD/提交）**
 
 1. 主页（欢迎页）改为 Copilot 式简约中性配色，布局不变 — 已完成（发布门留到队列末尾统一执行）。规格 `docs/superpowers/specs/2026-10-12-welcome-neutral-theme-design.md`，计划 `docs/superpowers/plans/2026-10-12-welcome-neutral-theme.md`。墨色 `#1f1d1a` 主按钮、细线边框次按钮、`#fbf9f5` 卡片 + `#e6dfd4` 细线、`#f0ebe3` 灰色徽章、墨色强调条、去掉蓝色水印 R、全部改 Segoe UI；去除全部 cobalt。RED：新调色板测试 `1 failed`；GREEN：window/welcome_lookup/find `173 passed`（`test_welcome_lookup` 旧 CARD/LINE 断言按新规格更新）。截图确认。
-2. P2：查找替换（`Ctrl+H`）、跳转指定行（`Ctrl+G`）— 执行中。规格 `docs/superpowers/specs/2026-10-12-p2-find-replace-goto-design.md`，计划 `docs/superpowers/plans/2026-10-12-p2-find-replace-goto.md`（4 任务）。
+2. P2：查找替换（`Ctrl+H`）、跳转指定行（`Ctrl+G`）— 已完成。规格 `docs/superpowers/specs/2026-10-12-p2-find-replace-goto-design.md`，计划 `docs/superpowers/plans/2026-10-12-p2-find-replace-goto.md`（4 任务）。
    - Task 1 完成：`find_support.replace_current`（仅当选区等于查询时替换，随后查找下一处，绕回）与 `replace_all`（先收集全部匹配再倒序替换，单一撤销步，替换文本含查询也不死循环），只读编辑器拒绝。RED：收集错误；GREEN：find_replace+find `11 passed`。
    - Task 2 完成：`Ctrl+H`（`actionReplace`）仅对可写文本页（`_writable_text_editor`：可编辑视图且非只读）生效，查找条显示「替换为」输入框与「替换 / 全部替换」；`Ctrl+F` 回到纯查找隐藏替换行；全部替换结果显示「已替换 N 处 / 未找到」；替换文本回车即替换；修改走编辑器使标签变 `*`。RED：`4 failed`；GREEN：window+find+find_replace `176 passed`。
    - Task 3 完成：`Ctrl+G`（`actionGoToLine`）对任意纯文本页（含只读代码/TXT、Markdown 编辑）弹「转到行」（`QInputDialog.getInt`，默认当前行，范围 1..行数，可注入 `goto_line_prompt`），光标移到行首并居中；取消不动；欢迎页/非文本页不弹。RED：`4 failed`；GREEN：window+find+find_replace+code_view `199 passed`。
+   - Task 4 完成：README（顺带修复上一轮重复的半句）与功能全解查找章节、快捷键表同步；规格与计划标记 Implemented。P2 完成。
 3. `+` 菜单 Browser 实现 — 待开始。
 4. `+` 菜单 Terminal 实现 — 待开始。
 
