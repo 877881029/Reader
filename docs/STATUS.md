@@ -5,12 +5,14 @@ Git：队列最终状态 `1835536` 已同步；本边界提交本地安装/快�
 
 ## 当前目标
 
-**稳定本地安装 + 桌面快捷方式刷新**（执行中）
+**稳定本地安装 + 桌面快捷方式刷新**（已完成）
 
 - 用户反馈：桌面没看到最新 Reader.exe。根因：`Reader.lnk` 仍指向主检出旧构建 `C:\Research\AgentDevelopor\READER\dist`（9/21），`create_desktop_shortcut` 从不覆盖已有快捷方式；新构建只在临时 worktree `dist`。
 - 已先行处置：最新发布构建（SHA256 `40A71EB4…5D6C71`）镜像到 `%LOCALAPPDATA%\Programs\Reader`，文件关联与桌面 `Reader.lnk` 已改指向该处。
 - 规格：`docs/superpowers/specs/2026-10-12-local-install-design.md`；计划：`docs/superpowers/plans/2026-10-12-local-install.md`（2 任务）。
 - Task 1 完成：`create_desktop_shortcut` 在已有快捷方式时，仅当旧目标与新 exe 都名为 `Reader.exe` 且路径不同（大小写/规范化比较）才刷新；指向其他程序、同一路径、或 `python.exe -m reader` 开发启动均不改动。RED：`1 failed, 21 passed`；GREEN：associate+main_launch `45 passed`。
+- Task 2 完成：`scripts/install_local.ps1`（纯 ASCII）：检测目标处 Reader 是否在运行、`robocopy /MIR`（≥8 失败）、源/装后 exe SHA256 一致校验、用 dev Python 调 `register_open_with` + `create_desktop_shortcut(overwrite=True)`。packaging 合同+解析测试 RED `2 failed` → GREEN `23 passed`。已在本机运行：桌面 `Reader.lnk` 与 `Reader.Document` 打开命令均指向 `%LOCALAPPDATA%\Programs\Reader\Reader.exe`，SHA256 `40A71EB4C59F8DC9EC46293BBB707E49D7D737BC70A45E3145E2936ACF5D6C71`。README 增加安装步骤；规格/计划 Implemented。本目标完成。
+- 注意：主检出 `C:\Research\AgentDevelopor\READER\dist` 中旧版 exe 仍在（不在本 worktree 内，未改动）；以后发布流程为 `verify.ps1 -Release` → `install_local.ps1`。
 
 ## 上一目标：用户 2026-10-12 连续需求队列
 

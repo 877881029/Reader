@@ -604,3 +604,32 @@ def test_release_notes_state_source_snapshot_without_binaries() -> None:
     assert "setup.ps1" in notes
     assert "exe" in notes.lower() or "zip" in notes.lower()
     assert "git" in notes.lower()
+
+
+def test_install_local_script_contract():
+    script = (ROOT / "scripts" / "install_local.ps1").read_text(encoding="utf-8")
+    assert script.isascii()
+    assert "LOCALAPPDATA" in script and "Programs\\Reader" in script
+    assert "robocopy" in script and "/MIR" in script
+    assert "Get-FileHash" in script
+    assert "register_open_with" in script
+    assert "create_desktop_shortcut" in script and "overwrite=True" in script
+    assert "Get-Process" in script
+    assert "$LASTEXITCODE -ge 8" in script
+
+
+def test_install_local_script_parses():
+    if os.name != "nt":
+        pytest.skip("Windows PowerShell only")
+    script = ROOT / "scripts" / "install_local.ps1"
+    command = (
+        "$errors = $null; "
+        f"[System.Management.Automation.Language.Parser]::ParseFile('{script}', [ref]$null, [ref]$errors) | Out-Null; "
+        "if ($errors.Count) { $errors | ForEach-Object { $_.Message }; exit 1 }"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-Command", command],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

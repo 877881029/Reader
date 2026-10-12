@@ -1,6 +1,6 @@
 # Stable Local Install and Shortcut Refresh Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-12-local-install-design.md`
 

@@ -76,6 +76,14 @@ worktree 可通过 `-Python C:\短路径\python.exe` 或 `READER_PYTHON` 指定�
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release
 ```
 
+发布门通过后，把这份构建装到固定位置并刷新桌面快捷方式与文件关联：
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_local.ps1
+```
+
+默认安装到 `%LOCALAPPDATA%\Programs\Reader`（运行中会拒绝覆盖），校验 exe 哈希后把桌面 `Reader.lnk` 和「Reader 文档」打开命令指向它。Reader 自身启动时也会把指向**旧版 Reader.exe** 的桌面快捷方式刷新为当前 exe，但不会改动指向其他程序的同名快捷方式。
+
 提交到 `main` 或打开 pull request 时，Windows CI 会在 Python 3.12 和
 Node.js 22 的干净环境中执行同一快速质量门；本地与远端使用同一验收入口。
 

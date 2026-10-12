@@ -1,6 +1,6 @@
 # Stable Local Install and Shortcut Refresh Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background
