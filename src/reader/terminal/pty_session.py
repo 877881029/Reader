@@ -29,7 +29,7 @@ SHELL_PROFILES: dict[str, ShellProfile] = {
         "PowerShell",
         [str(_system32() / "WindowsPowerShell" / "v1.0" / "powershell.exe"), "-NoLogo"],
     ),
-    "cmd": ShellProfile("命令提示符", [str(_system32() / "cmd.exe")]),
+    "cmd": ShellProfile("Command Prompt", [str(_system32() / "cmd.exe")]),
 }
 
 

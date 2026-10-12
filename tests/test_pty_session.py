@@ -30,7 +30,7 @@ def _start(qtbot, profile: str, cwd: Path, cols: int = 100, rows: int = 30):
 def test_profiles_use_absolute_system_shells():
     assert set(SHELL_PROFILES) == {"powershell", "cmd"}
     assert SHELL_PROFILES["powershell"].title == "PowerShell"
-    assert SHELL_PROFILES["cmd"].title == "命令提示符"
+    assert SHELL_PROFILES["cmd"].title == "Command Prompt"
     for profile in SHELL_PROFILES.values():
         program = Path(profile.argv[0])
         assert program.is_absolute() and program.is_file()

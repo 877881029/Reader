@@ -39,7 +39,7 @@ discussion), with colours matching the Copilot theme.
 
 ## Behaviour
 
-- `+` → **Terminal** becomes a submenu: **PowerShell**, **命令提示符**
+- `+` → **Terminal** becomes a submenu: **PowerShell**, **Command Prompt**
   (icons). Tab title = profile name. Start directory: folder of the current
   real file, else home.
 - Fit to tab size on open and resize; keystrokes go to the shell. `Ctrl+C`

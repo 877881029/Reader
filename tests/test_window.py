@@ -4845,14 +4845,14 @@ def test_terminal_submenu_offers_powershell_and_cmd(qtbot):
     submenu = window.actionMenuTerminal.menu()
     assert submenu is not None
     items = [a for a in submenu.actions() if not a.isSeparator()]
-    assert [a.text() for a in items] == ["PowerShell", "命令提示符"]
+    assert [a.text() for a in items] == ["PowerShell", "Command Prompt"]
     assert all(not a.icon().isNull() for a in items)
 
     window.actionTerminalCmd.trigger()
 
     page = window.findChild(TerminalPage)
     assert page is not None and page.profile_key() == "cmd"
-    assert window.tab_title(0) == "命令提示符"
+    assert window.tab_title(0) == "Command Prompt"
     page.shutdown()
 
 

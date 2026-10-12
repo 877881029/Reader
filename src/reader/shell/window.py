@@ -1442,7 +1442,7 @@ class MainWindow(QMainWindow):
         self.actionTerminalPowerShell.triggered.connect(
             lambda _checked=False: self.add_terminal_tab("powershell")
         )
-        self.actionTerminalCmd = QAction(line_icon("command"), "命令提示符", terminal_menu)
+        self.actionTerminalCmd = QAction(line_icon("command"), "Command Prompt", terminal_menu)
         self.actionTerminalCmd.setObjectName("actionTerminalCmd")
         self.actionTerminalCmd.triggered.connect(lambda _checked=False: self.add_terminal_tab("cmd"))
         terminal_menu.addAction(self.actionTerminalPowerShell)

@@ -19,7 +19,7 @@ early output; exit + Enter restart; shutdown kills); GREEN new `TerminalPage`
 with bridge and offline interceptor, replacing the pipe console.
 
 ## Task 4: Menu, shortcut passthrough
-RED window tests (Terminal submenu with PowerShell / 命令提示符, titles, cwd,
+RED window tests (Terminal submenu with PowerShell / Command Prompt, titles, cwd,
 document shortcuts disabled on terminal tabs and restored elsewhere);
 GREEN wiring.
 
