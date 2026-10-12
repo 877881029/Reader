@@ -13,7 +13,7 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
    - Task 2 完成：`Ctrl+H`（`actionReplace`）仅对可写文本页（`_writable_text_editor`：可编辑视图且非只读）生效，查找条显示「替换为」输入框与「替换 / 全部替换」；`Ctrl+F` 回到纯查找隐藏替换行；全部替换结果显示「已替换 N 处 / 未找到」；替换文本回车即替换；修改走编辑器使标签变 `*`。RED：`4 failed`；GREEN：window+find+find_replace `176 passed`。
    - Task 3 完成：`Ctrl+G`（`actionGoToLine`）对任意纯文本页（含只读代码/TXT、Markdown 编辑）弹「转到行」（`QInputDialog.getInt`，默认当前行，范围 1..行数，可注入 `goto_line_prompt`），光标移到行首并居中；取消不动；欢迎页/非文本页不弹。RED：`4 failed`；GREEN：window+find+find_replace+code_view `199 passed`。
    - Task 4 完成：README（顺带修复上一轮重复的半句）与功能全解查找章节、快捷键表同步；规格与计划标记 Implemented。P2 完成。
-3. `+` 菜单 Browser 实现 — 待开始。
+3. `+` 菜单 Browser 实现 — 执行中。规格 `docs/superpowers/specs/2026-10-12-browser-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-browser-tab.md`（3 任务）。
 4. `+` 菜单 Terminal 实现 — 待开始。
 
 ## 上一目标：`+` 新建菜单与 Markdown 编辑/预览切换（已完成）
