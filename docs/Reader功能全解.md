@@ -43,7 +43,7 @@ Reader 是 Windows 上的文档查看器：双击文件就能读，纸色界面�
 
 1. 蓝色 **R** 图标  
 2. 打开的标签  
-3. **`+`**：弹出带图标的新建菜单——**新建文件**（可编辑 Markdown 草稿 `未命名-….md`）、**打开文件**（只列 Reader 支持的格式）、**Browser**（标签内网页浏览，见 5.8）、**Terminal**（标签内 PowerShell，见 5.9）  
+3. **`+`**：弹出带图标的新建菜单——**新建文件**（可编辑 Markdown 草稿 `未命名-….md`）、**打开文件**（只列 Reader 支持的格式）、**Browser**（标签内网页浏览，见 5.8）、**Terminal**（子菜单 PowerShell / Command Prompt 真终端，见 5.9）  
 4. 空白处：拖动窗口；双击最大化 / 还原  
 5. **编辑 | 预览** 切换：仅当前是 Markdown 标签时出现在窗口按钮左侧，作用与 `Ctrl+I` / `Ctrl+T` 相同  
 6. 最小化 / 最大化 / 关闭
@@ -174,15 +174,18 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 - `Ctrl+F` 可在网页内查找；不进「最近打开」，关闭时不询问保存
 - 没有书签、历史面板、下载管理和开发者工具
 
-### 5.9 终端（`+` → Terminal）
+### 5.9 终端（`+` → Terminal → PowerShell / Command Prompt）
 
-标签内的 PowerShell（Windows PowerShell 5.1）：
+标签内的真终端（Windows 伪控制台 ConPTY + xterm.js），与 Copilot 右侧终端同类：
 
+- 子菜单二选一：**PowerShell**（Windows PowerShell 5.1）或 **Command Prompt**（cmd）；标签名即所选 shell；只以普通权限运行（不提供管理员模式）
 - 起始目录：当前标签是真实文件时用它所在文件夹，否则用户主目录
-- 底部输入命令回车执行，上方显示命令和输出（错误也显示）；提示符跟随 `cd` / `Set-Location`
-- `↑` / `↓` 翻历史命令；`cls` / `clear` 清屏；右上「清屏」「重启」
-- 中文输入输出正常（命令以 UTF-8 送入）
-- 基于管道的行式终端，**不是**完整控制台：没有颜色、Tab 补全，`vim`、`less` 之类全屏程序不可用
+- 完整交互：颜色、`Tab` 补全、方向键历史、PSReadLine 语法着色、全屏程序都可用；随标签大小自动调整行列
+- 配色与 Copilot 浅色主题一致：米白底 `#fbf9f5`、深墨字与光标、浅灰选区、GitHub Light 16 色；字体 Cascadia Mono
+- 有选中文字时 `Ctrl+C` 复制，否则 `Ctrl+C` 中断当前命令；`Ctrl+V` 粘贴
+- 终端标签在前台时，Reader 的 `Ctrl+O/F/H/J/N/S` 等文档快捷键暂时让给 shell，切回文档标签恢复
+- shell 退出后显示「[进程已退出，按 Enter 重新启动]」，回车按同一 shell 重启
+- 终端页离线：只加载内置终端界面，不联网；输出里的网址不可点击
 - 关闭标签或窗口即结束进程，不询问；不进「最近打开」
 
 ### 5.10 二进制（`.bin`）
