@@ -27,7 +27,6 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
-    QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -57,6 +56,7 @@ from reader.preview.find_support import (
 from reader.resources import resource_path
 from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
+from reader.shell.goto_bar import GotoLineBar
 from reader.shell.recent import remember_recent
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
@@ -580,7 +580,7 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
-        self.goto_line_prompt: Callable[[int, int], int | None] | None = None
+
         self.setWindowTitle("Reader")
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -696,6 +696,10 @@ class MainWindow(QMainWindow):
 
         root.addWidget(self._title_chrome)
         root.addWidget(self._find_bar)
+        self._goto_bar = GotoLineBar()
+        self._goto_bar.submitted.connect(self._goto_submitted)
+        self._goto_bar.hide_requested.connect(self._hide_goto_bar)
+        root.addWidget(self._goto_bar)
         root.addWidget(self._content_stack, 1)
         self.setCentralWidget(container)
         status = QStatusBar()
@@ -790,7 +794,7 @@ class MainWindow(QMainWindow):
 
         self.actionGoToLine = QAction("转到行", self)
         self.actionGoToLine.setObjectName("actionGoToLine")
-        self.actionGoToLine.setShortcut(QKeySequence("Ctrl+G"))
+        self.actionGoToLine.setShortcuts([QKeySequence("Ctrl+J"), QKeySequence("Ctrl+G")])
         self.actionGoToLine.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.actionGoToLine.triggered.connect(self._shortcut_goto_line)
         self.addAction(self.actionGoToLine)
@@ -1068,6 +1072,7 @@ class MainWindow(QMainWindow):
             return
         if self._current_preview_widget() is None:
             return
+        self._hide_goto_bar()
         self._find_bar.set_replace_mode(False)
         self._find_bar.show()
         self.actionFindClose.setEnabled(True)
@@ -1083,33 +1088,48 @@ class MainWindow(QMainWindow):
             return None
         return editor
 
-    def _ask_goto_line(self, current: int, maximum: int) -> int | None:
-        value, accepted = QInputDialog.getInt(
-            self, "转到行", "行号：", current, 1, maximum, 1
-        )
-        return int(value) if accepted else None
+    def _goto_target(self) -> QPlainTextEdit | None:
+        editor = resolve_find_target(self._current_preview_widget())
+        return editor if isinstance(editor, QPlainTextEdit) else None
 
     def _shortcut_goto_line(self) -> None:
-        editor = resolve_find_target(self._current_preview_widget())
-        if not isinstance(editor, QPlainTextEdit):
+        editor = self._goto_target()
+        if editor is None:
+            return
+        if self._find_bar.isVisible():
+            self._hide_find_bar()
+        self._goto_bar.open(max(editor.document().blockCount(), 1))
+
+    def _goto_submitted(self, text: str) -> None:
+        editor = self._goto_target()
+        if editor is None:
+            self._hide_goto_bar()
+            return
+        try:
+            line = int(text.strip())
+        except ValueError:
+            self._goto_bar.set_message("无效行号")
             return
         document = editor.document()
         maximum = max(document.blockCount(), 1)
-        current = editor.textCursor().blockNumber() + 1
-        prompt = self.goto_line_prompt or self._ask_goto_line
-        line = prompt(current, maximum)
-        if line is None:
-            return
-        block = document.findBlockByNumber(min(max(int(line), 1), maximum) - 1)
+        block = document.findBlockByNumber(min(max(line, 1), maximum) - 1)
         cursor = editor.textCursor()
         cursor.setPosition(block.position())
         editor.setTextCursor(cursor)
         editor.centerCursor()
+        self._hide_goto_bar()
         editor.setFocus(Qt.FocusReason.ShortcutFocusReason)
 
+    def _hide_goto_bar(self) -> None:
+        bar = getattr(self, "_goto_bar", None)
+        if bar is None:
+            return
+        bar.set_message("")
+        bar.hide()
     def _shortcut_replace(self) -> None:
         if self._writable_text_editor() is None:
             return
+        self._hide_goto_bar()
         self._find_bar.set_replace_mode(True)
         self._find_bar.set_not_found(False)
         self._find_bar.show()

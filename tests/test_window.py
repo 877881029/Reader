@@ -4624,70 +4624,96 @@ def test_ctrl_h_ignored_for_read_only_and_non_text(qtbot, tmp_path: Path):
     assert other.find_bar().isVisible() is False
 
 
-def test_ctrl_g_jumps_to_line_on_code_tab(qtbot, tmp_path: Path):
+def _goto_bar(window):
+    from PySide6.QtWidgets import QLineEdit
+
+    bar = window.findChild(QWidget, "goToLineBar")
+    edit = window.findChild(QLineEdit, "goToLineInput")
+    assert bar is not None and edit is not None
+    return bar, edit
+
+
+def test_ctrl_j_goto_bar_jumps_clamps_and_closes(qtbot, tmp_path: Path):
     path = tmp_path / "g.json"
     path.write_bytes(b"1\n2\n3\n4\n5\n")
     window = _code_window(qtbot)
     view = _open_code(qtbot, window, path)
     window.show()
-    seen: list[tuple[int, int]] = []
-
-    def prompt(current: int, maximum: int) -> int | None:
-        seen.append((current, maximum))
-        return 4
-
-    window.goto_line_prompt = prompt
-    assert window.actionGoToLine.shortcut().toString() == "Ctrl+G"
+    qtbot.waitExposed(window)
+    keys = {seq.toString() for seq in window.actionGoToLine.shortcuts()}
+    assert keys == {"Ctrl+J", "Ctrl+G"}
+    bar, edit = _goto_bar(window)
+    assert bar.isVisible() is False
 
     window.actionGoToLine.trigger()
 
-    assert seen == [(1, 6)]
+    assert bar.isVisible() and edit.placeholderText() == "转到行（1–6）"
+    edit.setText("4")
+    qtbot.keyClick(edit, Qt.Key.Key_Return)
     cursor = view.editor().textCursor()
     assert cursor.blockNumber() == 3 and cursor.positionInBlock() == 0
+    assert bar.isVisible() is False
+
+    window.actionGoToLine.trigger()
+    edit.setText("999")
+    qtbot.keyClick(edit, Qt.Key.Key_Return)
+    assert view.editor().textCursor().blockNumber() == 5
 
 
-def test_ctrl_g_cancel_keeps_caret_and_works_in_markdown_text(qtbot):
+def test_ctrl_j_invalid_input_and_escape(qtbot, tmp_path: Path):
+    path = tmp_path / "g.txt"
+    path.write_bytes(b"a\nb")
+    window = _code_window(qtbot)
+    view = _open_code(qtbot, window, path)
+    window.show()
+    qtbot.waitExposed(window)
+    bar, edit = _goto_bar(window)
+
+    window.actionGoToLine.trigger()
+    edit.setText("abc")
+    qtbot.keyClick(edit, Qt.Key.Key_Return)
+    message = bar.findChild(QLabel, "goToLineMessage")
+    assert bar.isVisible() and message.isVisible() and message.text() == "无效行号"
+    assert view.editor().textCursor().blockNumber() == 0
+
+    qtbot.keyClick(edit, Qt.Key.Key_Escape)
+    assert bar.isVisible() is False
+
+
+def test_find_and_goto_bars_are_exclusive(qtbot, tmp_path: Path):
+    path = tmp_path / "g.txt"
+    path.write_bytes(b"a\nb")
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, path)
+    window.show()
+    qtbot.waitExposed(window)
+    bar, _edit = _goto_bar(window)
+
+    window.actionFind.trigger()
+    window.actionGoToLine.trigger()
+    assert bar.isVisible() and window.find_bar().isVisible() is False
+    window.actionFind.trigger()
+    assert window.find_bar().isVisible() and bar.isVisible() is False
+
+
+def test_ctrl_j_in_markdown_text_and_ignored_without_text(qtbot):
     from reader.preview.md_text_view import MarkdownTextView
 
     window = make_window(lambda *_a, **_k: builtin_result())
     qtbot.addWidget(window)
     window.show()
+    qtbot.waitExposed(window)
+    bar, edit = _goto_bar(window)
+    window.actionGoToLine.trigger()
+    assert bar.isVisible() is False
+
     window.add_untitled_markdown_tab()
     editor = window.findChild(MarkdownTextView)._editor
     editor.setPlainText("a\nb\nc")
-    window.goto_line_prompt = lambda _current, _maximum: None
     window.actionGoToLine.trigger()
-    assert editor.textCursor().blockNumber() == 0
-
-    window.goto_line_prompt = lambda _current, _maximum: 3
-    window.actionGoToLine.trigger()
+    edit.setText("3")
+    qtbot.keyClick(edit, Qt.Key.Key_Return)
     assert editor.textCursor().blockNumber() == 2
-
-
-def test_ctrl_g_ignored_without_text_page(qtbot):
-    window = make_window(lambda *_a, **_k: builtin_result())
-    qtbot.addWidget(window)
-    window.show()
-    window.goto_line_prompt = lambda *_a: pytest.fail("no text page must not prompt")
-    window.actionGoToLine.trigger()
-
-
-def test_default_goto_prompt_uses_input_dialog(qtbot, monkeypatch):
-    from PySide6.QtWidgets import QInputDialog
-
-    window = make_window(lambda *_a, **_k: builtin_result())
-    qtbot.addWidget(window)
-    calls: list[tuple] = []
-
-    def fake_get_int(parent, title, label, value, minimum, maximum, step=1):
-        calls.append((title, label, value, minimum, maximum))
-        return 7, True
-
-    monkeypatch.setattr(QInputDialog, "getInt", fake_get_int)
-    assert window._ask_goto_line(3, 9) == 7
-    assert calls == [("转到行", "行号：", 3, 1, 9)]
-    monkeypatch.setattr(QInputDialog, "getInt", lambda *_a, **_k: (0, False))
-    assert window._ask_goto_line(3, 9) is None
 
 
 def test_browser_menu_opens_browser_tab_without_recent_or_prompt(qtbot, tmp_path: Path):
