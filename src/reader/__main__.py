@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QApplication
@@ -11,6 +12,7 @@ from reader.ipc import SingleInstance
 from reader.resources import resource_path
 from reader.shell.associate import create_desktop_shortcut, register_open_with
 from reader.smoke import append_smoke_batch
+from reader.terminal.selftest import run_pty_selftest
 
 SETTINGS_CLAIM_DELAY_MS = 2500
 
@@ -53,6 +55,8 @@ def _claim_protected_defaults_later() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
+    if len(argv) >= 3 and argv[1] == "--pty-selftest":
+        return run_pty_selftest(Path(argv[2]))
     files = [arg for arg in argv[1:] if not arg.startswith("-")]
     set_app_user_model_id()
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)

@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 
 ROOT = Path(SPECPATH)
@@ -19,18 +19,24 @@ pyside6_hidden = (
     + collect_submodules('PySide6.QtWebEngineWidgets')
     + collect_submodules('PySide6.QtWebChannel')
     + collect_submodules('PySide6.QtSvg')
+    + ['winpty']
 )
+# ConPTY runtime: winpty's DLLs plus OpenConsole.exe / winpty-agent.exe beside them.
+winpty_binaries = collect_dynamic_libs('winpty')
+winpty_datas = collect_data_files('winpty', includes=['*.exe'])
 
 a = Analysis(
     [str(ROOT / 'src/reader/__main__.py')],
     pathex=[str(ROOT / 'src')],
-    binaries=[],
+    binaries=winpty_binaries,
     datas=pyside6_datas
+    + winpty_datas
     + [
         (str(ROOT / 'assets/icons/reader.ico'), 'assets/icons'),
         (str(ROOT / 'assets/icons/reader-r.svg'), 'assets/icons'),
         (str(ROOT / 'assets/pptx-viewer'), 'assets/pptx-viewer'),
         (str(ROOT / 'assets/md-viewer'), 'assets/md-viewer'),
+        (str(ROOT / 'assets/terminal-viewer'), 'assets/terminal-viewer'),
         (str(ROOT / 'VERSION'), '.'),
     ],
     hiddenimports=pyside6_hidden,

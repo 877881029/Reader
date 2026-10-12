@@ -500,6 +500,40 @@ if ([string]::IsNullOrWhiteSpace($hostLocalAppData)) {
     )
 }
 
+function Invoke-PtySelftest {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [int]$TimeoutSeconds = 60
+    )
+    $ptyRoot = Join-Path $env:TEMP "reader-pty-smoke-$RunId"
+    New-Item -ItemType Directory -Force $ptyRoot | Out-Null
+    $resultPath = Join-Path $ptyRoot "pty.json"
+    $failure = $null
+    $result = $null
+    $process = Start-Process -FilePath $ExePath `
+        -ArgumentList @("--pty-selftest", $resultPath) -PassThru
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        $process.Kill()
+        $failure = "Reader PTY selftest timed out after $TimeoutSeconds s"
+    } elseif (-not (Test-Path $resultPath)) {
+        $failure = "Reader PTY selftest wrote no result (exit $($process.ExitCode))"
+    } else {
+        $result = Get-Content $resultPath -Raw | ConvertFrom-Json
+        if ($process.ExitCode -ne 0 -or -not $result.ok) {
+            $failure = "Reader PTY selftest failed (exit $($process.ExitCode)): $($result.error) $($result.tail)"
+        }
+    }
+    Remove-IsolationRoot -Path $ptyRoot
+    if ($null -ne $failure) {
+        throw $failure
+    }
+    return $result
+}
+
+$verifiedPty = Invoke-PtySelftest -ExePath $resolvedExe -RunId $runId
+Write-Host "Reader PTY selftest: ok shell=$($verifiedPty.shell)"
+
 try {
     # Phase A: frozen visual rendering in its own process and namespace.
     Set-SmokeEnvironment `
@@ -955,6 +989,7 @@ if ($smokeSucceeded) {
         "visual-ready slides=4, markdown-ready kind=markdown, " +
         "TXT-ready kind=code extension=.txt, " +
         "C++-ready extensions=.cpp,.hpp,.cc,.cxx,.hh,.hxx,.inl,.ipp, " +
+        "PTY-ready shell=cmd.exe, " +
         "exact two 2-file batches"
     )
 }

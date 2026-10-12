@@ -208,7 +208,7 @@ def test_build_verifies_frozen_web_runtimes_and_webchannel() -> None:
     assert "_internal\\PySide6\\QtWebChannel.pyd" in script
     assert "Frozen runtime resource is missing" in script
     assert "function Test-WebBundleManifest" in script
-    assert script.count("Test-WebBundleManifest -ManifestPath") == 4
+    assert script.count("Test-WebBundleManifest -ManifestPath") == 6
     assert "[string]::IsNullOrWhiteSpace($line)" in script
     assert '$line -notmatch "^[0-9a-f]{64}  .+$"' in script
     assert "Web bundle manifest has no entries" in script
@@ -633,3 +633,50 @@ def test_install_local_script_parses():
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+TERMINAL_NPM = [
+    'Invoke-Npm "ci --prefix web\\terminal-viewer"',
+    'Invoke-Npm "test --prefix web\\terminal-viewer"',
+    'Invoke-Npm "run typecheck --prefix web\\terminal-viewer"',
+    'Invoke-Npm "run build --prefix web\\terminal-viewer"',
+]
+
+
+def test_reader_spec_bundles_terminal_viewer_and_conpty() -> None:
+    spec = (ROOT / "reader.spec").read_text(encoding="utf-8")
+    normalized = " ".join(spec.split())
+    assert "(str(ROOT / 'assets/terminal-viewer'), 'assets/terminal-viewer')" in normalized
+    assert "collect_dynamic_libs('winpty')" in spec
+    assert "collect_data_files('winpty', includes=['*.exe'])" in spec
+    assert "'winpty'" in spec
+
+
+@pytest.mark.parametrize("name", ["verify.ps1", "build_windows.ps1"])
+def test_scripts_build_terminal_viewer_after_markdown(name: str) -> None:
+    script = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+    positions = [script.index(line) for line in TERMINAL_NPM]
+    assert positions == sorted(positions)
+    assert positions[0] > script.index('Invoke-Npm "run build --prefix web\\md-viewer"')
+
+
+def test_build_verifies_frozen_terminal_runtime() -> None:
+    script = (ROOT / "scripts" / "build_windows.ps1").read_text(encoding="utf-8")
+    for relative in (
+        "_internal\\assets\\terminal-viewer\\index.html",
+        "_internal\\assets\\terminal-viewer\\manifest.sha256",
+        "_internal\\assets\\terminal-viewer\\THIRD_PARTY_NOTICES.txt",
+        "_internal\\winpty\\OpenConsole.exe",
+        "_internal\\winpty\\conpty.dll",
+    ):
+        assert relative in script
+    assert "Terminal bundle hash mismatch" in script
+    assert "Frozen Terminal bundle hash mismatch" in script
+
+
+def test_smoke_runs_frozen_pty_selftest() -> None:
+    script = (ROOT / "scripts" / "smoke_windows.ps1").read_text(encoding="utf-8")
+    assert script.isascii()
+    assert "--pty-selftest" in script
+    assert "Reader PTY selftest" in script
+    assert "PTY-ready" in script

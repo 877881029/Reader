@@ -93,6 +93,10 @@ Invoke-Npm "ci --prefix web\md-viewer"
 Invoke-Npm "test --prefix web\md-viewer"
 Invoke-Npm "run typecheck --prefix web\md-viewer"
 Invoke-Npm "run build --prefix web\md-viewer"
+Invoke-Npm "ci --prefix web\terminal-viewer"
+Invoke-Npm "test --prefix web\terminal-viewer"
+Invoke-Npm "run typecheck --prefix web\terminal-viewer"
+Invoke-Npm "run build --prefix web\terminal-viewer"
 
 $PptxBundlePath = Join-Path $Root "assets\pptx-viewer"
 $PptxNoticePath = Join-Path $Root "web\pptx-viewer\THIRD_PARTY_NOTICES.txt"
@@ -113,6 +117,16 @@ Copy-Item $MdNoticePath (Join-Path $MdBundlePath "THIRD_PARTY_NOTICES.txt") -For
 $MdManifestPath = Write-WebBundleManifest -BundlePath $MdBundlePath
 Test-WebBundleManifest -ManifestPath $MdManifestPath -BundlePath $MdBundlePath `
     -MismatchLabel "Markdown bundle hash mismatch"
+
+$TerminalBundlePath = Join-Path $Root "assets\terminal-viewer"
+$TerminalNoticePath = Join-Path $Root "web\terminal-viewer\THIRD_PARTY_NOTICES.txt"
+if (-not (Test-Path (Join-Path $TerminalBundlePath "index.html"))) {
+    throw "Terminal viewer build did not produce index.html"
+}
+Copy-Item $TerminalNoticePath (Join-Path $TerminalBundlePath "THIRD_PARTY_NOTICES.txt") -Force
+$TerminalManifestPath = Write-WebBundleManifest -BundlePath $TerminalBundlePath
+Test-WebBundleManifest -ManifestPath $TerminalManifestPath -BundlePath $TerminalBundlePath `
+    -MismatchLabel "Terminal bundle hash mismatch"
 
 if ([string]::IsNullOrWhiteSpace($Python)) {
     if (-not (Test-Path ".venv\Scripts\python.exe")) {
@@ -160,6 +174,7 @@ if (-not (Test-Path "dist\Reader\Reader.exe")) {
 
 $FrozenPptxBundlePath = Join-Path $DistPath "Reader\_internal\assets\pptx-viewer"
 $FrozenMdBundlePath = Join-Path $DistPath "Reader\_internal\assets\md-viewer"
+$FrozenTerminalBundlePath = Join-Path $DistPath "Reader\_internal\assets\terminal-viewer"
 $FrozenRuntimePaths = @(
     "Reader\_internal\assets\pptx-viewer\index.html",
     "Reader\_internal\assets\pptx-viewer\manifest.sha256",
@@ -167,6 +182,11 @@ $FrozenRuntimePaths = @(
     "Reader\_internal\assets\md-viewer\index.html",
     "Reader\_internal\assets\md-viewer\manifest.sha256",
     "Reader\_internal\assets\md-viewer\THIRD_PARTY_NOTICES.txt",
+    "Reader\_internal\assets\terminal-viewer\index.html",
+    "Reader\_internal\assets\terminal-viewer\manifest.sha256",
+    "Reader\_internal\assets\terminal-viewer\THIRD_PARTY_NOTICES.txt",
+    "Reader\_internal\winpty\OpenConsole.exe",
+    "Reader\_internal\winpty\conpty.dll",
     "Reader\_internal\PySide6\QtWebChannel.pyd"
 )
 foreach ($relative in $FrozenRuntimePaths) {
@@ -180,5 +200,8 @@ Test-WebBundleManifest -ManifestPath $FrozenPptxManifestPath -BundlePath $Frozen
 $FrozenMdManifestPath = Join-Path $FrozenMdBundlePath "manifest.sha256"
 Test-WebBundleManifest -ManifestPath $FrozenMdManifestPath -BundlePath $FrozenMdBundlePath `
     -MismatchLabel "Frozen Markdown bundle hash mismatch"
+$FrozenTerminalManifestPath = Join-Path $FrozenTerminalBundlePath "manifest.sha256"
+Test-WebBundleManifest -ManifestPath $FrozenTerminalManifestPath -BundlePath $FrozenTerminalBundlePath `
+    -MismatchLabel "Frozen Terminal bundle hash mismatch"
 
 Write-Host "Built dist\Reader\Reader.exe"
