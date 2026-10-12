@@ -204,6 +204,21 @@ def _set_shortcut_app_id(shortcut_path: Path, app_id: str) -> None:
         return
 
 
+def _is_stale_reader_shortcut(shell, shortcut_path: Path, exe: str) -> bool:
+    """True only when a Reader.exe shortcut points at a different Reader.exe build."""
+    if Path(exe).name.lower() != "reader.exe":
+        return False
+    try:
+        current = str(shell.CreateShortCut(str(shortcut_path)).Targetpath or "")
+    except Exception:
+        return False
+    if Path(current).name.lower() != "reader.exe":
+        return False
+    return os.path.normcase(os.path.normpath(current)) != os.path.normcase(
+        os.path.normpath(exe)
+    )
+
+
 def create_desktop_shortcut(
     exe: str,
     name: str = "Reader",
@@ -217,13 +232,14 @@ def create_desktop_shortcut(
     desktop = _desktop_path()
     desktop.mkdir(parents=True, exist_ok=True)
     shortcut_path = desktop / f"{name}.lnk"
-    if shortcut_path.exists() and not overwrite:
-        return shortcut_path
-
     if winshell_or_com is None:
         import win32com.client as winshell_or_com
 
     shell = winshell_or_com.Dispatch("WScript.Shell")
+    if shortcut_path.exists() and not overwrite:
+        if not _is_stale_reader_shortcut(shell, shortcut_path, exe):
+            return shortcut_path
+
     shortcut = shell.CreateShortCut(str(shortcut_path))
     shortcut.Targetpath = exe
     shortcut.Arguments = subprocess.list2cmdline(list(args)) if args else ""

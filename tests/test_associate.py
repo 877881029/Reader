@@ -196,20 +196,22 @@ class FakeShortcut:
 
 
 class FakeWScriptShell:
-    def __init__(self) -> None:
+    def __init__(self, existing_target: str = "") -> None:
         self.shortcut_paths: list[str] = []
         self.shortcuts: list[FakeShortcut] = []
+        self.existing_target = existing_target
 
     def CreateShortCut(self, path: str) -> FakeShortcut:
         shortcut = FakeShortcut()
+        shortcut.Targetpath = self.existing_target
         self.shortcut_paths.append(path)
         self.shortcuts.append(shortcut)
         return shortcut
 
 
 class FakeComModule:
-    def __init__(self) -> None:
-        self.shell = FakeWScriptShell()
+    def __init__(self, existing_target: str = "") -> None:
+        self.shell = FakeWScriptShell(existing_target)
 
     def Dispatch(self, prog_id: str) -> FakeWScriptShell:
         assert prog_id == "WScript.Shell"
@@ -275,7 +277,7 @@ def test_create_desktop_shortcut_preserves_existing_user_shortcut(
 
     assert result == existing
     assert existing.read_bytes() == b"user shortcut"
-    assert com.shell.shortcuts == []
+    assert not any(shortcut.saved for shortcut in com.shell.shortcuts)
 
 
 def test_create_desktop_shortcut_sets_app_user_model_id(monkeypatch, tmp_path: Path) -> None:
@@ -351,3 +353,44 @@ def test_create_desktop_shortcut_uses_list2cmdline_for_arguments(monkeypatch, tm
     assert shortcut.Targetpath == exe
     assert shortcut.Arguments == subprocess.list2cmdline(list(args))
     assert shortcut.IconLocation == f'"{exe}",0'
+
+
+def _existing_shortcut(monkeypatch, tmp_path: Path) -> Path:
+    desktop = tmp_path / "KnownDesktop"
+    desktop.mkdir()
+    existing = desktop / "Reader.lnk"
+    existing.write_bytes(b"old shortcut")
+    monkeypatch.setattr("reader.shell.associate._desktop_known_location", lambda: desktop)
+    return existing
+
+
+def test_create_desktop_shortcut_refreshes_stale_reader_target(monkeypatch, tmp_path: Path) -> None:
+    _existing_shortcut(monkeypatch, tmp_path)
+    com = FakeComModule(existing_target=r"C:\Old\dist\Reader\Reader.exe")
+
+    create_desktop_shortcut(r"C:\New\Reader\Reader.exe", winshell_or_com=com)
+
+    saved = [s for s in com.shell.shortcuts if s.saved]
+    assert len(saved) == 1
+    assert saved[0].Targetpath == r"C:\New\Reader\Reader.exe"
+    assert saved[0].WorkingDirectory == r"C:\New\Reader"
+
+
+@pytest.mark.parametrize(
+    ("existing_target", "new_exe"),
+    [
+        (r"C:\New\Reader\Reader.exe", r"c:\new\reader\READER.EXE"),
+        (r"C:\Windows\notepad.exe", r"C:\New\Reader\Reader.exe"),
+        (r"C:\Old\dist\Reader\Reader.exe", r"C:\venv\Scripts\python.exe"),
+    ],
+)
+def test_create_desktop_shortcut_keeps_same_foreign_or_dev_targets(
+    monkeypatch, tmp_path: Path, existing_target: str, new_exe: str
+) -> None:
+    existing = _existing_shortcut(monkeypatch, tmp_path)
+    com = FakeComModule(existing_target=existing_target)
+
+    create_desktop_shortcut(new_exe, winshell_or_com=com)
+
+    assert not any(shortcut.saved for shortcut in com.shell.shortcuts)
+    assert existing.read_bytes() == b"old shortcut"
