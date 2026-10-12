@@ -10,7 +10,8 @@ Git：P1 最终状态 `1ef77f3` 已同步；本边界提交 `+` 新建菜单规�
 - 用户需求：`+` 改为下拉：新建文件（默认 md，同现状）、打开文件（支持格式选择框）、Browser、Terminal（后两项仅占位不实现）；每项带图标；Markdown 增加可见的编辑/预览切换按钮。
 - 规格：`docs/superpowers/specs/2026-10-12-new-tab-menu-design.md`
 - 计划：`docs/superpowers/plans/2026-10-12-new-tab-menu.md`（3 个顺序 TDD 任务）
-- 下一步：Task 1 `+` 下拉菜单。
+- Task 1 完成：`+` 弹出 `tabNewMenu`（圆角卡片色，`src/reader/shell/icons.py` 运行时绘制线框图标，无资源文件）：新建文件（`add_untitled_markdown_tab`，同原行为）、打开文件（`_open_dialog` 支持格式过滤）、分隔线、Browser / Terminal（禁用，提示「即将推出」）。`actionNewTab`/`add_blank_tab` 不变。RED：`4 failed`；GREEN：window+title_chrome `160 passed`。
+- 下一步：Task 2 Markdown 编辑/预览切换按钮。
 
 ## 上一目标：记事本级文本编辑 P1（已完成）
 

@@ -11,13 +11,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QSizePolicy,
     QTabBar,
     QToolButton,
     QWidget,
 )
 
-from reader.theme import CHROME, CLOSE_HOVER, HOVER, INK, PAPER, PRESSED
+from reader.theme import CARD, CHROME, CLOSE_HOVER, HOVER, INK, LINE, MUTED, PAPER, PRESSED
 
 HTCLIENT = 1
 HTCAPTION = 2
@@ -295,6 +296,50 @@ class TitleChrome(QWidget):
 
     def set_plus_handler(self, callback: Callable[[], None]) -> None:
         self._plus.clicked.connect(callback)
+
+    def set_new_menu(self, menu: QMenu) -> None:
+        menu.setObjectName("tabNewMenu")
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        menu.setToolTipsVisible(True)
+        menu.setStyleSheet(
+            f"""
+            QMenu#tabNewMenu {{
+                background: {CARD};
+                border: 1px solid {LINE};
+                border-radius: 8px;
+                padding: 4px;
+                color: {INK};
+            }}
+            QMenu#tabNewMenu::item {{
+                padding: 6px 28px 6px 10px;
+                border-radius: 4px;
+                background: transparent;
+            }}
+            QMenu#tabNewMenu::item:selected {{
+                background: {HOVER};
+            }}
+            QMenu#tabNewMenu::item:disabled {{
+                color: {MUTED};
+            }}
+            QMenu#tabNewMenu::icon {{
+                padding-left: 10px;
+            }}
+            QMenu#tabNewMenu::separator {{
+                height: 1px;
+                background: {LINE};
+                margin: 4px 6px;
+            }}
+            """
+        )
+        self._new_menu = menu
+        self._plus.setToolTip("新建")
+        self._plus.clicked.connect(self._popup_new_menu)
+
+    def _popup_new_menu(self) -> None:
+        menu = getattr(self, "_new_menu", None)
+        if menu is None:
+            return
+        menu.popup(self._plus.mapToGlobal(QPoint(0, self._plus.height())))
 
     def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802
         adopted = getattr(self, "_adopted_tab_bar", None)

@@ -4399,3 +4399,59 @@ def test_default_unsaved_prompt_dismissed_dialog_means_cancel(qtbot, monkeypatch
     assert real_unsaved_prompt(window, "a.txt") == "cancel"
     assert seen[0] == "是否将更改保存到 a.txt？"
     assert set(seen[1:]) == {"保存", "不保存", "取消"}
+
+
+def _new_menu_window(qtbot):
+    window = make_window(lambda *_a, **_k: builtin_result())
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    return window
+
+
+def test_plus_click_pops_new_tab_menu_with_icons(qtbot):
+    from PySide6.QtWidgets import QMenu
+
+    window = _new_menu_window(qtbot)
+    plus = window.findChild(QWidget, "tabNewButton")
+    qtbot.mouseClick(plus, Qt.MouseButton.LeftButton)
+    menu = window.findChild(QMenu, "tabNewMenu")
+    assert menu is not None
+    qtbot.waitUntil(menu.isVisible)
+    actions = [a for a in menu.actions() if not a.isSeparator()]
+    assert [a.text() for a in actions] == ["新建文件", "打开文件", "Browser", "Terminal"]
+    assert all(not a.icon().isNull() for a in actions)
+    assert [a.isEnabled() for a in actions] == [True, True, False, False]
+    assert actions[2].toolTip() == "即将推出" and actions[3].toolTip() == "即将推出"
+    menu.hide()
+    assert window._tabs.count() == 0
+
+
+def test_new_tab_menu_new_file_adds_untitled_markdown(qtbot):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window = _new_menu_window(qtbot)
+    window.actionMenuNewFile.trigger()
+    assert window._tabs.count() == 1
+    assert window.tab_title(0) == "未命名.md"
+    assert window.findChild(MarkdownTextView) is not None
+
+
+def test_new_tab_menu_open_file_uses_supported_dialog(qtbot, monkeypatch):
+    window = _new_menu_window(qtbot)
+    captured: list[str] = []
+
+    def fake_dialog(*args, **kwargs):
+        captured.append(str(kwargs.get("filter") or (args[3] if len(args) >= 4 else "")))
+        return [], ""
+
+    monkeypatch.setattr("reader.shell.window.QFileDialog.getOpenFileNames", fake_dialog)
+    window.actionMenuOpenFile.trigger()
+    assert captured and "*.md" in captured[0] and "*.pdf" in captured[0]
+
+
+def test_new_tab_menu_placeholders_do_nothing(qtbot):
+    window = _new_menu_window(qtbot)
+    window.actionMenuBrowser.trigger()
+    window.actionMenuTerminal.trigger()
+    assert window._tabs.count() == 0

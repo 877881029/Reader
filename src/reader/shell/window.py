@@ -646,7 +646,6 @@ class MainWindow(QMainWindow):
         self._title_chrome.set_window_icon(self.windowIcon())
         self._title_chrome.adopt_tab_bar(self._tabs.tabBar())
         self._tabs._stretch_pane()
-        self._title_chrome.set_plus_handler(self.add_blank_tab)
         self._title_chrome.minimize_requested.connect(self.showMinimized)
         self._title_chrome.maximize_requested.connect(self._toggle_maximize)
         self._title_chrome.close_requested.connect(self.close)
@@ -698,6 +697,7 @@ class MainWindow(QMainWindow):
         self.actionNewTab.setObjectName("actionNewTab")
         self.actionNewTab.triggered.connect(self.add_blank_tab)
         self.addAction(self.actionNewTab)
+        self._build_new_tab_menu()
 
         self.actionNewWindow = QAction("新建窗口", self)
         self.actionNewWindow.setObjectName("actionNewWindow")
@@ -1264,6 +1264,34 @@ class MainWindow(QMainWindow):
 
     def add_blank_tab(self) -> None:
         self.add_untitled_markdown_tab()
+
+    def _build_new_tab_menu(self) -> None:
+        from PySide6.QtWidgets import QMenu
+
+        from reader.shell.icons import line_icon
+
+        menu = QMenu(self)
+        self.actionMenuNewFile = QAction(line_icon("new_file"), "新建文件", menu)
+        self.actionMenuNewFile.setObjectName("actionMenuNewFile")
+        self.actionMenuNewFile.setToolTip("新建 Markdown 文件")
+        self.actionMenuNewFile.triggered.connect(self.add_untitled_markdown_tab)
+        self.actionMenuOpenFile = QAction(line_icon("open_file"), "打开文件", menu)
+        self.actionMenuOpenFile.setObjectName("actionMenuOpenFile")
+        self.actionMenuOpenFile.setToolTip("打开电脑上的文件")
+        self.actionMenuOpenFile.triggered.connect(self._open_dialog)
+        self.actionMenuBrowser = QAction(line_icon("browser"), "Browser", menu)
+        self.actionMenuBrowser.setObjectName("actionMenuBrowser")
+        self.actionMenuTerminal = QAction(line_icon("terminal"), "Terminal", menu)
+        self.actionMenuTerminal.setObjectName("actionMenuTerminal")
+        for placeholder in (self.actionMenuBrowser, self.actionMenuTerminal):
+            placeholder.setToolTip("即将推出")
+            placeholder.setEnabled(False)
+        menu.addAction(self.actionMenuNewFile)
+        menu.addAction(self.actionMenuOpenFile)
+        menu.addSeparator()
+        menu.addAction(self.actionMenuBrowser)
+        menu.addAction(self.actionMenuTerminal)
+        self._title_chrome.set_new_menu(menu)
 
     def add_untitled_markdown_tab(self) -> None:
         from reader.preview.md_text_view import MarkdownTextView
