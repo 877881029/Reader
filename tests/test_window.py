@@ -4749,9 +4749,7 @@ def test_terminal_menu_opens_in_current_file_folder(qtbot, tmp_path: Path):
     source.write_bytes(b"x")
     window = _code_window(qtbot)
     _open_code(qtbot, window, source)
-    assert window.actionMenuTerminal.isEnabled() is True
-
-    window.actionMenuTerminal.trigger()
+    window.actionTerminalPowerShell.trigger()
 
     assert window._tabs.count() == 2
     assert window.tab_title(1) == "PowerShell"
@@ -4769,7 +4767,7 @@ def test_terminal_without_file_starts_in_home(qtbot):
     from reader.shell.terminal_page import TerminalPage
 
     window = _new_menu_window(qtbot)
-    window.actionMenuTerminal.trigger()
+    window.actionTerminalPowerShell.trigger()
     page = window.findChild(TerminalPage)
     assert page is not None and page.cwd() == Path.home()
     page.shutdown()
@@ -4838,3 +4836,46 @@ def test_code_status_bar_sits_on_window_bottom_edge(qtbot, tmp_path: Path):
     bottom_left = bar.mapTo(window, QPoint(0, bar.height()))
     assert bottom_left.x() == 0
     assert bottom_left.y() == window.height()
+
+
+def test_terminal_submenu_offers_powershell_and_cmd(qtbot):
+    from reader.shell.terminal_page import TerminalPage
+
+    window = _new_menu_window(qtbot)
+    submenu = window.actionMenuTerminal.menu()
+    assert submenu is not None
+    items = [a for a in submenu.actions() if not a.isSeparator()]
+    assert [a.text() for a in items] == ["PowerShell", "命令提示符"]
+    assert all(not a.icon().isNull() for a in items)
+
+    window.actionTerminalCmd.trigger()
+
+    page = window.findChild(TerminalPage)
+    assert page is not None and page.profile_key() == "cmd"
+    assert window.tab_title(0) == "命令提示符"
+    page.shutdown()
+
+
+def test_document_shortcuts_pass_through_on_terminal_tab(qtbot, tmp_path: Path):
+    from reader.shell.terminal_page import TerminalPage
+
+    path = tmp_path / "a.txt"
+    path.write_bytes(b"x")
+    window = _code_window(qtbot)
+    _open_code(qtbot, window, path)
+    window.show()
+    names = (
+        "actionOpen", "actionFind", "actionReplace", "actionGoToLine", "actionSave",
+        "actionSaveAs", "actionNewText", "actionMarkdownEdit", "actionMarkdownPreview",
+    )
+    always_on = ("actionOpen", "actionFind", "actionReplace", "actionGoToLine", "actionNewText")
+    assert all(getattr(window, name).isEnabled() for name in always_on)
+
+    window.actionTerminalCmd.trigger()
+    assert window._tabs.currentIndex() == 1
+    assert [name for name in names if getattr(window, name).isEnabled()] == []
+
+    window._tabs.setCurrentIndex(0)
+    assert all(getattr(window, name).isEnabled() for name in always_on)
+    assert window.actionSave.isEnabled() is True
+    window.findChild(TerminalPage).shutdown()

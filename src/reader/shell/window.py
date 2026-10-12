@@ -1288,7 +1288,32 @@ class MainWindow(QMainWindow):
         self._title_chrome.set_markdown_mode(
             document.mode if is_md and document is not None else None
         )
+        self._apply_terminal_passthrough(document)
         self.statusBar().showMessage(document.status_label if document is not None else "")
+
+    def _apply_terminal_passthrough(self, document: _Document | None) -> None:
+        # On a terminal tab, Ctrl-letter document shortcuts must reach the shell.
+        on_terminal = (
+            document is not None
+            and document.page.findChild(QWidget, "terminalPage") is not None
+        )
+        always_on = (
+            self.actionOpen,
+            self.actionFind,
+            self.actionReplace,
+            self.actionGoToLine,
+            self.actionNewText,
+        )
+        for action in always_on:
+            action.setEnabled(not on_terminal)
+        if on_terminal:
+            for action in (
+                self.actionSave,
+                self.actionSaveAs,
+                self.actionMarkdownEdit,
+                self.actionMarkdownPreview,
+            ):
+                action.setEnabled(False)
 
     def _forget_document_for_page(self, page: QWidget | None) -> None:
         if page is None:
@@ -1410,15 +1435,26 @@ class MainWindow(QMainWindow):
         self.actionMenuBrowser.setObjectName("actionMenuBrowser")
         self.actionMenuBrowser.setToolTip("在新标签中浏览网页")
         self.actionMenuBrowser.triggered.connect(self.add_browser_tab)
-        self.actionMenuTerminal = QAction(line_icon("terminal"), "Terminal", menu)
+        terminal_menu = QMenu("Terminal", menu)
+        terminal_menu.setIcon(line_icon("terminal"))
+        self.actionTerminalPowerShell = QAction(line_icon("terminal"), "PowerShell", terminal_menu)
+        self.actionTerminalPowerShell.setObjectName("actionTerminalPowerShell")
+        self.actionTerminalPowerShell.triggered.connect(
+            lambda _checked=False: self.add_terminal_tab("powershell")
+        )
+        self.actionTerminalCmd = QAction(line_icon("command"), "命令提示符", terminal_menu)
+        self.actionTerminalCmd.setObjectName("actionTerminalCmd")
+        self.actionTerminalCmd.triggered.connect(lambda _checked=False: self.add_terminal_tab("cmd"))
+        terminal_menu.addAction(self.actionTerminalPowerShell)
+        terminal_menu.addAction(self.actionTerminalCmd)
+        self.actionMenuTerminal = terminal_menu.menuAction()
         self.actionMenuTerminal.setObjectName("actionMenuTerminal")
-        self.actionMenuTerminal.setToolTip("在新标签中打开 PowerShell")
-        self.actionMenuTerminal.triggered.connect(lambda _checked=False: self.add_terminal_tab())
+        self.actionMenuTerminal.setToolTip("在新标签中打开终端")
         menu.addAction(self.actionMenuNewFile)
         menu.addAction(self.actionMenuOpenFile)
         menu.addSeparator()
         menu.addAction(self.actionMenuBrowser)
-        menu.addAction(self.actionMenuTerminal)
+        menu.addMenu(terminal_menu)
         self._title_chrome.set_new_menu(menu)
 
     def add_untitled_markdown_tab(self) -> None:

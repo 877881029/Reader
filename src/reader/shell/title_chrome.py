@@ -368,9 +368,14 @@ class TitleChrome(QWidget):
 
     def set_new_menu(self, menu: QMenu) -> None:
         menu.setObjectName("tabNewMenu")
+        submenus = menu.findChildren(QMenu)
+        for submenu in submenus:
+            submenu.setObjectName("tabNewSubmenu")
+            submenu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            submenu.setToolTipsVisible(True)
         menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         menu.setToolTipsVisible(True)
-        menu.setStyleSheet(
+        style = (
             f"""
             QMenu#tabNewMenu {{
                 background: {CARD};
@@ -400,6 +405,9 @@ class TitleChrome(QWidget):
             }}
             """
         )
+        menu.setStyleSheet(style)
+        for submenu in submenus:
+            submenu.setStyleSheet(style.replace("#tabNewMenu", "#tabNewSubmenu"))
         self._new_menu = menu
         self._plus.setToolTip("新建")
         self._plus.clicked.connect(self._popup_new_menu)

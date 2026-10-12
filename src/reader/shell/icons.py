@@ -76,11 +76,19 @@ def _paint(draw: _Painter, color: str) -> QIcon:
     return icon
 
 
+def _command(p: QPainter) -> None:
+    p.drawRoundedRect(QRectF(1.5, 2.5, 13, 11), 1.5, 1.5)
+    p.drawLine(QPointF(1.5, 5), QPointF(14.5, 5))
+    p.drawLine(QPointF(4, 8), QPointF(6, 9.5))
+    p.drawLine(QPointF(6, 9.5), QPointF(4, 11))
+
+
 _ICONS: dict[str, _Painter] = {
     "new_file": _new_file,
     "open_file": _open_file,
     "browser": _browser,
     "terminal": _terminal,
+    "command": _command,
 }
 
 
