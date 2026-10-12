@@ -1,6 +1,6 @@
 # New-Tab Menu and Markdown Mode Switch Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 > Execute tasks in order. For each task: observe RED, implement GREEN, run the
 > focused suite, update `docs/STATUS.md`, commit, and push `origin/main`.

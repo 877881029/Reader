@@ -1,6 +1,6 @@
 # New-Tab Menu and Markdown Mode Switch Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background
