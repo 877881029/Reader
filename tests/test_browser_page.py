@@ -30,3 +30,50 @@ def test_normalize_address(text: str, expected: str) -> None:
 @pytest.mark.parametrize("text", ["", "   "])
 def test_normalize_address_empty(text: str) -> None:
     assert normalize_address(text) is None
+
+
+def _html(tmp_path, title: str = "Hi there"):
+    page = tmp_path / "page.html"
+    page.write_text(f"<html><head><title>{title}</title></head><body>body text</body></html>", encoding="utf-8")
+    return page
+
+
+def test_browser_page_isolated_profile_and_controls(qtbot):
+    from PySide6.QtWebEngineCore import QWebEngineProfile
+    from PySide6.QtWidgets import QLineEdit, QToolButton
+
+    from reader.shell.browser_page import BrowserPage
+
+    page = BrowserPage()
+    qtbot.addWidget(page)
+    try:
+        assert page.objectName() == "browserPage"
+        assert page.profile().isOffTheRecord() is True
+        assert page.profile() is not QWebEngineProfile.defaultProfile()
+        for name in ("browserBack", "browserForward", "browserReload"):
+            assert page.findChild(QToolButton, name) is not None
+        address = page.findChild(QLineEdit, "browserAddress")
+        assert address is not None and address.placeholderText() == "输入网址或搜索"
+    finally:
+        page.shutdown()
+
+
+def test_browser_page_address_enter_loads_local_file_and_reports_title(qtbot, tmp_path):
+    from PySide6.QtWidgets import QLineEdit
+
+    from reader.shell.browser_page import BrowserPage
+
+    html = _html(tmp_path)
+    page = BrowserPage()
+    qtbot.addWidget(page)
+    titles: list[str] = []
+    page.title_changed.connect(titles.append)
+    try:
+        address = page.findChild(QLineEdit, "browserAddress")
+        address.setText(html.as_uri())
+        address.returnPressed.emit()
+        qtbot.waitUntil(lambda: "Hi there" in titles, timeout=10000)
+        qtbot.waitUntil(lambda: address.text() == html.as_uri(), timeout=5000)
+    finally:
+        page.shutdown()
+    page.shutdown()

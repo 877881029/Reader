@@ -4420,8 +4420,8 @@ def test_plus_click_pops_new_tab_menu_with_icons(qtbot):
     actions = [a for a in menu.actions() if not a.isSeparator()]
     assert [a.text() for a in actions] == ["新建文件", "打开文件", "Browser", "Terminal"]
     assert all(not a.icon().isNull() for a in actions)
-    assert [a.isEnabled() for a in actions] == [True, True, False, False]
-    assert actions[2].toolTip() == "即将推出" and actions[3].toolTip() == "即将推出"
+    assert [a.isEnabled() for a in actions] == [True, True, True, False]
+    assert actions[3].toolTip() == "即将推出"
     menu.hide()
     assert window._tabs.count() == 0
 
@@ -4451,7 +4451,6 @@ def test_new_tab_menu_open_file_uses_supported_dialog(qtbot, monkeypatch):
 
 def test_new_tab_menu_placeholders_do_nothing(qtbot):
     window = _new_menu_window(qtbot)
-    window.actionMenuBrowser.trigger()
     window.actionMenuTerminal.trigger()
     assert window._tabs.count() == 0
 
@@ -4694,3 +4693,27 @@ def test_default_goto_prompt_uses_input_dialog(qtbot, monkeypatch):
     assert calls == [("转到行", "行号：", 3, 1, 9)]
     monkeypatch.setattr(QInputDialog, "getInt", lambda *_a, **_k: (0, False))
     assert window._ask_goto_line(3, 9) is None
+
+
+def test_browser_menu_opens_browser_tab_without_recent_or_prompt(qtbot, tmp_path: Path):
+    from reader.shell.browser_page import BrowserPage
+    from reader.shell.recent import visible_recent
+
+    window = _new_menu_window(qtbot)
+    assert window.actionMenuBrowser.isEnabled() is True
+
+    window.actionMenuBrowser.trigger()
+
+    assert window._tabs.count() == 1
+    assert window.tab_title(0) == "浏览器"
+    page = window.findChild(BrowserPage)
+    assert page is not None
+    html = tmp_path / "t.html"
+    html.write_text("<html><head><title>Example Title</title></head></html>", encoding="utf-8")
+    page.load_address(html.as_uri())
+    qtbot.waitUntil(lambda: window.tab_title(0) == "Example Title", timeout=10000)
+
+    window.unsaved_prompt = lambda _name: pytest.fail("browser tab must not prompt")
+    window.close_tab(0)
+    assert window._documents == {}
+    assert visible_recent() == []

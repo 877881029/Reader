@@ -15,6 +15,7 @@ Git：`+` 新建菜单最终状态 `9b68b86` 已同步；本边界提交主页�
    - Task 4 完成：README（顺带修复上一轮重复的半句）与功能全解查找章节、快捷键表同步；规格与计划标记 Implemented。P2 完成。
 3. `+` 菜单 Browser 实现 — 执行中。规格 `docs/superpowers/specs/2026-10-12-browser-tab-design.md`，计划 `docs/superpowers/plans/2026-10-12-browser-tab.md`（3 任务）。
    - Task 1 完成：`browser_page.normalize_address`：http/https/file 原样；无空格且像域名 → `https://`，`localhost[:port]` → `http://`；其他（含 `javascript:`/`data:`）一律转 Bing 搜索；空输入返回 None。RED：收集错误；GREEN：`13 passed`。
+   - Task 2 完成：`BrowserPage`（`browserPage`）：后退/前进/刷新 + 地址栏「输入网址或搜索」，独立 off-the-record `QWebEngineProfile`（不落盘、不共享离线查看器 profile，无 WebChannel），关闭时换 inert page 再释放 page/profile；`MainWindow.add_browser_tab` 通过通用 `_add_tool_tab` 建标签「浏览器」，标题跟随网页标题（>32 字截断，tooltip 全称），不进最近文件、关闭不提示；`Ctrl+F` 走既有 WebEngine 查找。菜单 Browser 启用，Terminal 仍禁用。RED：`4 failed`；GREEN：browser_page+window `185 passed`；截图确认工具栏高度 42px。
 4. `+` 菜单 Terminal 实现 — 待开始。
 
 ## 上一目标：`+` 新建菜单与 Markdown 编辑/预览切换（已完成）

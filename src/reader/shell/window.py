@@ -1380,11 +1380,12 @@ class MainWindow(QMainWindow):
         self.actionMenuOpenFile.triggered.connect(self._open_dialog)
         self.actionMenuBrowser = QAction(line_icon("browser"), "Browser", menu)
         self.actionMenuBrowser.setObjectName("actionMenuBrowser")
+        self.actionMenuBrowser.setToolTip("在新标签中浏览网页")
+        self.actionMenuBrowser.triggered.connect(self.add_browser_tab)
         self.actionMenuTerminal = QAction(line_icon("terminal"), "Terminal", menu)
         self.actionMenuTerminal.setObjectName("actionMenuTerminal")
-        for placeholder in (self.actionMenuBrowser, self.actionMenuTerminal):
-            placeholder.setToolTip("即将推出")
-            placeholder.setEnabled(False)
+        self.actionMenuTerminal.setToolTip("即将推出")
+        self.actionMenuTerminal.setEnabled(False)
         menu.addAction(self.actionMenuNewFile)
         menu.addAction(self.actionMenuOpenFile)
         menu.addSeparator()
@@ -1527,6 +1528,49 @@ class MainWindow(QMainWindow):
         self._on_markdown_path_changed(document_id)
         self.statusBar().showMessage("已保存")
         return True
+
+    def _add_tool_tab(self, content: QWidget, title: str, status: str) -> str:
+        document_id = uuid4().hex
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(content)
+        self._documents[document_id] = _Document(
+            path=Path(f"{title}-{document_id[:8]}"),
+            page=page,
+            mode="builtin",
+            builtin_mode="builtin",
+            status_label=status,
+            last_result=PreviewResult(html="", status_label=status, kind="html"),
+        )
+        self._tabs.addTab(page, title)
+        self._tabs.setCurrentWidget(page)
+        self._refresh_content_stack()
+        self._refresh_preview_actions()
+        return document_id
+
+    def _set_tool_tab_title(self, document_id: str, title: str, fallback: str) -> None:
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+        index = self._tabs.indexOf(document.page)
+        if index < 0:
+            return
+        text = title.strip() or fallback
+        if len(text) > 32:
+            text = text[:31] + "…"
+        self._tabs.setTabText(index, text)
+        self._tabs.setTabToolTip(index, title)
+
+    def add_browser_tab(self) -> None:
+        from reader.shell.browser_page import BrowserPage
+
+        view = BrowserPage()
+        document_id = self._add_tool_tab(view, "浏览器", "浏览器")
+        view.title_changed.connect(
+            lambda title, did=document_id: self._set_tool_tab_title(did, title, "浏览器")
+        )
+        view.focus_address()
 
     def add_untitled_text_tab(self) -> None:
         from reader.preview.code_view import CodeTextView
