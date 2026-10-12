@@ -84,12 +84,12 @@ def test_webengine_test_process_disables_chromium_sandbox():
 def test_web_bundle_notices_and_manifests_stay_tracked():
     # The build briefly deletes these; an interrupted build must not be committed.
     tracked = subprocess.run(
-        ["git", "ls-files", "assets/pptx-viewer", "assets/md-viewer"],
+        ["git", "ls-files", "assets/pptx-viewer", "assets/md-viewer", "assets/terminal-viewer"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=True,
     ).stdout.split()
-    for bundle in ("pptx-viewer", "md-viewer"):
+    for bundle in ("pptx-viewer", "md-viewer", "terminal-viewer"):
         for name in ("THIRD_PARTY_NOTICES.txt", "manifest.sha256", "index.html"):
             assert f"assets/{bundle}/{name}" in tracked

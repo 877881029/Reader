@@ -11,6 +11,7 @@ Git：hex 布局最终状态 `cb8fe66` 已同步；本边界提交真终端（Co
 - 预研：`pywinpty 3.0.5` 在本机 ConPTY 可用，中文往返正确；ConPTY 启动会发终端查询（`ESC[c`），由 xterm.js 自动应答。
 - 规格：`docs/superpowers/specs/2026-10-12-real-terminal-design.md`；计划：`docs/superpowers/plans/2026-10-12-real-terminal.md`（5 任务）。
 - Task 1 完成：`reader/terminal/pty_session.py`：`SHELL_PROFILES`（PowerShell → `System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo`，命令提示符 → `System32\cmd.exe`，均绝对路径）；`PtySession(QObject)` 以真实行列 spawn ConPTY，守护线程阻塞读，经 Queued 内部信号回到主线程发 `output`/`exited`；`write`/`resize`/`shutdown`（强制结束，关闭后不再发信号）；`DA1_RESPONSE` 常量供测试/自检应答 ConPTY 设备属性查询。`pyproject.toml` 新增 `pywinpty==3.0.5`。RED：收集错误；GREEN：`6 passed`（cmd 中文、起始目录、`mode con` 尺寸、PowerShell 求值、exit/shutdown）。
+- Task 2 完成：新增 `web/terminal-viewer`（Vite + TS，`@xterm/xterm 6.0.0`、`@xterm/addon-fit 0.11.0`，MIT）：`theme.ts` Copilot 浅色主题（底 `#fbf9f5`、字/光标 `#1f1d1a`、选区 `#e9e3d9`、GitHub Light ANSI 16 色、Cascadia Mono 13px）；`terminal.ts::startTerminal` 打开并 fit、`ready(cols,rows)`、按键/二进制输入→`bridge.input`、尺寸变化→`bridge.resize`、shell 输出→`term.write`；有选区时 `Ctrl+C`/`Ctrl+Shift+C` 复制（经 `bridge.copyText`），无选区 `Ctrl+C` 交给 shell 中断，`Ctrl+V` 交浏览器原生粘贴；ResizeObserver 自动 fit；幂等 dispose。构建到 `assets/terminal-viewer`（notices + manifest，`.gitattributes` 已覆盖 LF）。Python 资产测试 `test_terminal_web_assets.py` 与卫生测试（新增 terminal bundle 跟踪）。RED：vitest 收集失败、卫生 `1 failed`；GREEN：vitest `5 passed`、typecheck、资产+卫生 `10 passed`。
 
 ## 上一目标：Hex 视图对齐与自适应布局（已完成）
 

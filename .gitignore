@@ -25,3 +25,4 @@ web/pptx-viewer/node_modules/
 web/md-viewer/node_modules/
 release/*.zip
 release/*.exe
+web/terminal-viewer/node_modules/
