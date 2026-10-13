@@ -1,9 +1,17 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-13
-Git：真终端最终状态 `d397dd1` 已同步；本边界提交终端配色微调规格与计划。
+Git：终端 15px 最终状态 `45a7cee` 已同步；本边界提交终端 DECRQM 崩溃修复规格与计划。
 
 ## 当前目标
+
+**修复：终端里 `ghcp`（Copilot CLI）不显示**（执行中）
+
+- 现象：用户 PowerShell 配置文件中的 `ghcp` 函数（启动 Copilot CLI 1.0.96）在 Copilot 右侧终端可用，在 Reader 终端只显示空白。
+- 排查：CLI 实际已启动，约 8.5KB 界面输出已到达 Reader；页面报 `Uncaught ReferenceError: i is not defined`，xterm 停止处理输出。逐条喂序列定位到 DECRQM `ESC[?2026$p`。根因：Vite（esbuild）二次压缩 xterm.js 6.0.0 已压缩代码时，把 `requestMode` 中 `let r;(…)(r||={})` 改写成 `(void 0||(i={}))`，严格模式下给未声明变量赋值抛错。xterm 上游源码无误。
+- 规格：`docs/superpowers/specs/2026-10-13-terminal-decrqm-fix-design.md`；计划：`docs/superpowers/plans/2026-10-13-terminal-decrqm-fix.md`。
+
+## 上一目标：终端配色微调（已完成）
 
 **终端配色微调（对齐 Copilot 终端截图取色）**（已完成，含 15px 字号追加）
 
