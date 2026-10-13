@@ -23,3 +23,7 @@ height ~17 px versus Reader's ~20 px.
 
 - Theme constants and CSS updated (web tests), Python page background and
   real WebEngine body colour `rgb(246, 242, 238)`; side-by-side screenshot.
+
+## Amendment (2026-10-13)
+
+User request: terminal font size 15px (was 12px). Line height 1.25 unchanged.
