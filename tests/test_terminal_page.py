@@ -95,3 +95,34 @@ def test_shutdown_stops_shell(qtbot, cmd_page):
     cmd_page.shutdown()
     cmd_page.shutdown()
     assert session.is_running() is False
+
+
+def test_decrqm_queries_are_answered_and_alt_screen_works(qtbot, cmd_page):
+    replies: list[str] = []
+    original = cmd_page._on_input
+
+    def spy(data: str) -> None:
+        replies.append(data)
+        original(data)
+
+    cmd_page._on_input = spy
+    errors = _js(
+        qtbot,
+        cmd_page,
+        "window.__termErrors = []; window.addEventListener('error', e => window.__termErrors.push(String(e.message))); true",
+    )
+    assert errors is True
+    for query in ("\\x1b[?2026$p", "\\x1b[?1049$p", "\\x1b[?12$p"):
+        _js(qtbot, cmd_page, f"window.readerTerminal.terminal.write('{query}'); true")
+    qtbot.waitUntil(lambda: any("\x1b[?2026;" in r for r in replies), timeout=TIMEOUT)
+    joined = "".join(replies)
+    assert "\x1b[?2026;2$y" in joined
+    assert "\x1b[?1049;2$y" in joined
+    assert "\x1b[?12;" in joined
+
+    _js(qtbot, cmd_page, "window.readerTerminal.terminal.write('\\x1b[>4;2m\\x1b[?u\\x1b[?2026$p\\x1b[?1049h'); true")
+    qtbot.waitUntil(
+        lambda: _js(qtbot, cmd_page, "window.readerTerminal.terminal.buffer.active.type") == "alternate",
+        timeout=TIMEOUT,
+    )
+    assert _js(qtbot, cmd_page, "JSON.stringify(window.__termErrors)") == "[]"

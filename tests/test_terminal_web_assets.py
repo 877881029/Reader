@@ -45,3 +45,9 @@ def test_notices_cover_xterm_packages():
     assert "## @xterm/xterm 6.0.0" in notice
     assert "## @xterm/addon-fit 0.11.0" in notice
     assert notice == (WEB / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
+
+
+def test_bundle_has_no_misminified_xterm_request_mode():
+    script = next((BUNDLE / "assets").glob("index-*.js")).read_text(encoding="utf-8")
+    assert "void 0||(i={})" not in script
+    assert "requestMode(" in script

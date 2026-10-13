@@ -10,6 +10,7 @@ Git：终端 15px 最终状态 `45a7cee` 已同步；本边界提交终端 DECRQ
 - 现象：用户 PowerShell 配置文件中的 `ghcp` 函数（启动 Copilot CLI 1.0.96）在 Copilot 右侧终端可用，在 Reader 终端只显示空白。
 - 排查：CLI 实际已启动，约 8.5KB 界面输出已到达 Reader；页面报 `Uncaught ReferenceError: i is not defined`，xterm 停止处理输出。逐条喂序列定位到 DECRQM `ESC[?2026$p`。根因：Vite（esbuild）二次压缩 xterm.js 6.0.0 已压缩代码时，把 `requestMode` 中 `let r;(…)(r||={})` 改写成 `(void 0||(i={}))`，严格模式下给未声明变量赋值抛错。xterm 上游源码无误。
 - 规格：`docs/superpowers/specs/2026-10-13-terminal-decrqm-fix-design.md`；计划：`docs/superpowers/plans/2026-10-13-terminal-decrqm-fix.md`。
+- 修复：`web/terminal-viewer/vite.config.ts` 设 `build.minify: false`（避免二次压缩已压缩的 xterm.js），重建 bundle（JS 337KB→425KB）。回归测试：真实 WebEngine 中写入 DECRQM（2026/1049/12）须经桥接收到 `ESC[?N;S$y` 应答、模拟 Copilot CLI 启动序列后进入 alternate 缓冲且无 JS 错误；静态守卫 bundle 不含 `void 0||(i={})`。RED：`2 failed`；GREEN：terminal_page+assets `11 passed`；实测 Reader 终端运行 `ghcp` 完整显示 Copilot CLI 界面（截图）。
 
 ## 上一目标：终端配色微调（已完成）
 
