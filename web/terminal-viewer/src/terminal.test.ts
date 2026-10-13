@@ -112,15 +112,19 @@ afterEach(() => {
 
 describe("Copilot terminal theme", () => {
   it("uses the Copilot light surface and GitHub Light ANSI colours", () => {
-    expect(COPILOT_TERMINAL_THEME.background).toBe("#fbf9f5");
-    expect(COPILOT_TERMINAL_THEME.foreground).toBe("#1f1d1a");
-    expect(COPILOT_TERMINAL_THEME.cursor).toBe("#1f1d1a");
-    expect(COPILOT_TERMINAL_THEME.selectionBackground).toBe("#e9e3d9");
+    expect(COPILOT_TERMINAL_THEME.background).toBe("#f6f2ee");
+    expect(COPILOT_TERMINAL_THEME.cursorAccent).toBe("#f6f2ee");
+    expect(COPILOT_TERMINAL_THEME.foreground).toBe("#3d2b5a");
+    expect(COPILOT_TERMINAL_THEME.black).toBe("#3d2b5a");
+    expect(COPILOT_TERMINAL_THEME.cursor).toBe("#2848a9");
+    expect(COPILOT_TERMINAL_THEME.selectionBackground).toBe("#ddd5ee");
     expect(COPILOT_TERMINAL_THEME.red).toBe("#cf222e");
     expect(COPILOT_TERMINAL_THEME.blue).toBe("#0969da");
     expect(COPILOT_TERMINAL_THEME.brightGreen).toBe("#1a7f37");
     expect(TERMINAL_FONT.fontFamily).toContain("Cascadia Mono");
-    expect(TERMINAL_FONT.fontSize).toBe(13);
+    expect(TERMINAL_FONT.fontSize).toBe(12);
+    expect(TERMINAL_FONT.fontWeight).toBe("normal");
+    expect(TERMINAL_FONT.lineHeight).toBe(1.25);
   });
 });
 

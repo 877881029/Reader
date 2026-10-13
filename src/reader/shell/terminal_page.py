@@ -20,7 +20,7 @@ from reader.resources import resource_path
 from reader.terminal.pty_session import SHELL_PROFILES, PtySession
 
 EXIT_HINT = "[进程已退出，按 Enter 重新启动]"
-_BACKGROUND = "#fbf9f5"
+_BACKGROUND = "#f6f2ee"
 _ALLOWED_SCHEMES = frozenset({"qrc", "data", "blob"})
 
 

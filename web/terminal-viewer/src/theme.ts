@@ -1,13 +1,13 @@
 import type { ITheme } from "@xterm/xterm";
 
-/** Copilot light surface with the GitHub Light ANSI palette. */
+/** Copilot terminal colours (sampled) with the GitHub Light ANSI palette. */
 export const COPILOT_TERMINAL_THEME: ITheme = {
-  background: "#fbf9f5",
-  foreground: "#1f1d1a",
-  cursor: "#1f1d1a",
-  cursorAccent: "#fbf9f5",
-  selectionBackground: "#e9e3d9",
-  black: "#24292f",
+  background: "#f6f2ee",
+  foreground: "#3d2b5a",
+  cursor: "#2848a9",
+  cursorAccent: "#f6f2ee",
+  selectionBackground: "#ddd5ee",
+  black: "#3d2b5a",
   red: "#cf222e",
   green: "#116329",
   yellow: "#4d2d00",
@@ -27,6 +27,7 @@ export const COPILOT_TERMINAL_THEME: ITheme = {
 
 export const TERMINAL_FONT = {
   fontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
-  fontSize: 13,
-  lineHeight: 1.2,
+  fontSize: 12,
+  fontWeight: "normal" as const,
+  lineHeight: 1.25,
 };

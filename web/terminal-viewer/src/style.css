@@ -5,14 +5,14 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #fbf9f5;
+  background: #f6f2ee;
 }
 
 #app {
   box-sizing: border-box;
-  padding: 8px 4px 4px 12px;
+  padding: 10px 4px 4px 16px;
 }
 
 .xterm .xterm-viewport {
-  background-color: #fbf9f5 !important;
+  background-color: #f6f2ee !important;
 }

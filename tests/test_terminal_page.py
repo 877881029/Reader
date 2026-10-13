@@ -61,7 +61,7 @@ def test_typed_command_output_reaches_xterm_with_copilot_theme(qtbot, cmd_page, 
     qtbot.waitUntil(lambda: _text(qtbot, cmd_page).count("READER_E2E 中文") >= 2, timeout=TIMEOUT)
     assert str(tmp_path) in _text(qtbot, cmd_page)
     background = _js(qtbot, cmd_page, "getComputedStyle(document.body).backgroundColor")
-    assert background == "rgb(251, 249, 245)"
+    assert background == "rgb(246, 242, 238)"
 
 
 def test_copy_text_goes_to_clipboard(qtbot, cmd_page, monkeypatch):

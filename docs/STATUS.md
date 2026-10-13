@@ -9,6 +9,7 @@ Git：真终端最终状态 `d397dd1` 已同步；本边界提交终端配色微
 
 - 用户反馈：终端字体与背景配色希望更好看；对比截图中 Copilot 终端底色 `#f6f2ee`、文字 `#3d2b5a`（深紫墨）、光标 `#2848a9`，字形高约 17px（Reader 约 20px，偏大偏重）。
 - 规格：`docs/superpowers/specs/2026-10-13-terminal-theme-tuning-design.md`；计划：`docs/superpowers/plans/2026-10-13-terminal-theme-tuning.md`（2 任务）。
+- Task 1 完成：主题改为截图取色——底/光标反色 `#f6f2ee`、文字 `#3d2b5a`、ANSI black 同文字色、光标 `#2848a9`、选区 `#ddd5ee`；字体 Cascadia Mono 12px、normal、行高 1.25；页面/视口与 Qt page 背景 `#f6f2ee`，内边距上 10px 左 16px。重建 bundle。RED：vitest `1 failed`、WebEngine 背景断言；GREEN：vitest `5 passed`，terminal_page+assets `9 passed`；新截图取色背景 `#f6f2ee`、文字 `#3d2b5a` 与 Copilot 一致。
 
 ## 上一目标：真终端（已完成）
 
