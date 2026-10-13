@@ -122,7 +122,7 @@ describe("Copilot terminal theme", () => {
     expect(COPILOT_TERMINAL_THEME.blue).toBe("#0969da");
     expect(COPILOT_TERMINAL_THEME.brightGreen).toBe("#1a7f37");
     expect(TERMINAL_FONT.fontFamily).toContain("Cascadia Mono");
-    expect(TERMINAL_FONT.fontSize).toBe(12);
+    expect(TERMINAL_FONT.fontSize).toBe(15);
     expect(TERMINAL_FONT.fontWeight).toBe("normal");
     expect(TERMINAL_FONT.lineHeight).toBe(1.25);
   });

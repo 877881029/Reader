@@ -27,7 +27,7 @@ export const COPILOT_TERMINAL_THEME: ITheme = {
 
 export const TERMINAL_FONT = {
   fontFamily: '"Cascadia Mono", Consolas, "Courier New", monospace',
-  fontSize: 12,
+  fontSize: 15,
   fontWeight: "normal" as const,
   lineHeight: 1.25,
 };

@@ -11,6 +11,7 @@ Git：真终端最终状态 `d397dd1` 已同步；本边界提交终端配色微
 - 规格：`docs/superpowers/specs/2026-10-13-terminal-theme-tuning-design.md`；计划：`docs/superpowers/plans/2026-10-13-terminal-theme-tuning.md`（2 任务）。
 - Task 1 完成：主题改为截图取色——底/光标反色 `#f6f2ee`、文字 `#3d2b5a`、ANSI black 同文字色、光标 `#2848a9`、选区 `#ddd5ee`；字体 Cascadia Mono 12px、normal、行高 1.25；页面/视口与 Qt page 背景 `#f6f2ee`，内边距上 10px 左 16px。重建 bundle。RED：vitest `1 failed`、WebEngine 背景断言；GREEN：vitest `5 passed`，terminal_page+assets `9 passed`；新截图取色背景 `#f6f2ee`、文字 `#3d2b5a` 与 Copilot 一致。
 - Task 2 完成：`verify.ps1 -Release`：Python `615 passed, 1 skipped`、Web、冻结构建、PTY 自检通过；GUI smoke 首次在 IPC 阶段报「Second launch did not forward and exit」（两批路径均已送达，机器负载高，pytest 耗时 243s 对比平时 165s），对同一构建单独重跑 `smoke_windows.ps1` 全部通过，判定为负载下的时序抖动（已知风险，若再现需放宽二次启动退出等待）。`install_local.ps1` 安装，SHA256 `830306E8152F10DAD2E83CA4D39B1FA2DF989F42C6CB81EF207F8572E9AEFE11`；规格/计划 Implemented。
+- 追加：用户要求终端字号 15px；规格追加 Amendment；vitest 断言先 RED（`1 failed`）后 GREEN（`5 passed`），重建 bundle，terminal_page+assets `9 passed`，截图确认。
 
 ## 上一目标：真终端（已完成）
 
