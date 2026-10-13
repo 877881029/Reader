@@ -5,7 +5,7 @@ Git：hex 布局最终状态 `cb8fe66` 已同步；本边界提交真终端（Co
 
 ## 当前目标
 
-**真终端：ConPTY + xterm.js，Command Prompt / PowerShell，Copilot 主题配色**（执行中）
+**真终端：ConPTY + xterm.js，Command Prompt / PowerShell，Copilot 主题配色**（已完成）
 
 - 用户需求：Terminal 能力与 Copilot 右侧终端一致，包含 Command 与 PowerShell；配色与 Copilot 一致。管理员模式经确认放弃（普通权限 Reader 无法在自身标签内承载提权 shell），只做普通权限。
 - 预研：`pywinpty 3.0.5` 在本机 ConPTY 可用，中文往返正确；ConPTY 启动会发终端查询（`ESC[c`），由 xterm.js 自动应答。
@@ -16,6 +16,7 @@ Git：hex 布局最终状态 `cb8fe66` 已同步；本边界提交真终端（Co
 - Task 4 完成：`+` → Terminal 改为子菜单（`tabNewSubmenu`，样式同主菜单）：PowerShell（`actionTerminalPowerShell`）、命令提示符（`actionTerminalCmd`，新增 `command` 线框图标）；标签标题为配置名。终端标签为当前页时禁用 `Ctrl+O/F/H/J(G)/N` 与保存/另存为/Markdown 编辑预览动作，使这些按键直达 shell，切回文档页恢复。RED：`4 failed`；GREEN：window+title_chrome `181 passed`；截图确认子菜单与 PowerShell 语法着色。
 - 用户调整：cmd 配置显示名由「命令提示符」改为「Command Prompt」（菜单项与标签标题），规格/计划同步。RED：`2 failed`；GREEN：终端相关 `5 passed`。
 - Task 5（打包）完成：`reader.spec` 收集 `winpty` 动态库 + `*.exe`（OpenConsole/winpty-agent）并打包 `assets/terminal-viewer`；`build_windows.ps1` / `verify.ps1` 在 Markdown 之后构建 terminal-viewer，构建脚本校验源/冻结 terminal bundle 清单并检查冻结 `_internal\winpty\OpenConsole.exe`、`conpty.dll`；新增 `reader/terminal/selftest.py` 与 `Reader.exe --pty-selftest <file>`（在创建 QApplication 前分支，cmd 经 ConPTY 回显标记，写 JSON 结果）；冻结 smoke 先跑 PTY 自检阶段（无 try/finally，严格清理）并在通过摘要中加入 `PTY-ready shell=cmd.exe`。RED：packaging `6 failed` + selftest 收集错误；GREEN：packaging `28 passed`、selftest+main_launch `25 passed`。
+- Task 5（发布）完成：README/功能全解 5.9 重写；首次发布门因剪贴板测试触碰系统剪贴板被他进程占用失败（`OpenClipboard Failed`），测试改用假剪贴板后重跑通过：Python `615 passed, 1 skipped`、PPTX/MD/Terminal Web、冻结构建、`Reader PTY selftest: ok`（冻结 exe 内 ConPTY 实测）及全部 GUI smoke；`install_local.ps1` 安装，SHA256 `2878F06037A0A94C2EC57CDB40A43F865B1370FD9AED0CEB57D7E2EF23255BC6`；规格/计划 Implemented。
 
 ## 上一目标：Hex 视图对齐与自适应布局（已完成）
 

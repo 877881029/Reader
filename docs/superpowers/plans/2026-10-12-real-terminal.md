@@ -1,6 +1,6 @@
 # Real Terminal Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-12-real-terminal-design.md`
 

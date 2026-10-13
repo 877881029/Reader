@@ -1,6 +1,6 @@
 # Real Terminal (ConPTY + xterm.js) Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Background
