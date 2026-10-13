@@ -1,9 +1,16 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-10-12
-Git：hex 布局最终状态 `cb8fe66` 已同步；本边界提交真终端（ConPTY + xterm.js）规格与计划。
+最后更新：2026-10-13
+Git：真终端最终状态 `d397dd1` 已同步；本边界提交终端配色微调规格与计划。
 
 ## 当前目标
+
+**终端配色微调（对齐 Copilot 终端截图取色）**（执行中）
+
+- 用户反馈：终端字体与背景配色希望更好看；对比截图中 Copilot 终端底色 `#f6f2ee`、文字 `#3d2b5a`（深紫墨）、光标 `#2848a9`，字形高约 17px（Reader 约 20px，偏大偏重）。
+- 规格：`docs/superpowers/specs/2026-10-13-terminal-theme-tuning-design.md`；计划：`docs/superpowers/plans/2026-10-13-terminal-theme-tuning.md`（2 任务）。
+
+## 上一目标：真终端（已完成）
 
 **真终端：ConPTY + xterm.js，Command Prompt / PowerShell，Copilot 主题配色**（已完成）
 
