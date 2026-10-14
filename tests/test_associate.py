@@ -102,7 +102,7 @@ def test_register_open_with_hkcu_classes_only_and_close_keys() -> None:
         ].values[PROGID] == ""
         assert (
             rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}\UserChoice"
-            in wr.deleted
+            not in wr.deleted
         )
     assert wr.keys[r"Software\RegisteredApplications"].values["Reader"] == (
         r"Software\Reader\Capabilities"

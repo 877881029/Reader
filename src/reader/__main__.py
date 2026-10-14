@@ -14,9 +14,6 @@ from reader.shell.associate import create_desktop_shortcut, register_open_with
 from reader.smoke import append_smoke_batch
 from reader.terminal.selftest import run_pty_selftest
 
-SETTINGS_CLAIM_DELAY_MS = 2500
-
-
 def _association_target() -> tuple[str, tuple[str, ...]]:
     if getattr(sys, "frozen", False):
         return sys.executable, ()
@@ -31,7 +28,7 @@ def _shell_integration_disabled() -> bool:
 def _install_shell_integration(window) -> None:
     exe, args = _association_target()
     try:
-        register_open_with(exe, args=args, protected_claimer=lambda: None)
+        register_open_with(exe, args=args)
     except Exception:
         window.show_status("文件关联设置失败")
     try:
@@ -42,15 +39,6 @@ def _install_shell_integration(window) -> None:
         )
     except Exception:
         window.show_status("桌面快捷方式创建失败")
-
-
-def _claim_protected_defaults_later() -> None:
-    try:
-        from reader.shell.settings_claim import claim_protected_defaults
-
-        claim_protected_defaults()
-    except Exception:
-        return
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -83,7 +71,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if not _shell_integration_disabled():
         QTimer.singleShot(0, lambda: _install_shell_integration(win))
-        QTimer.singleShot(SETTINGS_CLAIM_DELAY_MS, _claim_protected_defaults_later)
 
     return qapp.exec()
 

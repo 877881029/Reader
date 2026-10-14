@@ -68,25 +68,6 @@ def _set_reg_sz(wr, path: str, name: str | None, value: str) -> None:
                 exit_fn(None, None, None)
 
 
-def _try_delete_key(wr, path: str) -> None:
-    delete = getattr(wr, "DeleteKey", None)
-    if not callable(delete):
-        return
-    try:
-        delete(wr.HKEY_CURRENT_USER, path)
-    except FileNotFoundError:
-        return
-    except OSError:
-        return
-
-
-def _clear_user_choice(wr, ext: str) -> None:
-    base = rf"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\{ext}"
-    _try_delete_key(wr, rf"{base}\UserChoice")
-    _try_delete_key(wr, rf"{base}\UserChoiceLatest\ProgId")
-    _try_delete_key(wr, rf"{base}\UserChoiceLatest")
-
-
 def _notify_assoc_changed() -> None:
     try:
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
@@ -133,13 +114,8 @@ def register_open_with(
             "a",
         )
         _set_reg_sz(wr, r"Software\Reader\Capabilities\FileAssociations", ext, PROGID)
-        _clear_user_choice(wr, ext)
     if winreg_module is None:
         _notify_assoc_changed()
-        if protected_claimer is None:
-            from reader.shell.settings_claim import claim_protected_defaults
-
-            protected_claimer = claim_protected_defaults
     if protected_claimer is not None:
         protected_claimer()
 

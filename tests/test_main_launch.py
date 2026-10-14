@@ -430,7 +430,7 @@ def test_first_shell_tick_does_not_claim_protected_defaults(monkeypatch):
     assert claimed == []
 
 
-def test_settings_claim_is_scheduled_after_first_paint(monkeypatch):
+def test_default_apps_settings_claim_is_not_scheduled_on_startup(monkeypatch):
     import reader.__main__ as main_module
 
     shots = []
@@ -479,9 +479,7 @@ def test_settings_claim_is_scheduled_after_first_paint(monkeypatch):
 
     assert main_module.main(["Reader.exe"]) == 0
     delays = [ms for ms, _fn in shots]
-    assert 0 in delays
-    assert main_module.SETTINGS_CLAIM_DELAY_MS in delays
-    assert main_module.SETTINGS_CLAIM_DELAY_MS >= 2500
+    assert delays == [0]
 
 
 def test_shortcut_failure_shows_hint_and_app_continues(monkeypatch):
