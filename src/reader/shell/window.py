@@ -965,7 +965,24 @@ class MainWindow(QMainWindow):
             widget.show()
         except RuntimeError:
             return
+        self._retire_previous_content(widget)
         self._refresh_content_stack()
+
+    def _retire_previous_content(self, widget: QWidget) -> None:
+        try:
+            page = widget.parentWidget()
+            layout = page.layout() if page is not None else None
+        except RuntimeError:
+            return
+        if layout is None or layout.indexOf(widget) < 0:
+            return
+        for index in range(layout.count() - 1, -1, -1):
+            other = layout.itemAt(index).widget()
+            if other is None or other is widget:
+                continue
+            if other.property("readerRetiring") is True:
+                layout.takeAt(index)
+                _dispose_widget(other)
 
     def _refresh_content_stack(self) -> None:
         stack = getattr(self, "_content_stack", None)
@@ -2107,9 +2124,23 @@ class MainWindow(QMainWindow):
             return False
         self._arm_preview_ready(content)
         layout.addWidget(content)
+        # Keep the currently visible content on screen until the new content is
+        # ready; otherwise the tab is blank (or falls back to the welcome page).
+        keep_until_ready = content.property("readerPreviewReady") is False
         for index in range(layout.count() - 1, -1, -1):
             widget = layout.itemAt(index).widget()
             if widget is None or widget is content:
+                continue
+            if (
+                keep_until_ready
+                and widget.objectName() != "previewLoading"
+                and widget.property("readerPreviewReady") is not False
+                and widget.isVisible()
+            ):
+                widget.setProperty("readerRetiring", True)
+                set_editable = getattr(widget, "_set_editable", None)
+                if callable(set_editable):
+                    set_editable(False)
                 continue
             layout.takeAt(index)
             _dispose_widget(widget)

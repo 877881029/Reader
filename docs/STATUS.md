@@ -11,6 +11,7 @@ Git：终端 DECRQM 修复最终状态 `c760dd6` 已同步；本边界提交 Mar
 - 根因 1（退回欢迎页）：`_install_document_content` 安装新 `MarkdownVisualView` 后立即销毁编辑器，而视觉页在页面就绪前保持隐藏；标签内无可见内容，且窗口由欢迎页起步（`_welcome_allowed`），`_refresh_content_stack` 回落到欢迎页。
 - 根因 2（延迟）：每次切换都新建 `MarkdownVisualView`（新 QWebEngineView + profile → 新 Chromium 渲染进程）。实测本机新视图即便加载极小页面也需 1.2–1.4s（进程启动，CrowdStrike/Defender 扫描 `QtWebEngineProcess` 加剧），而复用已有视图重新加载 Markdown 仅 0.17–0.4s；首次切换另含 WebEngine 预热未完成的开销。
 - 规格：`docs/superpowers/specs/2026-10-14-markdown-switch-speed-design.md`；计划：`docs/superpowers/plans/2026-10-14-markdown-switch-speed.md`（3 任务）。
+- Task 1 完成（不再退回欢迎页）：`_install_document_content` 在新内容未就绪时保留当前可见内容（标记 `readerRetiring`，编辑器设只读），`_mark_preview_ready`（就绪与渲染失败回退都经过）再移除；之后的安装/关标签照常销毁。旧测试 `test_markdown_mode_switch_tracks_and_toggles_mode` 的假视图从不发 ready，按新规则改为发 ready 后断言。RED：内容栈为欢迎页 `1 failed`；GREEN：window/md_view/md_text_view/find/welcome_lookup `222 passed`。
 
 ## 上一目标：终端 ghcp 修复（已完成）
 
