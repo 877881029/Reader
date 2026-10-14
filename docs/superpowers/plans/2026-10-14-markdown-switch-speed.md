@@ -1,6 +1,6 @@
 # Markdown Edit/Preview Switch Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-14-markdown-switch-speed-design.md`
 

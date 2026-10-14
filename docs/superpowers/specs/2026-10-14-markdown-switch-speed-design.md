@@ -1,6 +1,6 @@
 # Markdown Edit/Preview Switch: No Welcome Flash, Fast Return Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Problem (reproduced)

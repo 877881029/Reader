@@ -5,7 +5,7 @@ Git：终端 DECRQM 修复最终状态 `c760dd6` 已同步；本边界提交 Mar
 
 ## 当前目标
 
-**修复：新建 Markdown 编辑/预览切换延迟大且退回欢迎页**（执行中）
+**修复：新建 Markdown 编辑/预览切换延迟大且退回欢迎页**（已完成）
 
 - 复现（真实窗口，从欢迎页 `+` 新建文件）：首次编辑→预览 3.6s，其中 1.7s–3.6s 显示欢迎页；预览→编辑 0.1s；再次编辑→预览 1.8s，其中 0.2s–1.8s 显示欢迎页。
 - 根因 1（退回欢迎页）：`_install_document_content` 安装新 `MarkdownVisualView` 后立即销毁编辑器，而视觉页在页面就绪前保持隐藏；标签内无可见内容，且窗口由欢迎页起步（`_welcome_allowed`），`_refresh_content_stack` 回落到欢迎页。
@@ -14,6 +14,7 @@ Git：终端 DECRQM 修复最终状态 `c760dd6` 已同步；本边界提交 Mar
 - Task 1 完成（不再退回欢迎页）：`_install_document_content` 在新内容未就绪时保留当前可见内容（标记 `readerRetiring`，编辑器设只读），`_mark_preview_ready`（就绪与渲染失败回退都经过）再移除；之后的安装/关标签照常销毁。旧测试 `test_markdown_mode_switch_tracks_and_toggles_mode` 的假视图从不发 ready，按新规则改为发 ready 后断言。RED：内容栈为欢迎页 `1 failed`；GREEN：window/md_view/md_text_view/find/welcome_lookup `222 passed`。
 - Task 2 完成（复用预览视图）：`MarkdownVisualView` 新增 `source_path()` / `can_reload()` / `reload()`（同一 page/渲染进程重新加载 bundle 并重新读取已保存文件，再次发 `ready`）；`_restore_markdown_text` 切到编辑时把已就绪的预览视图隐藏「停放」到 `_Document.parked_visual`（移出布局、事件已解绑，连同 `parked_result`）；`switch_current_tab_to_visual` 在保存后优先 `_reuse_parked_markdown_visual`（源路径一致且可 reload 才复用，否则销毁后走原流程）；关标签/关窗口经 `_dispose_document_content` 销毁停放视图。修复中发现：`_restore_markdown_text` 新装的编辑器由 Qt 排队显示，短时 `isVisible()` 为 False，故「保留旧内容」改以 `readerPreviewReady` 判断而非可见性。测试辅助 `current_content` 跳过 retiring 内容，3 个旧测试的假视图补发 ready。RED：真实 WebEngine `reload` 与窗口复用 `2 failed`；GREEN：window/md_webengine/md_view/md_text_view/find/welcome_lookup `228 passed`。
 - 实测（真实窗口，从欢迎页新建）：首次预览 2.0s（已预热；每个标签首次需新渲染进程），之后 编辑→预览 0.3–0.6s（原 1.8s）、预览→编辑 ~45ms，全过程欢迎页 0 次，同一标签仅 1 个预览视图。
+- Task 3 完成：`verify.ps1 -Release` 一次通过（Python `623 passed, 1 skipped`、PTY 自检、全部 GUI smoke）；`install_local.ps1` 安装，SHA256 `1037FF93DA18A369CE2CA8E2CE8516CF1E623CCE85B8F602A9040BDF5A8F00C9`；规格/计划 Implemented。剩余：每个标签首次预览仍需约 2s 启动渲染进程（可后续预建备用视图优化）。
 
 ## 上一目标：终端 ghcp 修复（已完成）
 
