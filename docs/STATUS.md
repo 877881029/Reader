@@ -1,9 +1,18 @@
 # Reader 项目状态（AI 接手必读）
 
-最后更新：2026-10-13
-Git：终端 15px 最终状态 `45a7cee` 已同步；本边界提交终端 DECRQM 崩溃修复规格与计划。
+最后更新：2026-10-14
+Git：终端 DECRQM 修复最终状态 `c760dd6` 已同步；本边界提交 Markdown 编辑/预览切换修复规格与计划。
 
 ## 当前目标
+
+**修复：新建 Markdown 编辑/预览切换延迟大且退回欢迎页**（执行中）
+
+- 复现（真实窗口，从欢迎页 `+` 新建文件）：首次编辑→预览 3.6s，其中 1.7s–3.6s 显示欢迎页；预览→编辑 0.1s；再次编辑→预览 1.8s，其中 0.2s–1.8s 显示欢迎页。
+- 根因 1（退回欢迎页）：`_install_document_content` 安装新 `MarkdownVisualView` 后立即销毁编辑器，而视觉页在页面就绪前保持隐藏；标签内无可见内容，且窗口由欢迎页起步（`_welcome_allowed`），`_refresh_content_stack` 回落到欢迎页。
+- 根因 2（延迟）：每次切换都新建 `MarkdownVisualView`（新 QWebEngineView + profile → 新 Chromium 渲染进程）。实测本机新视图即便加载极小页面也需 1.2–1.4s（进程启动，CrowdStrike/Defender 扫描 `QtWebEngineProcess` 加剧），而复用已有视图重新加载 Markdown 仅 0.17–0.4s；首次切换另含 WebEngine 预热未完成的开销。
+- 规格：`docs/superpowers/specs/2026-10-14-markdown-switch-speed-design.md`；计划：`docs/superpowers/plans/2026-10-14-markdown-switch-speed.md`（3 任务）。
+
+## 上一目标：终端 ghcp 修复（已完成）
 
 **修复：终端里 `ghcp`（Copilot CLI）不显示**（已完成）
 
