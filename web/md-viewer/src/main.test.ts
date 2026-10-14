@@ -276,3 +276,43 @@ describe("live source", () => {
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
   });
 });
+
+
+describe("live updates for file-backed previews", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    startViewerMock.mockReset();
+    document.body.innerHTML = '<div id="app"></div>';
+  });
+
+  afterEach(() => {
+    window.readerMdDispose?.();
+    vi.unstubAllGlobals();
+    delete (window as typeof window & { qt?: unknown }).qt;
+    delete (window as typeof window & { QWebChannel?: unknown }).QWebChannel;
+  });
+
+  it("fetches the file first, then re-renders pushed editor text", async () => {
+    const listeners: Array<(text: string) => void> = [];
+    const bridge = {
+      ...createBridge(),
+      hasLiveSource: false,
+      liveSource: "",
+      liveSourceChanged: { connect: (cb: (text: string) => void) => listeners.push(cb) },
+    };
+    startViewerMock.mockResolvedValue({ destroy: vi.fn() });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: vi.fn().mockResolvedValue("# on disk") }),
+    );
+    vi.stubGlobal("scrollTo", vi.fn());
+
+    await bootstrapWithBridge(bridge as never);
+    await vi.waitFor(() => expect(startViewerMock).toHaveBeenCalledTimes(1));
+    expect(startViewerMock.mock.calls[0]?.[1]).toBe("# on disk");
+
+    listeners.forEach((cb) => cb("# edited"));
+    await vi.waitFor(() => expect(startViewerMock).toHaveBeenCalledTimes(2));
+    expect(startViewerMock.mock.calls[1]?.[1]).toBe("# edited");
+  });
+});

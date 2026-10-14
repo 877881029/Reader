@@ -70,13 +70,13 @@ async function bootstrap(): Promise<void> {
 
   try {
     abortController = new AbortController();
+    // Reader pushes the editor's text; the file on disk may be unsaved or absent.
+    bridge.liveSourceChanged?.connect((text: string) => {
+      void rerender(bridge, text);
+    });
     let source: string;
     if (bridge.hasLiveSource) {
-      // Reader pushes the editor's text; the file on disk may be unsaved or absent.
       source = bridge.liveSource ?? "";
-      bridge.liveSourceChanged?.connect((text: string) => {
-        void rerender(bridge, text);
-      });
     } else {
       const response = await fetch(bridge.sourceUrl, { signal: abortController.signal });
       if (!response.ok) {
