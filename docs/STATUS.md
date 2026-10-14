@@ -1,9 +1,17 @@
 # Reader 项目状态（AI 接手必读）
 
 最后更新：2026-10-14
-Git：终端 DECRQM 修复最终状态 `c760dd6` 已同步；本边界提交 Markdown 编辑/预览切换修复规格与计划。
+Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「无缝编辑/预览」规格与计划。
 
 ## 当前目标
+
+**Markdown 编辑/预览无缝切换（对标 VS Code / Cursor / Typora）**（执行中）
+
+- 用户需求：编辑与预览切换要无缝快速；用户决定：预览直接显示编辑器当前内容，不强制保存，新建文件也不弹另存为。
+- 方案：每个 Markdown 标签同时保留编辑器与预览两个组件，切换只换布局不重建；预览改为接收编辑器文本推送（`liveSource`/`liveSourceChanged`）原地重渲染，不再读盘/重载；编辑时 150ms 防抖后台推送；进入编辑模式 300ms 后后台预建预览。
+- 规格：`docs/superpowers/specs/2026-10-14-seamless-markdown-switch-design.md`；计划：`docs/superpowers/plans/2026-10-14-seamless-markdown-switch.md`（4 任务）。
+
+## 上一目标：Markdown 切换延迟与欢迎页修复（已完成）
 
 **修复：新建 Markdown 编辑/预览切换延迟大且退回欢迎页**（已完成）
 
