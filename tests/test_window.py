@@ -1795,17 +1795,16 @@ def test_ctrl_i_switches_markdown_visual_to_editable_text(qtbot, tmp_path: Path)
     assert view.text() == "hello"
 
 
-def test_ctrl_t_force_saves_dirty_markdown_then_shows_visual(qtbot, tmp_path: Path):
+def test_ctrl_t_previews_unsaved_text_without_saving(qtbot, tmp_path: Path):
     from reader.preview.md_text_view import MarkdownTextView
     from reader.shell.window import MainWindow
 
     path = tmp_path / "note.md"
     path.write_text("hello", encoding="utf-8")
-    visuals = iter((FakeMarkdownVisual(), FakeMarkdownVisual()))
     window = MainWindow(
         preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
         cache_factory=FakeCache,
-        viewer_factory=lambda *_args: next(visuals),
+        viewer_factory=lambda *_args: FakeMarkdownVisual(),
     )
     qtbot.addWidget(window)
     window.open_paths([str(path)])
@@ -1816,11 +1815,11 @@ def test_ctrl_t_force_saves_dirty_markdown_then_shows_visual(qtbot, tmp_path: Pa
     window.actionMarkdownPreview.trigger()
     qtbot.waitUntil(lambda: current_content(window) is not view)
     current_content(window).ready.emit(1)
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
-    assert path.read_text(encoding="utf-8") == "changed"
+    qtbot.waitUntil(view.isHidden)
+    assert path.read_text(encoding="utf-8") == "hello"
     document = next(iter(window._documents.values()))
     assert document.mode == "visual"
-
+    assert window.tab_title(0) == "*note.md"
 
 def test_ctrl_t_cancelled_save_as_keeps_untitled_editor(qtbot, monkeypatch):
     from PySide6.QtWidgets import QFileDialog
@@ -4514,11 +4513,11 @@ def test_markdown_mode_switch_tracks_and_toggles_mode(qtbot, tmp_path: Path):
     ]
     qtbot.waitUntil(lambda: bool(pending()))
     pending()[0].ready.emit(1)
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView).isHidden())
     assert preview.isChecked() and not edit.isChecked()
 
 
-def test_markdown_mode_switch_reverts_when_preview_cancelled(qtbot, monkeypatch):
+def test_markdown_mode_switch_previews_untitled_without_dialog(qtbot, monkeypatch):
     from PySide6.QtWidgets import QFileDialog
     from reader.preview.md_text_view import MarkdownTextView
 
@@ -4528,14 +4527,15 @@ def test_markdown_mode_switch_reverts_when_preview_cancelled(qtbot, monkeypatch)
     qtbot.waitExposed(window)
     window.add_untitled_markdown_tab()
     window.findChild(MarkdownTextView)._editor.setPlainText("draft")
-    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: ("", ""))
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_a, **_k: pytest.fail("no Save As on preview")
+    )
     switch, edit, preview = _mode_buttons(window)
     assert switch.isVisible() and edit.isChecked()
 
     qtbot.mouseClick(preview, Qt.MouseButton.LeftButton)
-    assert window.findChild(MarkdownTextView) is not None
-    assert edit.isChecked() and not preview.isChecked()
-
+    assert preview.isChecked() and not edit.isChecked()
+    assert window.tab_title(0) == "*未命名.md"
 
 def test_markdown_mode_switch_is_interactive_chrome(qtbot, tmp_path: Path):
     from reader.shell.title_chrome import HTCLIENT, hit_test_for_window
@@ -4894,159 +4894,207 @@ def test_document_shortcuts_pass_through_on_terminal_tab(qtbot, tmp_path: Path):
     window.findChild(TerminalPage).shutdown()
 
 
-# --- markdown edit/preview switch: swap on ready, reuse ---------------------------
+# --- seamless markdown edit/preview -----------------------------------------------
 
 
-def _switch_window(qtbot, tmp_path: Path, monkeypatch, visuals):
+class FakeLiveVisual(FakeMarkdownVisual):
+    def __init__(self, source: Path) -> None:
+        super().__init__()
+        self.source = Path(source)
+        self.texts: list[str] = []
+        self.ready_flag = False
+        self.usable = True
+
+    def set_source_text(self, text: str) -> None:
+        self.texts.append(text)
+
+    def is_usable(self) -> bool:
+        return self.usable
+
+    def is_ready(self) -> bool:
+        return self.ready_flag
+
+    def source_path(self) -> Path:
+        return self.source
+
+    def make_ready(self) -> None:
+        self.ready_flag = True
+        self.ready.emit(1)
+
+
+def _live_window(qtbot, monkeypatch, *, shown: bool = True):
     from PySide6.QtWidgets import QFileDialog
     from reader.shell.window import MainWindow
 
-    target = tmp_path / "note.md"
-    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(target), ""))
-    created: list = []
+    created: list[FakeLiveVisual] = []
 
-    def factory(*_args):
-        visual = visuals.pop(0)
+    def factory(result, source):
+        assert result.kind == "markdown"
+        visual = FakeLiveVisual(source)
         created.append(visual)
         return visual
 
+    def no_dialog(*_a, **_k):
+        raise AssertionError("switching must not open Save As")
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", no_dialog)
     window = MainWindow(
         preview_fn=lambda *_args, **_kwargs: markdown_visual_result(),
         cache_factory=FakeCache,
         viewer_factory=factory,
     )
     qtbot.addWidget(window)
-    window.show()
-    qtbot.waitExposed(window)
+    if shown:
+        window.show()
+        qtbot.waitExposed(window)
     window.actionMenuNewFile.trigger()
-    return window, target, created
+    return window, created
 
 
-def test_preview_switch_keeps_editor_visible_until_ready(qtbot, tmp_path: Path, monkeypatch):
-    from reader.preview.md_text_view import MarkdownTextView
-
-    visual = FakeMarkdownVisual()
-    window, target, _created = _switch_window(qtbot, tmp_path, monkeypatch, [visual])
-    editor_view = window.findChild(MarkdownTextView)
-    editor_view._editor.insertPlainText("# hi")
-
-    window._title_chrome._request_mode("visual")
-    qtbot.waitUntil(lambda: visual.start_calls == 1)
-
-    assert target.read_text(encoding="utf-8") == "# hi"
-    assert window._content_stack.currentIndex() == 1
-    assert window.findChild(MarkdownTextView) is editor_view
-    assert editor_view.isVisible() and editor_view.is_editable() is False
-    assert visual.isVisible() is False
-
-    visual.ready.emit(1)
-
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
-    assert visual.isVisible() is True
-    assert window._content_stack.currentIndex() == 1
+def _layout_widgets(window):
+    layout = window._tabs.currentWidget().layout()
+    return [layout.itemAt(i).widget() for i in range(layout.count())]
 
 
-def test_preview_failure_also_retires_editor(qtbot, tmp_path: Path, monkeypatch):
-    from reader.preview.md_text_view import MarkdownTextView
-
-    visual = FakeMarkdownVisual()
-    window, _target, _created = _switch_window(qtbot, tmp_path, monkeypatch, [visual])
-    window.findChild(MarkdownTextView)._editor.insertPlainText("x")
-    window._title_chrome._request_mode("visual")
-    qtbot.waitUntil(lambda: visual.start_calls == 1)
-
-    visual.render_failed.emit("boom")
-
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
-    assert visual.isVisible() is True
-
-
-class ReloadableMarkdownVisual(FakeMarkdownVisual):
-    def __init__(self, source: Path) -> None:
-        super().__init__()
-        self.source = source.resolve()
-        self.reload_calls = 0
-        self.reloadable = True
-
-    def can_reload(self) -> bool:
-        return self.reloadable
-
-    def source_path(self) -> Path:
-        return self.source
-
-    def reload(self) -> None:
-        self.reload_calls += 1
-
-
-def test_second_preview_switch_reuses_parked_view(qtbot, tmp_path: Path, monkeypatch):
-    from reader.preview.md_text_view import MarkdownTextView
-
-    target = tmp_path / "note.md"
-    first = ReloadableMarkdownVisual(target)
-    spare = ReloadableMarkdownVisual(target)
-    window, _target, created = _switch_window(qtbot, tmp_path, monkeypatch, [first, spare])
-    window.findChild(MarkdownTextView)._editor.insertPlainText("one")
-    window._title_chrome._request_mode("visual")
-    qtbot.waitUntil(lambda: first.start_calls == 1)
-    first.ready.emit(1)
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
-
-    window._title_chrome._request_mode("text")
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
-    assert first.shutdown_calls == 0 and first.isVisible() is False
-    assert window._current_preview_widget() is window.findChild(MarkdownTextView)
-    editor = window.findChild(MarkdownTextView)._editor
+def _type_end(editor_view, text: str) -> None:
+    editor = editor_view._editor
     editor.moveCursor(editor.textCursor().MoveOperation.End)
-    editor.insertPlainText(" two")
+    editor.insertPlainText(text)
+
+
+def test_preview_shows_unsaved_text_without_saving(qtbot, monkeypatch, tmp_path: Path):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window, created = _live_window(qtbot, monkeypatch)
+    editor = window.findChild(MarkdownTextView)
+    _type_end(editor, "# hi")
 
     window._title_chrome._request_mode("visual")
 
-    assert target.read_text(encoding="utf-8") == "one two"
-    assert first.reload_calls == 1
-    assert created == [first]
+    assert len(created) == 1
+    preview = created[0]
+    assert preview.texts[-1] == "# hi"
+    assert "reader-untitled" in str(preview.source)
     assert window._content_stack.currentIndex() == 1
-    first.ready.emit(1)
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
-    assert first.isVisible() is True
+    assert editor.isVisible() is True
+    preview.make_ready()
+    qtbot.waitUntil(lambda: _layout_widgets(window) == [preview])
+    assert preview.isVisible() and editor.isHidden()
+    assert window.tab_title(0) == "*未命名.md"
     document = next(iter(window._documents.values()))
     assert document.mode == "visual"
+    assert not document.path.is_absolute()
 
 
-def test_stale_or_broken_parked_view_is_not_reused(qtbot, tmp_path: Path, monkeypatch):
+def test_round_trip_reuses_widgets_and_keeps_cursor_and_undo(qtbot, monkeypatch):
     from reader.preview.md_text_view import MarkdownTextView
 
-    target = tmp_path / "note.md"
-    first = ReloadableMarkdownVisual(target)
-    second = ReloadableMarkdownVisual(target)
-    window, _target, created = _switch_window(qtbot, tmp_path, monkeypatch, [first, second])
-    window.findChild(MarkdownTextView)._editor.insertPlainText("one")
+    window, created = _live_window(qtbot, monkeypatch, shown=False)
+    window.show()
+    editor = window.findChild(MarkdownTextView)
+    _type_end(editor, "one")
+    cursor_position = editor._editor.textCursor().position()
     window._title_chrome._request_mode("visual")
-    qtbot.waitUntil(lambda: first.start_calls == 1)
-    first.ready.emit(1)
+    preview = created[0]
+    preview.make_ready()
+    qtbot.waitUntil(lambda: _layout_widgets(window) == [preview])
+
     window._title_chrome._request_mode("text")
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
-    first.reloadable = False
+
+    assert _layout_widgets(window) == [editor]
+    assert editor.isVisible() and preview.isHidden()
+    assert preview.shutdown_calls == 0
+    assert editor._editor.textCursor().position() == cursor_position
+    assert editor._editor.document().isUndoAvailable()
+    assert editor.is_editable()
+    _type_end(editor, " two")
 
     window._title_chrome._request_mode("visual")
 
-    qtbot.waitUntil(lambda: second.start_calls == 1)
-    assert created == [first, second]
-    assert first.reload_calls == 0 and first.shutdown_calls == 1
+    assert created == [preview]
+    assert preview.texts[-1] == "one two"
+    assert _layout_widgets(window) == [preview]
+    assert preview.isVisible()
 
 
-def test_parked_view_is_shut_down_when_tab_closes(qtbot, tmp_path: Path, monkeypatch):
+def test_edits_are_pushed_to_hidden_preview_in_background(qtbot, monkeypatch):
     from reader.preview.md_text_view import MarkdownTextView
 
-    target = tmp_path / "note.md"
-    first = ReloadableMarkdownVisual(target)
-    window, _target, _created = _switch_window(qtbot, tmp_path, monkeypatch, [first])
-    window.findChild(MarkdownTextView)._editor.insertPlainText("one")
+    window, created = _live_window(qtbot, monkeypatch)
+    editor = window.findChild(MarkdownTextView)
+    qtbot.waitUntil(lambda: len(created) == 1, timeout=3000)
+    preview = created[0]
+    assert preview.start_calls == 1
+    assert preview.isHidden() and preview not in _layout_widgets(window)
+
+    _type_end(editor, "# live")
+
+    qtbot.waitUntil(lambda: preview.texts and preview.texts[-1] == "# live", timeout=3000)
+    preview.make_ready()
     window._title_chrome._request_mode("visual")
-    qtbot.waitUntil(lambda: first.start_calls == 1)
-    first.ready.emit(1)
+    assert created == [preview]
+    assert _layout_widgets(window) == [preview] and preview.isVisible()
+
+
+def test_unsaved_prompt_and_save_work_from_preview_mode(qtbot, monkeypatch, tmp_path: Path):
+    from PySide6.QtWidgets import QFileDialog
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window, created = _live_window(qtbot, monkeypatch)
+    _type_end(window.findChild(MarkdownTextView), "keep me")
+    window._title_chrome._request_mode("visual")
+    created[0].make_ready()
+
+    assert window.actionSave.isEnabled() is True
+    assert window.actionReplace.isEnabled() is True
+    window.actionReplace.trigger()
+    assert window.find_bar().isVisible() is False
+
+    target = tmp_path / "kept.md"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(target), ""))
+    window.actionSave.trigger()
+    assert target.read_text(encoding="utf-8") == "keep me"
+    assert window.tab_title(0) == "kept.md"
+
     window._title_chrome._request_mode("text")
-    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    _type_end(window.findChild(MarkdownTextView), "!")
+    window._title_chrome._request_mode("visual")
+    assert window.tab_title(0) == "*kept.md"
+    prompts: list[str] = []
+    window.unsaved_prompt = lambda name: prompts.append(name) or "cancel"
+    window.close_tab(0)
+    assert prompts == ["kept.md"]
+
+
+def test_save_as_while_editing_replaces_stale_preview(qtbot, monkeypatch, tmp_path: Path):
+    from PySide6.QtWidgets import QFileDialog
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window, created = _live_window(qtbot, monkeypatch)
+    qtbot.waitUntil(lambda: len(created) == 1, timeout=3000)
+    stale = created[0]
+    target = tmp_path / "named.md"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(target), ""))
+    _type_end(window.findChild(MarkdownTextView), "x")
+
+    window.actionSave.trigger()
+
+    assert stale.shutdown_calls == 1
+    qtbot.waitUntil(lambda: len(created) == 2, timeout=3000)
+    assert created[1].source == target.resolve()
+
+
+def test_tab_close_disposes_kept_editor_and_preview(qtbot, monkeypatch):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    window, created = _live_window(qtbot, monkeypatch)
+    window._title_chrome._request_mode("visual")
+    created[0].make_ready()
+    window._title_chrome._request_mode("text")
+    editor = window.findChild(MarkdownTextView)
 
     window.close_tab(0)
 
-    assert first.shutdown_calls == 1
+    assert created[0].shutdown_calls == 1
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
+    assert editor is not None

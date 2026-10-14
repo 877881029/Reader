@@ -67,6 +67,8 @@ from reader.smoke import (
     append_visual_ready,
 )
 
+MARKDOWN_PUSH_DELAY_MS = 150
+MARKDOWN_PRECREATE_DELAY_MS = 300
 WM_NCHITTEST = 0x0084
 WM_NCCALCSIZE = 0x0083
 GWL_STYLE = -16
@@ -486,9 +488,11 @@ class _Document:
     request_id: str | None = None
     availability_request_id: str | None = None
     office_requested: bool = False
-    # Markdown preview kept alive while editing, reused on the next preview.
-    parked_visual: QWidget | None = None
-    parked_result: PreviewResult | None = None
+    # Seamless Markdown editing: the hidden counterpart of the visible view.
+    md_preview: QWidget | None = None
+    md_preview_result: PreviewResult | None = None
+    md_editor: QWidget | None = None
+    md_push_timer: QTimer | None = None
 
 
 def _directory_url(path: Path) -> QUrl:
@@ -549,6 +553,16 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
     else:
         web.setHtml(result.html, _html_base_url(result, source_path))
     return web
+
+
+def _retire_widget(widget: QWidget) -> None:
+    """Remove replaced content: keep it hidden if marked to be kept, else dispose."""
+    widget.setProperty("readerRetiring", False)
+    if widget.property("readerKeepOnRetire") is True:
+        widget.setProperty("readerKeepOnRetire", False)
+        widget.hide()
+        return
+    _dispose_widget(widget)
 
 
 def _dispose_widget(widget: QWidget) -> None:
@@ -945,6 +959,10 @@ class MainWindow(QMainWindow):
 
     def _arm_preview_ready(self, content: QWidget) -> None:
         if getattr(content, "ready", None) is not None:
+            is_ready = getattr(content, "is_ready", None)
+            if callable(is_ready) and is_ready():
+                content.setProperty("readerPreviewReady", True)
+                return
             content.setProperty("readerPreviewReady", False)
             content.hide()
             return
@@ -985,7 +1003,7 @@ class MainWindow(QMainWindow):
                 continue
             if other.property("readerRetiring") is True:
                 layout.takeAt(index)
-                _dispose_widget(other)
+                _retire_widget(other)
 
     def _refresh_content_stack(self) -> None:
         stack = getattr(self, "_content_stack", None)
@@ -1100,8 +1118,9 @@ class MainWindow(QMainWindow):
 
     def _writable_text_editor(self) -> QPlainTextEdit | None:
         document_id = self._current_document_id()
-        view = self._editable_view(self._documents.get(document_id) if document_id else None)
-        if view is None:
+        document = self._documents.get(document_id) if document_id else None
+        view = self._editable_view(document)
+        if view is None or (document is not None and view.objectName() == "markdownTextView" and document.mode != "text"):
             return None
         editor = resolve_find_target(view)
         if not isinstance(editor, QPlainTextEdit) or editor.isReadOnly():
@@ -1506,6 +1525,7 @@ class MainWindow(QMainWindow):
         view.path_changed.connect(
             lambda _path, did=document_id: self._on_markdown_path_changed(did)
         )
+        self._adopt_markdown_editor(document_id, view)
         self._refresh_content_stack()
         self._refresh_preview_actions()
 
@@ -1515,10 +1535,9 @@ class MainWindow(QMainWindow):
 
         if document is None:
             return None
-        if document.mode == "text":
-            view = document.page.findChild(MarkdownTextView)
-            if view is not None:
-                return view
+        view = document.page.findChild(MarkdownTextView)
+        if view is not None:
+            return view
         return document.page.findChild(CodeTextView)
 
     def _sync_markdown_tab_title(self, document_id: str) -> None:
@@ -1538,6 +1557,11 @@ class MainWindow(QMainWindow):
         document.path = Path(view.path).resolve()
         document.page.setProperty("readerBlankTab", False)
         remember_recent(document.path)
+        if document.md_preview is not None and not self._markdown_preview_matches(
+            document, document.md_preview
+        ):
+            self._discard_kept_preview(document)
+            self._schedule_markdown_preview(document_id)
         self._sync_markdown_tab_title(document_id)
         self._refresh_preview_actions()
 
@@ -1740,6 +1764,7 @@ class MainWindow(QMainWindow):
         view.path_changed.connect(
             lambda _path, did=document_id: self._on_markdown_path_changed(did)
         )
+        self._adopt_markdown_editor(document_id, view)
         self._refresh_content_stack()
         self._refresh_preview_actions()
 
@@ -1942,23 +1967,6 @@ class MainWindow(QMainWindow):
             return
         self.switch_current_tab_to_visual()
 
-    def _ensure_markdown_saved(self) -> bool:
-        from reader.preview.md_text_view import MarkdownTextView
-
-        document_id = self._current_document_id()
-        if document_id is None:
-            return False
-        document = self._documents[document_id]
-        view = document.page.findChild(MarkdownTextView)
-        if view is None:
-            return document.path.exists()
-        if view.path is None or view.dirty:
-            self.save_current_tab()
-            view = document.page.findChild(MarkdownTextView)
-            if view is None or view.path is None or view.dirty:
-                return False
-        return True
-
     def switch_current_tab_to_visual(self) -> None:
         document_id = self._current_document_id()
         if document_id is None:
@@ -1968,11 +1976,8 @@ class MainWindow(QMainWindow):
         if document.mode == "visual":
             return
         if suffix == ".md":
-            if not self._ensure_markdown_saved():
-                return
-            if self._reuse_parked_markdown_visual(document_id, document):
-                return
-            self._restart_preview(document_id, "visual")
+            if not self._show_markdown_preview(document_id, document):
+                self._restart_preview(document_id, "visual")
             return
         if suffix != ".pptx":
             return
@@ -1995,12 +2000,16 @@ class MainWindow(QMainWindow):
             self._executor.cancel(document.request_id)
             document.request_id = None
         self._disconnect_visual_events(document)
-        self._park_markdown_visual(document)
-        view = MarkdownTextView(document.page)
-        if document.path.exists():
-            view.load_path(document.path, editable=editable)
-        else:
-            view.load_untitled()
+        self._keep_current_preview(document)
+        view = document.md_editor
+        document.md_editor = None
+        reused = view is not None
+        if view is None:
+            view = MarkdownTextView(document.page)
+            if document.path.exists():
+                view.load_path(document.path, editable=editable)
+            else:
+                view.load_untitled()
         if not self._install_document_content(
             document_id,
             document,
@@ -2008,20 +2017,219 @@ class MainWindow(QMainWindow):
             document.generation,
         ):
             return
+        view.show()
+        if reused and editable:
+            view.enable_editing()
         document.mode = "text"
         document.builtin_mode = "text"
         document.status_label = "文本编辑"
         document.last_result = PreviewResult(
             html="", status_label="文本编辑", kind="html"
         )
-        view.dirty_changed.connect(
-            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
-        )
-        view.path_changed.connect(
-            lambda _path, did=document_id: self._on_markdown_path_changed(did)
-        )
+        if not reused:
+            view.dirty_changed.connect(
+                lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
+            )
+            view.path_changed.connect(
+                lambda _path, did=document_id: self._on_markdown_path_changed(did)
+            )
+        self._adopt_markdown_editor(document_id, view)
         self._sync_markdown_tab_title(document_id)
         self._refresh_preview_actions()
+
+    # -- seamless Markdown edit/preview -------------------------------------------
+
+    def _markdown_preview_source(self, document: _Document) -> Path:
+        if document.path.is_absolute():
+            return document.path
+        # Untitled drafts: an empty scratch folder scopes the offline interceptor.
+        return Path(tempfile.gettempdir()) / "reader-untitled" / document.path.name
+
+    def _markdown_preview_matches(self, document: _Document, view: QWidget) -> bool:
+        try:
+            is_usable = getattr(view, "is_usable", None)
+            if callable(is_usable) and not is_usable():
+                return False
+            source_path = getattr(view, "source_path", None)
+            if not callable(source_path):
+                return False
+            expected = self._markdown_preview_source(document)
+            return os.path.normcase(os.path.abspath(source_path())) == os.path.normcase(
+                os.path.abspath(expected)
+            )
+        except (RuntimeError, OSError):
+            return False
+
+    def _markdown_editor(self, document: _Document):
+        from reader.preview.md_text_view import MarkdownTextView
+
+        try:
+            return document.page.findChild(MarkdownTextView)
+        except RuntimeError:
+            return None
+
+    def _adopt_markdown_editor(self, document_id: str, editor: QWidget) -> None:
+        if editor.property("readerLivePush") is not True:
+            editor.setProperty("readerLivePush", True)
+            editor._editor.textChanged.connect(
+                lambda did=document_id: self._schedule_markdown_push(did)
+            )
+        self._schedule_markdown_preview(document_id)
+
+    def _schedule_markdown_push(self, document_id: str) -> None:
+        document = self._documents.get(document_id)
+        if document is None or document.md_preview is None:
+            return
+        if document.md_push_timer is None:
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.setInterval(MARKDOWN_PUSH_DELAY_MS)
+            timer.timeout.connect(lambda did=document_id: self._push_markdown_text(did))
+            document.md_push_timer = timer
+        document.md_push_timer.start()
+
+    def _push_markdown_text(self, document_id: str) -> None:
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+        if document.md_push_timer is not None:
+            document.md_push_timer.stop()
+        editor = self._markdown_editor(document)
+        preview = document.md_preview
+        setter = getattr(preview, "set_source_text", None)
+        if editor is not None and callable(setter):
+            setter(editor.text())
+
+    def _schedule_markdown_preview(self, document_id: str) -> None:
+        # Context object: the callback is dropped if the window is destroyed first.
+        QTimer.singleShot(
+            MARKDOWN_PRECREATE_DELAY_MS,
+            self,
+            lambda did=document_id: self._precreate_markdown_preview(did),
+        )
+
+    def _precreate_markdown_preview(self, document_id: str) -> None:
+        document = self._documents.get(document_id)
+        if (
+            document is None
+            or self._closing
+            or not self.isVisible()
+            or document.mode != "text"
+            or document.md_preview is not None
+        ):
+            return
+        editor = self._markdown_editor(document)
+        if editor is None:
+            return
+        try:
+            preview, result = self._create_markdown_preview(document, editor.text())
+        except Exception:
+            return
+        document.md_preview = preview
+        document.md_preview_result = result
+        start = getattr(preview, "start", None)
+        if callable(start):
+            start()
+
+    def _create_markdown_preview(self, document: _Document, text: str):
+        from reader.formats.md import to_visual_text
+
+        result = to_visual_text(text)
+        preview = self._viewer_factory(result, self._markdown_preview_source(document))
+        setter = getattr(preview, "set_source_text", None)
+        if callable(setter):
+            setter(text)
+        preview.setParent(document.page)
+        preview.hide()
+        return preview, result
+
+    def _keep_current_preview(self, document: _Document) -> None:
+        """Take the visible preview out of the layout and keep it for the next switch."""
+        try:
+            layout = document.page.layout()
+        except RuntimeError:
+            return
+        if layout is None:
+            return
+        for index in range(layout.count() - 1, -1, -1):
+            widget = layout.itemAt(index).widget()
+            if widget is None or not callable(getattr(widget, "set_source_text", None)):
+                continue
+            layout.takeAt(index)
+            widget.hide()
+            if (
+                widget.property("readerPreviewReady") is True
+                and self._markdown_preview_matches(document, widget)
+                and document.md_preview is None
+            ):
+                document.md_preview = widget
+                if document.last_result is not None and document.last_result.kind == "markdown":
+                    document.md_preview_result = document.last_result
+            else:
+                _dispose_widget(widget)
+
+    def _discard_kept_preview(self, document: _Document) -> None:
+        widget, document.md_preview = document.md_preview, None
+        document.md_preview_result = None
+        if widget is not None:
+            try:
+                _dispose_widget(widget)
+            except RuntimeError:
+                pass
+
+    def _show_markdown_preview(self, document_id: str, document: _Document) -> bool:
+        editor = self._markdown_editor(document)
+        if editor is None or document.mode != "text":
+            return False
+        text = editor.text()
+        preview = document.md_preview
+        result = document.md_preview_result
+        if preview is not None and not self._markdown_preview_matches(document, preview):
+            self._discard_kept_preview(document)
+            preview = None
+        document.md_preview = None
+        document.md_preview_result = None
+        if preview is None:
+            try:
+                preview, result = self._create_markdown_preview(document, text)
+            except Exception:
+                return False
+        else:
+            setter = getattr(preview, "set_source_text", None)
+            if callable(setter):
+                setter(text)
+        if document.md_push_timer is not None:
+            document.md_push_timer.stop()
+        if result is None:
+            from reader.formats.md import to_visual_text
+
+            result = to_visual_text(text)
+        self._cancel_availability_probe(document)
+        document.generation += 1
+        if document.request_id is not None:
+            self._requests.pop(document.request_id, None)
+            self._owned_request_ids.discard(document.request_id)
+            self._executor.cancel(document.request_id)
+            document.request_id = None
+        previous = (document.mode, document.builtin_mode, document.status_label, document.last_result)
+        document.mode = "visual"
+        document.builtin_mode = "visual"
+        document.status_label = result.status_label
+        document.last_result = result
+        editor.setProperty("readerKeepOnRetire", True)
+        document.md_editor = editor
+        if not self._install_document_content(document_id, document, preview, document.generation):
+            document.mode, document.builtin_mode, document.status_label, document.last_result = previous
+            document.md_editor = None
+            editor.setProperty("readerKeepOnRetire", False)
+            self._refresh_preview_actions()
+            return True
+        if preview.property("readerPreviewReady") is not False:
+            preview.show()
+            self._retire_previous_content(preview)
+            self._refresh_content_stack()
+        self._refresh_preview_actions()
+        return True
 
     def _cancel_availability_probe(self, document: _Document) -> None:
         request_id = document.availability_request_id
@@ -2094,80 +2302,16 @@ class MainWindow(QMainWindow):
             mode=mode,
         )
 
-    def _park_markdown_visual(self, document: _Document) -> None:
-        self._discard_parked_visual(document)
-        try:
-            layout = document.page.layout()
-        except RuntimeError:
-            return
-        if layout is None:
-            return
-        for index in range(layout.count()):
-            widget = layout.itemAt(index).widget()
-            can_reload = getattr(widget, "can_reload", None)
-            if (
-                widget is None
-                or not callable(can_reload)
-                or widget.property("readerPreviewReady") is not True
-                or not can_reload()
-            ):
-                continue
-            layout.takeAt(index)
-            widget.hide()
-            document.parked_visual = widget
-            if document.last_result is not None and document.last_result.kind == "markdown":
-                document.parked_result = document.last_result
-            return
-
-    def _discard_parked_visual(self, document: _Document) -> None:
-        widget, document.parked_visual = document.parked_visual, None
-        document.parked_result = None
-        if widget is not None:
+    def _dispose_document_content(self, document: _Document) -> None:
+        if document.md_push_timer is not None:
+            document.md_push_timer.stop()
+        self._discard_kept_preview(document)
+        editor, document.md_editor = document.md_editor, None
+        if editor is not None:
             try:
-                _dispose_widget(widget)
+                _dispose_widget(editor)
             except RuntimeError:
                 pass
-
-    def _reuse_parked_markdown_visual(self, document_id: str, document: _Document) -> bool:
-        view = document.parked_visual
-        result = document.parked_result
-        if view is None:
-            return False
-        try:
-            usable = (
-                result is not None
-                and view.can_reload()
-                and Path(view.source_path()) == document.path.resolve()
-            )
-        except (RuntimeError, OSError):
-            usable = False
-        if not usable:
-            self._discard_parked_visual(document)
-            return False
-        document.parked_visual = None
-        document.parked_result = None
-        self._cancel_availability_probe(document)
-        document.generation += 1
-        if document.request_id is not None:
-            self._requests.pop(document.request_id, None)
-            self._owned_request_ids.discard(document.request_id)
-            self._executor.cancel(document.request_id)
-            document.request_id = None
-        previous = (document.mode, document.builtin_mode, document.status_label, document.last_result)
-        document.mode = "visual"
-        document.builtin_mode = "visual"
-        document.status_label = result.status_label
-        document.last_result = result
-        if not self._install_document_content(document_id, document, view, document.generation):
-            document.mode, document.builtin_mode, document.status_label, document.last_result = previous
-            self._refresh_preview_actions()
-            return True
-        view.reload()
-        self._refresh_preview_actions()
-        return True
-
-    def _dispose_document_content(self, document: _Document) -> None:
-        self._discard_parked_visual(document)
         self._disconnect_visual_events(document)
         try:
             layout = document.page.layout()
@@ -2221,7 +2365,7 @@ class MainWindow(QMainWindow):
                     set_editable(False)
                 continue
             layout.takeAt(index)
-            _dispose_widget(widget)
+            _retire_widget(widget)
         self._bind_visual_events(document_id, generation, content)
         if content.objectName() == "codeTextView":
             layout.setContentsMargins(0, 0, 0, 0)
