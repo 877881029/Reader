@@ -207,10 +207,16 @@ def current_content(window) -> QWidget:
     page = window._tabs.currentWidget()
     assert page is not None
     layout = page.layout()
-    assert layout is not None and layout.count() == 1
-    content = layout.itemAt(0).widget()
-    assert content is not None
-    return content
+    assert layout is not None
+    # Content being replaced stays until its successor is ready; skip it.
+    widgets = [
+        layout.itemAt(index).widget()
+        for index in range(layout.count())
+        if layout.itemAt(index).widget() is not None
+        and layout.itemAt(index).widget().property("readerRetiring") is not True
+    ]
+    assert len(widgets) == 1
+    return widgets[0]
 
 
 def test_default_viewer_factory_uses_pptx_visual_view(monkeypatch, tmp_path: Path):
@@ -1808,6 +1814,8 @@ def test_ctrl_t_force_saves_dirty_markdown_then_shows_visual(qtbot, tmp_path: Pa
     view = window.findChild(MarkdownTextView)
     view._editor.setPlainText("changed")
     window.actionMarkdownPreview.trigger()
+    qtbot.waitUntil(lambda: current_content(window) is not view)
+    current_content(window).ready.emit(1)
     qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
     assert path.read_text(encoding="utf-8") == "changed"
     document = next(iter(window._documents.values()))
@@ -4951,3 +4959,94 @@ def test_preview_failure_also_retires_editor(qtbot, tmp_path: Path, monkeypatch)
 
     qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
     assert visual.isVisible() is True
+
+
+class ReloadableMarkdownVisual(FakeMarkdownVisual):
+    def __init__(self, source: Path) -> None:
+        super().__init__()
+        self.source = source.resolve()
+        self.reload_calls = 0
+        self.reloadable = True
+
+    def can_reload(self) -> bool:
+        return self.reloadable
+
+    def source_path(self) -> Path:
+        return self.source
+
+    def reload(self) -> None:
+        self.reload_calls += 1
+
+
+def test_second_preview_switch_reuses_parked_view(qtbot, tmp_path: Path, monkeypatch):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    target = tmp_path / "note.md"
+    first = ReloadableMarkdownVisual(target)
+    spare = ReloadableMarkdownVisual(target)
+    window, _target, created = _switch_window(qtbot, tmp_path, monkeypatch, [first, spare])
+    window.findChild(MarkdownTextView)._editor.insertPlainText("one")
+    window._title_chrome._request_mode("visual")
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    first.ready.emit(1)
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
+
+    window._title_chrome._request_mode("text")
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    assert first.shutdown_calls == 0 and first.isVisible() is False
+    assert window._current_preview_widget() is window.findChild(MarkdownTextView)
+    editor = window.findChild(MarkdownTextView)._editor
+    editor.moveCursor(editor.textCursor().MoveOperation.End)
+    editor.insertPlainText(" two")
+
+    window._title_chrome._request_mode("visual")
+
+    assert target.read_text(encoding="utf-8") == "one two"
+    assert first.reload_calls == 1
+    assert created == [first]
+    assert window._content_stack.currentIndex() == 1
+    first.ready.emit(1)
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
+    assert first.isVisible() is True
+    document = next(iter(window._documents.values()))
+    assert document.mode == "visual"
+
+
+def test_stale_or_broken_parked_view_is_not_reused(qtbot, tmp_path: Path, monkeypatch):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    target = tmp_path / "note.md"
+    first = ReloadableMarkdownVisual(target)
+    second = ReloadableMarkdownVisual(target)
+    window, _target, created = _switch_window(qtbot, tmp_path, monkeypatch, [first, second])
+    window.findChild(MarkdownTextView)._editor.insertPlainText("one")
+    window._title_chrome._request_mode("visual")
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    first.ready.emit(1)
+    window._title_chrome._request_mode("text")
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+    first.reloadable = False
+
+    window._title_chrome._request_mode("visual")
+
+    qtbot.waitUntil(lambda: second.start_calls == 1)
+    assert created == [first, second]
+    assert first.reload_calls == 0 and first.shutdown_calls == 1
+
+
+def test_parked_view_is_shut_down_when_tab_closes(qtbot, tmp_path: Path, monkeypatch):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    target = tmp_path / "note.md"
+    first = ReloadableMarkdownVisual(target)
+    window, _target, _created = _switch_window(qtbot, tmp_path, monkeypatch, [first])
+    window.findChild(MarkdownTextView)._editor.insertPlainText("one")
+    window._title_chrome._request_mode("visual")
+    qtbot.waitUntil(lambda: first.start_calls == 1)
+    first.ready.emit(1)
+    window._title_chrome._request_mode("text")
+    qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is not None)
+
+    window.close_tab(0)
+
+    assert first.shutdown_calls == 1

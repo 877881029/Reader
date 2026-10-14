@@ -486,6 +486,9 @@ class _Document:
     request_id: str | None = None
     availability_request_id: str | None = None
     office_requested: bool = False
+    # Markdown preview kept alive while editing, reused on the next preview.
+    parked_visual: QWidget | None = None
+    parked_result: PreviewResult | None = None
 
 
 def _directory_url(path: Path) -> QUrl:
@@ -1967,6 +1970,8 @@ class MainWindow(QMainWindow):
         if suffix == ".md":
             if not self._ensure_markdown_saved():
                 return
+            if self._reuse_parked_markdown_visual(document_id, document):
+                return
             self._restart_preview(document_id, "visual")
             return
         if suffix != ".pptx":
@@ -1990,6 +1995,7 @@ class MainWindow(QMainWindow):
             self._executor.cancel(document.request_id)
             document.request_id = None
         self._disconnect_visual_events(document)
+        self._park_markdown_visual(document)
         view = MarkdownTextView(document.page)
         if document.path.exists():
             view.load_path(document.path, editable=editable)
@@ -2088,7 +2094,80 @@ class MainWindow(QMainWindow):
             mode=mode,
         )
 
+    def _park_markdown_visual(self, document: _Document) -> None:
+        self._discard_parked_visual(document)
+        try:
+            layout = document.page.layout()
+        except RuntimeError:
+            return
+        if layout is None:
+            return
+        for index in range(layout.count()):
+            widget = layout.itemAt(index).widget()
+            can_reload = getattr(widget, "can_reload", None)
+            if (
+                widget is None
+                or not callable(can_reload)
+                or widget.property("readerPreviewReady") is not True
+                or not can_reload()
+            ):
+                continue
+            layout.takeAt(index)
+            widget.hide()
+            document.parked_visual = widget
+            if document.last_result is not None and document.last_result.kind == "markdown":
+                document.parked_result = document.last_result
+            return
+
+    def _discard_parked_visual(self, document: _Document) -> None:
+        widget, document.parked_visual = document.parked_visual, None
+        document.parked_result = None
+        if widget is not None:
+            try:
+                _dispose_widget(widget)
+            except RuntimeError:
+                pass
+
+    def _reuse_parked_markdown_visual(self, document_id: str, document: _Document) -> bool:
+        view = document.parked_visual
+        result = document.parked_result
+        if view is None:
+            return False
+        try:
+            usable = (
+                result is not None
+                and view.can_reload()
+                and Path(view.source_path()) == document.path.resolve()
+            )
+        except (RuntimeError, OSError):
+            usable = False
+        if not usable:
+            self._discard_parked_visual(document)
+            return False
+        document.parked_visual = None
+        document.parked_result = None
+        self._cancel_availability_probe(document)
+        document.generation += 1
+        if document.request_id is not None:
+            self._requests.pop(document.request_id, None)
+            self._owned_request_ids.discard(document.request_id)
+            self._executor.cancel(document.request_id)
+            document.request_id = None
+        previous = (document.mode, document.builtin_mode, document.status_label, document.last_result)
+        document.mode = "visual"
+        document.builtin_mode = "visual"
+        document.status_label = result.status_label
+        document.last_result = result
+        if not self._install_document_content(document_id, document, view, document.generation):
+            document.mode, document.builtin_mode, document.status_label, document.last_result = previous
+            self._refresh_preview_actions()
+            return True
+        view.reload()
+        self._refresh_preview_actions()
+        return True
+
     def _dispose_document_content(self, document: _Document) -> None:
+        self._discard_parked_visual(document)
         self._disconnect_visual_events(document)
         try:
             layout = document.page.layout()
@@ -2135,7 +2214,6 @@ class MainWindow(QMainWindow):
                 keep_until_ready
                 and widget.objectName() != "previewLoading"
                 and widget.property("readerPreviewReady") is not False
-                and widget.isVisible()
             ):
                 widget.setProperty("readerRetiring", True)
                 set_editable = getattr(widget, "_set_editable", None)

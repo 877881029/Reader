@@ -12,6 +12,8 @@ Git：终端 DECRQM 修复最终状态 `c760dd6` 已同步；本边界提交 Mar
 - 根因 2（延迟）：每次切换都新建 `MarkdownVisualView`（新 QWebEngineView + profile → 新 Chromium 渲染进程）。实测本机新视图即便加载极小页面也需 1.2–1.4s（进程启动，CrowdStrike/Defender 扫描 `QtWebEngineProcess` 加剧），而复用已有视图重新加载 Markdown 仅 0.17–0.4s；首次切换另含 WebEngine 预热未完成的开销。
 - 规格：`docs/superpowers/specs/2026-10-14-markdown-switch-speed-design.md`；计划：`docs/superpowers/plans/2026-10-14-markdown-switch-speed.md`（3 任务）。
 - Task 1 完成（不再退回欢迎页）：`_install_document_content` 在新内容未就绪时保留当前可见内容（标记 `readerRetiring`，编辑器设只读），`_mark_preview_ready`（就绪与渲染失败回退都经过）再移除；之后的安装/关标签照常销毁。旧测试 `test_markdown_mode_switch_tracks_and_toggles_mode` 的假视图从不发 ready，按新规则改为发 ready 后断言。RED：内容栈为欢迎页 `1 failed`；GREEN：window/md_view/md_text_view/find/welcome_lookup `222 passed`。
+- Task 2 完成（复用预览视图）：`MarkdownVisualView` 新增 `source_path()` / `can_reload()` / `reload()`（同一 page/渲染进程重新加载 bundle 并重新读取已保存文件，再次发 `ready`）；`_restore_markdown_text` 切到编辑时把已就绪的预览视图隐藏「停放」到 `_Document.parked_visual`（移出布局、事件已解绑，连同 `parked_result`）；`switch_current_tab_to_visual` 在保存后优先 `_reuse_parked_markdown_visual`（源路径一致且可 reload 才复用，否则销毁后走原流程）；关标签/关窗口经 `_dispose_document_content` 销毁停放视图。修复中发现：`_restore_markdown_text` 新装的编辑器由 Qt 排队显示，短时 `isVisible()` 为 False，故「保留旧内容」改以 `readerPreviewReady` 判断而非可见性。测试辅助 `current_content` 跳过 retiring 内容，3 个旧测试的假视图补发 ready。RED：真实 WebEngine `reload` 与窗口复用 `2 failed`；GREEN：window/md_webengine/md_view/md_text_view/find/welcome_lookup `228 passed`。
+- 实测（真实窗口，从欢迎页新建）：首次预览 2.0s（已预热；每个标签首次需新渲染进程），之后 编辑→预览 0.3–0.6s（原 1.8s）、预览→编辑 ~45ms，全过程欢迎页 0 次，同一标签仅 1 个预览视图。
 
 ## 上一目标：终端 ghcp 修复（已完成）
 

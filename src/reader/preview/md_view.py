@@ -332,6 +332,26 @@ class MarkdownVisualView(QWebEngineView):
         self.startup_timer.start()
         self.load(self.viewer_url)
 
+    def source_path(self) -> Path:
+        return self._source
+
+    def can_reload(self) -> bool:
+        return (
+            self.started
+            and self._startup_complete
+            and not self.is_fallback
+            and not self._shutdown
+            and not self._bootstrap_error
+        )
+
+    def reload(self) -> None:
+        """Re-render the (saved) source in this page, reusing its renderer process."""
+        if not self.can_reload():
+            return
+        self._startup_complete = False
+        self.startup_timer.start()
+        self.load(self.viewer_url)
+
     @Slot(bool)
     def _load_finished(self, succeeded: bool) -> None:
         if (
