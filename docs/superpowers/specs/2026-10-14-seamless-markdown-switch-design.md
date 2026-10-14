@@ -1,6 +1,6 @@
 # Seamless Markdown Edit/Preview Design
 
-Status: Approved
+Status: Implemented
 Progress ledger: `docs/STATUS.md`
 
 ## Goal

@@ -5,7 +5,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 
 ## 当前目标
 
-**Markdown 编辑/预览无缝切换（对标 VS Code / Cursor / Typora）**（执行中）
+**Markdown 编辑/预览无缝切换（对标 VS Code / Cursor / Typora）**（已完成）
 
 - 用户需求：编辑与预览切换要无缝快速；用户决定：预览直接显示编辑器当前内容，不强制保存，新建文件也不弹另存为。
 - 方案：每个 Markdown 标签同时保留编辑器与预览两个组件，切换只换布局不重建；预览改为接收编辑器文本推送（`liveSource`/`liveSourceChanged`）原地重渲染，不再读盘/重载；编辑时 150ms 防抖后台推送；进入编辑模式 300ms 后后台预建预览。
@@ -15,6 +15,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - Task 2 补充：页面无论是否以实时源启动都订阅 `liveSourceChanged`（从文件打开、先读盘渲染的预览也能接收编辑器推送）。RED：vitest `1 failed`；GREEN：md-viewer `24 passed`，重建 bundle，md 资产+WebEngine `11 passed`。
 - Task 3 完成：窗口每个 Markdown 标签保留编辑器与预览——切到预览时编辑器标记 `readerKeepOnRetire`，被替换时隐藏保留（`_retire_widget`）而非销毁；切回编辑重装同一编辑器（光标/撤销/滚动保留）并把预览 `_keep_current_preview` 隐藏保留；切到预览不再保存（删除 `_ensure_markdown_saved`），直接把编辑器文本 `set_source_text` 推给保留/新建的预览；已就绪组件 `_arm_preview_ready` 立即显示。编辑时 150ms 防抖后台推送（`_schedule_markdown_push`）；新建/文本打开/切回编辑后 300ms 后台预建预览（`_precreate_markdown_preview`，计时器以窗口为上下文，窗口销毁不再回调——测试中捕获的真实缺陷）。未命名稿预览源路径为 `%TEMP%\reader-untitled\<名>`；另存为改路径后旧预览销毁并重建。保留的编辑器仍是文档可编辑视图（`*`、Ctrl+S、关闭提示在预览模式可用），Ctrl+H 仅在编辑可见时生效；关标签/关窗口销毁保留组件。移除上轮 parked/reload 路径。按新规格改写 3 个旧测试（强制保存、取消另存为回退、编辑器销毁断言）。RED：`6 failed`；GREEN：window/md_view/md_webengine/md_text_view/find/welcome_lookup `229 passed`。
 - 实测（真实窗口 + 真实 WebEngine，已预热）：新建文件编辑→预览 14ms、预览→编辑 7ms、刚输入后立即切预览 4ms，后续往返 4–5ms，欢迎页 0 次，单标签 1 个预览；打开已有文件后编辑再立即切预览，预览显示未保存内容、磁盘文件未改、标签 `*doc.md`（截图）。
+- Task 4 完成：README / 功能全解（`Ctrl+T` 不再强制保存、无缝切换说明）；`verify.ps1 -Release` 一次通过（Python `625 passed, 1 skipped`、PTY 自检、全部 GUI smoke）；`install_local.ps1` 安装，SHA256 `B61E22FF6014FDC408E9EF2BA4AA4B89A95DFB2CC9EFE64106CD5DCF1D96F455`；规格/计划 Implemented。已知代价：每个处于编辑状态的 Markdown 标签会在后台多占一个 Chromium 渲染进程。
 
 ## 上一目标：Markdown 切换延迟与欢迎页修复（已完成）
 

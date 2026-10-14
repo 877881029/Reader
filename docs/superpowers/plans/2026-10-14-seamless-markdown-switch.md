@@ -1,6 +1,6 @@
 # Seamless Markdown Edit/Preview Implementation Plan
 
-Status: Approved
+Status: Implemented
 
 **Spec:** `docs/superpowers/specs/2026-10-14-seamless-markdown-switch-design.md`
 
