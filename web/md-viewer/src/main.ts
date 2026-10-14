@@ -70,11 +70,20 @@ async function bootstrap(): Promise<void> {
 
   try {
     abortController = new AbortController();
-    const response = await fetch(bridge.sourceUrl, { signal: abortController.signal });
-    if (!response.ok) {
-      throw new Error(`fetch failed: ${response.status}`);
+    let source: string;
+    if (bridge.hasLiveSource) {
+      // Reader pushes the editor's text; the file on disk may be unsaved or absent.
+      source = bridge.liveSource ?? "";
+      bridge.liveSourceChanged?.connect((text: string) => {
+        void rerender(bridge, text);
+      });
+    } else {
+      const response = await fetch(bridge.sourceUrl, { signal: abortController.signal });
+      if (!response.ok) {
+        throw new Error(`fetch failed: ${response.status}`);
+      }
+      source = await response.text();
     }
-    const source = await response.text();
     if (disposed) {
       return;
     }
@@ -83,6 +92,29 @@ async function bootstrap(): Promise<void> {
       viewerController.destroy();
       viewerController = null;
     }
+  } catch (error) {
+    if (disposed || isAbortError(error)) {
+      return;
+    }
+    bridge.viewerError(BOOTSTRAP_ERROR_MESSAGE);
+  }
+}
+
+let renderSerial = 0;
+
+async function rerender(bridge: MarkdownBridge, text: string): Promise<void> {
+  if (disposed || !abortController) {
+    return;
+  }
+  const serial = ++renderSerial;
+  const scrollY = window.scrollY;
+  try {
+    const next = await startViewer(root, text, bridge.sourceUrl, bridge, abortController.signal);
+    if (disposed || serial !== renderSerial) {
+      return;
+    }
+    viewerController = next;
+    window.scrollTo(0, scrollY);
   } catch (error) {
     if (disposed || isAbortError(error)) {
       return;

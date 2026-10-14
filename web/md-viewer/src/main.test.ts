@@ -216,3 +216,63 @@ describe("main bootstrap", () => {
     expect(bridge.viewerError).not.toHaveBeenCalled();
   });
 });
+
+
+describe("live source", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    startViewerMock.mockReset();
+    document.body.innerHTML = '<div id="app"></div>';
+  });
+
+  afterEach(() => {
+    window.readerMdDispose?.();
+    vi.unstubAllGlobals();
+    delete (window as typeof window & { qt?: unknown }).qt;
+    delete (window as typeof window & { QWebChannel?: unknown }).QWebChannel;
+  });
+
+  function liveBridge(initial: string) {
+    const listeners: Array<(text: string) => void> = [];
+    const bridge = {
+      ...createBridge("file:///C:/Temp/reader-untitled/draft.md"),
+      hasLiveSource: true,
+      liveSource: initial,
+      liveSourceChanged: { connect: (cb: (text: string) => void) => listeners.push(cb) },
+    };
+    return { bridge, push: (text: string) => listeners.forEach((cb) => cb(text)) };
+  }
+
+  it("renders the live text without fetching the file", async () => {
+    const { bridge } = liveBridge("# draft");
+    startViewerMock.mockResolvedValue({ destroy: vi.fn() });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await bootstrapWithBridge(bridge as never);
+    await vi.waitFor(() => expect(startViewerMock).toHaveBeenCalledTimes(1));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(startViewerMock.mock.calls[0]?.[1]).toBe("# draft");
+    expect(startViewerMock.mock.calls[0]?.[2]).toBe(bridge.sourceUrl);
+  });
+
+  it("re-renders in place on liveSourceChanged and keeps the scroll position", async () => {
+    const { bridge, push } = liveBridge("# one");
+    startViewerMock.mockResolvedValue({ destroy: vi.fn() });
+    vi.stubGlobal("fetch", vi.fn());
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+
+    await bootstrapWithBridge(bridge as never);
+    await vi.waitFor(() => expect(startViewerMock).toHaveBeenCalledTimes(1));
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 240 });
+
+    push("# two");
+
+    await vi.waitFor(() => expect(startViewerMock).toHaveBeenCalledTimes(2));
+    expect(startViewerMock.mock.calls[1]?.[1]).toBe("# two");
+    await vi.waitFor(() => expect(scrollTo).toHaveBeenCalledWith(0, 240));
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+  });
+});

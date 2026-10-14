@@ -3,6 +3,9 @@ import { renderMermaidBlocks } from "./mermaid";
 
 export interface MarkdownBridge {
   sourceUrl: string;
+  hasLiveSource?: boolean;
+  liveSource?: string;
+  liveSourceChanged?: { connect(callback: (text: string) => void): void };
   viewerReady(): void;
   viewerError(message: string): void;
   wikiExists(target: string, callback: (exists: boolean) => void): void;
