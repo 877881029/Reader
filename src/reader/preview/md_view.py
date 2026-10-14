@@ -72,6 +72,8 @@ class MarkdownBridge(QObject):
     failed = Signal(str)
     open_path = Signal(str)
     missing = Signal(str)
+    # Python -> page: re-render this text in place (live editor content).
+    liveSourceChanged = Signal(str)  # noqa: N815 - WebChannel contract
 
     def __init__(self, source: Path, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -80,10 +82,28 @@ class MarkdownBridge(QObject):
             QUrl.ComponentFormattingOption.FullyEncoded
         )
         self._active = True
+        self._live = False
+        self._live_text = ""
 
     @Property(str, constant=True)
     def sourceUrl(self) -> str:  # noqa: N802 - WebChannel contract
         return self._source_url
+
+    # Read once when the page connects; later changes arrive via liveSourceChanged.
+    @Property(bool, constant=True)
+    def hasLiveSource(self) -> bool:  # noqa: N802 - WebChannel contract
+        return self._live
+
+    @Property(str, constant=True)
+    def liveSource(self) -> str:  # noqa: N802 - WebChannel contract
+        return self._live_text
+
+    def set_live_source(self, text: str) -> None:
+        if not self._active:
+            return
+        self._live = True
+        self._live_text = text
+        self.liveSourceChanged.emit(text)
 
     def deactivate(self) -> None:
         self._active = False
@@ -229,6 +249,7 @@ class OfflineRequestInterceptor(QWebEngineUrlRequestInterceptor):
 
 class MarkdownVisualView(QWebEngineView):
     ready = Signal(int)
+    rendered = Signal()
     render_failed = Signal(str)
     open_path = Signal(str)
     missing_link = Signal(str)
@@ -335,22 +356,24 @@ class MarkdownVisualView(QWebEngineView):
     def source_path(self) -> Path:
         return self._source
 
-    def can_reload(self) -> bool:
-        return (
-            self.started
-            and self._startup_complete
-            and not self.is_fallback
-            and not self._shutdown
-            and not self._bootstrap_error
-        )
+    def is_usable(self) -> bool:
+        return not (self.is_fallback or self._shutdown or self._bootstrap_error)
 
-    def reload(self) -> None:
-        """Re-render the (saved) source in this page, reusing its renderer process."""
-        if not self.can_reload():
+    def is_ready(self) -> bool:
+        return self._startup_complete and self.is_usable()
+
+    def set_source_text(self, text: str) -> None:
+        """Show ``text`` (e.g. unsaved editor content) instead of the file on disk."""
+        if self._shutdown:
             return
-        self._startup_complete = False
-        self.startup_timer.start()
-        self.load(self.viewer_url)
+        self._live_text = text
+        if self.is_fallback:
+            from reader.formats.md import to_visual_text
+
+            self.setHtml(to_visual_text(text).fallback_html or _SAFE_FALLBACK_HTML, QUrl())
+            return
+        if self.bridge is not None:
+            self.bridge.set_live_source(text)
 
     @Slot(bool)
     def _load_finished(self, succeeded: bool) -> None:
@@ -377,7 +400,10 @@ class MarkdownVisualView(QWebEngineView):
 
     @Slot()
     def _viewer_ready(self) -> None:
-        if self._shutdown or self.is_fallback or self._startup_complete:
+        if self._shutdown or self.is_fallback:
+            return
+        if self._startup_complete:
+            self.rendered.emit()
             return
         self._startup_complete = True
         self.startup_timer.stop()

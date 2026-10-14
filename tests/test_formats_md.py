@@ -44,3 +44,12 @@ def test_to_html_decodes_gb18030_markdown(tmp_path):
     path.write_bytes("# 中文标题\n".encode("gb18030"))
 
     assert "中文标题" in to_html(path).html
+
+
+def test_to_visual_text_renders_fallback_from_text():
+    from reader.formats.md import to_visual_text
+
+    result = to_visual_text("# Live title")
+    assert result.kind == "markdown"
+    assert result.status_label == "内置预览（视觉模式）"
+    assert "<h1>Live title</h1>" in result.fallback_html

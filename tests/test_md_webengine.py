@@ -274,29 +274,31 @@ def test_real_view_blocks_http_https_ws_wss_and_shutdown_invalidates_profile(qtb
         assert failures == []
 
 
-def test_reload_rerenders_saved_source_in_same_view(qtbot, tmp_path: Path):
-    source = tmp_path / "note.md"
-    source.write_text("# First version", encoding="utf-8")
+def test_live_source_renders_unsaved_text_and_rerenders_in_place(qtbot, tmp_path: Path):
+    source = tmp_path / "reader-untitled" / "draft.md"
     view = MarkdownVisualView(_result(), source)
     qtbot.addWidget(view)
     view.resize(800, 500)
     view.show()
     readies: list[int] = []
+    renders: list[int] = []
     view.ready.connect(readies.append)
+    view.rendered.connect(lambda: renders.append(1))
     page = view.page()
     try:
+        view.set_source_text("# First draft")
         view.start()
         qtbot.waitUntil(lambda: len(readies) == 1, timeout=20_000)
-        assert view.can_reload() is True
-        assert view.source_path() == source.resolve()
+        assert view.is_ready() and view.is_usable()
+        assert not source.exists()
+        assert "First draft" in run_js(qtbot, view, "document.body.innerText")
 
-        source.write_text("# Second version", encoding="utf-8")
-        view.reload()
-
-        qtbot.waitUntil(lambda: len(readies) == 2, timeout=20_000)
+        view.set_source_text("# Second draft\n\nmore")
+        qtbot.waitUntil(lambda: len(renders) >= 1, timeout=20_000)
         assert view.page() is page
+        assert len(readies) == 1
         text = run_js(qtbot, view, "document.body.innerText")
-        assert "Second version" in text and "First version" not in text
+        assert "Second draft" in text and "First draft" not in text
     finally:
         view.shutdown()
-    assert view.can_reload() is False
+    assert view.is_usable() is False

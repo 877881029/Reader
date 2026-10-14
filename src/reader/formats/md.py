@@ -20,6 +20,16 @@ def to_html(path: Path) -> PreviewResult:
     return PreviewResult(html=html, status_label="内置预览", kind="html")
 
 
+def to_visual_text(text: str) -> PreviewResult:
+    """Visual-mode result for unsaved editor text (fallback rendered from the text)."""
+    return PreviewResult(
+        html="",
+        fallback_html=wrap_document_html(_MD.render(text)),
+        status_label="内置预览（视觉模式）",
+        kind="markdown",
+    )
+
+
 def to_visual(path: Path) -> PreviewResult:
     fallback = to_html(path)
     return PreviewResult(

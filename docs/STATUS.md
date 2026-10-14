@@ -11,6 +11,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - 方案：每个 Markdown 标签同时保留编辑器与预览两个组件，切换只换布局不重建；预览改为接收编辑器文本推送（`liveSource`/`liveSourceChanged`）原地重渲染，不再读盘/重载；编辑时 150ms 防抖后台推送；进入编辑模式 300ms 后后台预建预览。
 - 规格：`docs/superpowers/specs/2026-10-14-seamless-markdown-switch-design.md`；计划：`docs/superpowers/plans/2026-10-14-seamless-markdown-switch.md`（4 任务）。
 - Task 1 完成：md-viewer `main.ts` 支持实时源——桥接 `hasLiveSource` 为真时直接渲染 `liveSource`（不 fetch 文件，未保存/不存在的文件也能预览），并订阅 `liveSourceChanged` 原地重渲染（保留滚动位置；每次重渲染经 `startViewer` 再次 `viewerReady`；串行号丢弃过期渲染）。`MarkdownBridge` 类型增加三项可选字段。重建 `assets/md-viewer`（哈希分块重命名）。RED：vitest `2 failed`；GREEN：md-viewer `23 passed`、typecheck、md 资产+卫生 `14 passed`。
+- Task 2 完成：`MarkdownBridge` 增加 `hasLiveSource`/`liveSource`（constant 属性，页面连接时读取）与 `liveSourceChanged(str)` 信号；`MarkdownVisualView.set_source_text(text)`（回退模式下直接用文本渲染回退 HTML）、`is_usable()`/`is_ready()`、`rendered` 信号（启动后每次重渲染完成）；移除上一轮的 `reload()`/`can_reload()`；`fmt_md.to_visual_text(text)`。真实 WebEngine 测试：不存在的未命名源路径直接渲染推送文本，二次推送同页原地重渲染并发 `rendered`。RED：`2 failed`；GREEN：md_webengine/formats_md/md_view `30 passed`。
 
 ## 上一目标：Markdown 切换延迟与欢迎页修复（已完成）
 
