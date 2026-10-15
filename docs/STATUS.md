@@ -5,6 +5,15 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 
 ## 当前目标
 
+**同步远端更新（2026-10-15）**
+
+- 远端 `main` 新增 1 个提交 `abb2d6f`「fix(reader): stop opening default apps settings on startup」（2026-10-14 19:45，作者 877881029），本地快进合并。
+- 内容：启动时不再延迟 2.5s 调用 `claim_protected_defaults` 打开 Windows「默认应用」设置；`register_open_with` 不再删除各扩展名的 `UserChoice` / `UserChoiceLatest`（即不再清掉用户已选的默认应用），只注册「打开方式」候选；README 补充说明；相关测试改为断言不清除、不调度。
+- 验证：associate / main_launch / packaging / settings_claim `78 passed`。
+- 遗留：`src/reader/shell/settings_claim.py` 已无调用方（仅剩模块与其测试）；已安装的 `Reader.exe`（`B61E22FF…`）构建于该提交之前，尚不含此修复，需下次发布门 + `install_local.ps1` 后生效。
+
+## 上一目标：Markdown 编辑/预览无缝切换（已完成）
+
 **Markdown 编辑/预览无缝切换（对标 VS Code / Cursor / Typora）**（已完成）
 
 - 用户需求：编辑与预览切换要无缝快速；用户决定：预览直接显示编辑器当前内容，不强制保存，新建文件也不弹另存为。
