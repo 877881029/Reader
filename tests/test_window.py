@@ -5044,3 +5044,188 @@ def test_tab_close_disposes_kept_editor_and_preview(qtbot, monkeypatch):
     assert created[0].shutdown_calls == 1
     qtbot.waitUntil(lambda: window.findChild(MarkdownTextView) is None)
     assert editor is not None
+
+
+# --- moving tabs between windows -------------------------------------------------
+
+
+def _twin_window(qtbot, source):
+    from reader.shell.window import MainWindow
+
+    target = MainWindow(
+        preview_fn=source._preview_fn,
+        cache_factory=source._cache_factory,
+        viewer_factory=source._viewer_factory,
+        executor=source._executor,
+        office=source._office,
+    )
+    qtbot.addWidget(target)
+    target.show()
+    qtbot.waitExposed(target)
+    return target
+
+
+def test_move_dirty_markdown_draft_keeps_text_and_rebinds_handlers(
+    qtbot, monkeypatch, tmp_path: Path
+):
+    from reader.preview.md_text_view import MarkdownTextView
+
+    source, created = _live_window(qtbot, monkeypatch)
+    source.add_untitled_text_tab()
+    source._tabs.setCurrentIndex(0)
+    editor = source._tabs.widget(0).findChild(MarkdownTextView)
+    _type_end(editor, "# moved")
+    qtbot.waitUntil(lambda: len(created) == 1)
+    preview = created[0]
+    target = _twin_window(qtbot, source)
+    document_id = source._current_document_id()
+
+    assert source.move_document_to(document_id, target) is True
+
+    assert source.tab_count() == 1
+    assert target.tab_count() == 1
+    assert target.tab_title(0) == "*未命名.md"
+    assert editor.window() is target
+    assert editor.text() == "# moved"
+    assert target._current_document_id() == document_id
+    assert document_id not in source._documents
+
+    _type_end(editor, " again")
+    qtbot.waitUntil(lambda: preview.texts and preview.texts[-1] == "# moved again")
+
+    saved = tmp_path / "moved.md"
+    editor.save_as(saved)
+    assert target.tab_title(0) == "moved.md"
+    assert target._documents[document_id].path == saved.resolve()
+
+    target._title_chrome._request_mode("visual")
+    assert target._documents[document_id].mode == "visual"
+
+
+def test_move_code_tab_keeps_dirty_state_and_save_action(qtbot):
+    from reader.preview.code_view import CodeTextView
+
+    source = make_window(lambda *_args, **_kwargs: builtin_result())
+    qtbot.addWidget(source)
+    source.show()
+    source.add_untitled_text_tab()
+    source.add_untitled_text_tab()
+    source._tabs.setCurrentIndex(0)
+    view = source._tabs.widget(0).findChild(CodeTextView)
+    view.editor().insertPlainText("hello")
+    dirty_title = source.tab_title(0)
+    assert dirty_title.startswith("*")
+    target = _twin_window(qtbot, source)
+
+    assert source.move_document_to(source._current_document_id(), target) is True
+
+    assert target.tab_title(0) == dirty_title
+    assert target.actionSave.isEnabled() is True
+    assert target._is_dirty(target._documents[target._current_document_id()])
+    view.editor().undo()
+    qtbot.waitUntil(lambda: not target.tab_title(0).startswith("*"))
+
+
+def test_move_last_tab_closes_source_without_prompt(qtbot):
+    from reader.preview.code_view import CodeTextView
+
+    source = make_window(lambda *_args, **_kwargs: builtin_result())
+    qtbot.addWidget(source)
+    source.unsaved_prompt = lambda _name: pytest.fail("moved tab must not prompt")
+    source.show()
+    source.add_untitled_text_tab()
+    source._tabs.widget(0).findChild(CodeTextView).editor().insertPlainText("keep")
+    target = _twin_window(qtbot, source)
+
+    assert source.move_document_to(source._current_document_id(), target) is True
+
+    assert source.is_closing() is True
+    assert target.tab_count() == 1
+    assert target.tab_title(0).startswith("*")
+
+
+def test_move_tool_tab_keeps_title_and_page(qtbot):
+    source = make_window(lambda *_args, **_kwargs: builtin_result())
+    qtbot.addWidget(source)
+    source.show()
+    source.add_untitled_text_tab()
+    tool = QLabel("tool content")
+    document_id = source._add_tool_tab(tool, "工具", "工具")
+    target = _twin_window(qtbot, source)
+
+    assert source.move_document_to(document_id, target) is True
+
+    assert target.tab_title(0) == "工具"
+    assert tool.window() is target
+    assert target._content_stack.currentIndex() == 1
+
+
+def test_move_visual_document_rebinds_slide_events(qtbot, tmp_path: Path):
+    from reader.shell.window import MainWindow
+
+    path = tmp_path / "deck.pptx"
+    path.write_bytes(b"x")
+    visual = FakeVisual()
+    source = MainWindow(
+        preview_fn=lambda *_args, **_kwargs: visual_result(),
+        cache_factory=FakeCache,
+        viewer_factory=lambda *_args: visual,
+        office=FakeOfficeAvailability(False),
+    )
+    qtbot.addWidget(source)
+    source.show()
+    source.open_paths([str(path)])
+    qtbot.waitUntil(lambda: visual.start_calls == 1)
+    visual.ready.emit(7)
+    source.add_untitled_text_tab()
+    source._tabs.setCurrentIndex(0)
+    document_id = source._current_document_id()
+    target = _twin_window(qtbot, source)
+
+    assert source.move_document_to(document_id, target) is True
+    visual.slide_changed.emit(4)
+
+    document = target._documents[document_id]
+    qtbot.waitUntil(lambda: document.visual_slide_index == 4)
+    assert document.visual_slide_count == 7
+
+
+def test_move_in_flight_preview_finishes_in_target(reader_app, qtbot, tmp_path: Path, monkeypatch):
+    app, _ipc = reader_app
+    _track_new_windows(app, monkeypatch)
+    path = tmp_path / "late.docx"
+    path.write_bytes(b"x")
+    source = app.new_window()
+    target = app.new_window()
+    source.add_untitled_text_tab()
+    source.open_paths([str(path)])
+    document_id = source._current_document_id()
+    assert source._documents[document_id].request_id is not None
+
+    assert source.move_document_to(document_id, target) is True
+
+    qtbot.waitUntil(lambda: "late.docx" in page_text(target, 0), timeout=10_000)
+    assert target._documents[document_id].status_label == "内置预览"
+
+
+def test_move_tab_to_new_window_from_tab_menu(reader_app, qtbot, monkeypatch):
+    app, _ipc = reader_app
+    _track_new_windows(app, monkeypatch)
+    window = app.new_window()
+    window.add_untitled_text_tab()
+
+    single = window._build_tab_menu(0)
+    move_single = next(a for a in single.actions() if a.text() == "移到新窗口")
+    assert move_single.isEnabled() is False
+
+    window.add_untitled_text_tab()
+    menu = window._build_tab_menu(1)
+    move = next(a for a in menu.actions() if a.text() == "移到新窗口")
+    assert move.isEnabled() is True
+    move.trigger()
+
+    assert app.window_count() == 2
+    assert window.tab_count() == 1
+    moved_to = [w for w in app._windows if w is not window][0]
+    assert moved_to.tab_count() == 1
+    assert moved_to.isVisible()

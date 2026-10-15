@@ -679,6 +679,8 @@ class MainWindow(QMainWindow):
         self._title_chrome = TitleChrome(self)
         self._title_chrome.set_window_icon(self.windowIcon())
         self._title_chrome.adopt_tab_bar(self._tabs.tabBar())
+        self._tabs.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._tabs.tabBar().customContextMenuRequested.connect(self._show_tab_menu)
         self._tabs._stretch_pane()
         self._title_chrome.minimize_requested.connect(self.showMinimized)
         self._title_chrome.maximize_requested.connect(self._toggle_maximize)
@@ -984,10 +986,12 @@ class MainWindow(QMainWindow):
         try:
             widget.setProperty("readerPreviewReady", True)
             widget.show()
+            owner = widget.window()
         except RuntimeError:
             return
         self._retire_previous_content(widget)
-        self._refresh_content_stack()
+        # The tab may have moved to another window while it was loading.
+        (owner if isinstance(owner, MainWindow) else self)._refresh_content_stack()
 
     def _retire_previous_content(self, widget: QWidget) -> None:
         try:
@@ -1822,6 +1826,200 @@ class MainWindow(QMainWindow):
                 return True
         return False
 
+    # -- moving tabs between windows ----------------------------------------------
+
+    def _show_tab_menu(self, pos) -> None:
+        bar = self._tabs.tabBar()
+        index = bar.tabAt(pos)
+        if index < 0:
+            return
+        menu = self._build_tab_menu(index)
+        menu.exec(bar.mapToGlobal(pos))
+        menu.deleteLater()
+
+    def _build_tab_menu(self, index: int):
+        from PySide6.QtWidgets import QMenu
+
+        page = self._tabs.widget(index)
+        menu = QMenu(self)
+        move = menu.addAction("移到新窗口")
+        move.setEnabled(self._tabs.count() > 1 and self._on_new_window is not None)
+        move.triggered.connect(
+            lambda _checked=False, tab=page: self.move_tab_to_new_window(
+                self._tabs.indexOf(tab)
+            )
+        )
+        menu.addSeparator()
+        close = menu.addAction("关闭标签")
+        close.triggered.connect(
+            lambda _checked=False, tab=page: self.close_tab(self._tabs.indexOf(tab))
+        )
+        return menu
+
+    def move_tab_to_new_window(self, index: int) -> MainWindow | None:
+        page = self._tabs.widget(index)
+        document_id = next(
+            (key for key, document in self._documents.items() if document.page is page),
+            None,
+        )
+        if document_id is None or self._on_new_window is None or self._closing:
+            return None
+        target = self._on_new_window()
+        if not self.move_document_to(document_id, target):
+            return None
+        target.show()
+        target.raise_()
+        target.activateWindow()
+        return target
+
+    def move_document_to(
+        self,
+        document_id: str,
+        target: MainWindow,
+        index: int | None = None,
+    ) -> bool:
+        """Hand a tab, with its live widgets and state, to another window."""
+        document = self._documents.get(document_id)
+        if (
+            document is None
+            or target is self
+            or self._closing
+            or target.is_closing()
+        ):
+            return False
+        tab_index = self._tabs.indexOf(document.page)
+        if tab_index < 0:
+            return False
+        title = self._tabs.tabText(tab_index)
+        tooltip = self._tabs.tabToolTip(tab_index)
+        icon = self._tabs.tabIcon(tab_index)
+        if self._tabs.currentIndex() == tab_index:
+            self._hide_find_bar()
+            self._hide_goto_bar()
+        visual_widget = document.visual_widget
+        self._release_document_bindings(document)
+        restart_mode = self._hand_over_requests(document, target)
+
+        del self._documents[document_id]
+        self._tabs.removeTab(tab_index)
+        target._adopt_document(
+            document_id,
+            document,
+            title=title,
+            tooltip=tooltip,
+            icon=icon,
+            index=index,
+            visual_widget=visual_widget,
+        )
+        if restart_mode is not None:
+            target._restart_preview(document_id, restart_mode)
+        self._refresh_preview_actions()
+        self._refresh_content_stack()
+        if self._tabs.count() == 0:
+            self.close()
+        return True
+
+    def _release_document_bindings(self, document: _Document) -> None:
+        import sys
+
+        from reader.preview.code_view import CodeTextView
+        from reader.preview.md_text_view import MarkdownTextView
+
+        if document.md_push_timer is not None:
+            document.md_push_timer.stop()
+            document.md_push_timer.deleteLater()
+            document.md_push_timer = None
+        self._disconnect_visual_events(document)
+        browser_module = sys.modules.get("reader.shell.browser_page")
+        browser_type = getattr(browser_module, "BrowserPage", None)
+        for widget in document.page.findChildren(QWidget):
+            if isinstance(widget, (MarkdownTextView, CodeTextView)):
+                for signal in (widget.dirty_changed, widget.path_changed):
+                    try:
+                        signal.disconnect()
+                    except (RuntimeError, TypeError):
+                        pass
+                slot = getattr(widget, "_reader_live_push_slot", None)
+                if slot is not None:
+                    try:
+                        widget._editor.textChanged.disconnect(slot)
+                    except (RuntimeError, TypeError):
+                        pass
+                    del widget._reader_live_push_slot
+                    widget.setProperty("readerLivePush", False)
+            elif browser_type is not None and isinstance(widget, browser_type):
+                try:
+                    widget.title_changed.disconnect()
+                except (RuntimeError, TypeError):
+                    pass
+
+    def _hand_over_requests(self, document: _Document, target: MainWindow):
+        """Move in-flight work to ``target``; returns a mode to restart, if any."""
+        shared = self._executor is target._executor
+        restart_mode = None
+        request_id = document.request_id
+        request = self._requests.pop(request_id, None) if request_id is not None else None
+        if request is not None:
+            self._owned_request_ids.discard(request_id)
+            if shared:
+                target._requests[request_id] = request
+                target._owned_request_ids.add(request_id)
+            else:
+                self._executor.cancel(request_id)
+                document.request_id = None
+                restart_mode = request[2]
+        availability_id = document.availability_request_id
+        if availability_id is not None:
+            pending = self._availability_requests.pop(availability_id, None)
+            if shared and pending is not None:
+                target._availability_requests[availability_id] = pending
+            else:
+                self._executor.cancel(availability_id)
+                document.availability_request_id = None
+                document.office_requested = False
+        return restart_mode
+
+    def _adopt_document(
+        self,
+        document_id: str,
+        document: _Document,
+        *,
+        title: str,
+        tooltip: str,
+        icon: QIcon,
+        index: int | None,
+        visual_widget: QWidget | None,
+    ) -> None:
+        import sys
+
+        from reader.preview.code_view import CodeTextView
+        from reader.preview.md_text_view import MarkdownTextView
+
+        self._documents[document_id] = document
+        if index is None or not 0 <= index <= self._tabs.count():
+            index = self._tabs.count()
+        index = self._tabs.insertTab(index, document.page, icon, title)
+        self._tabs.setTabToolTip(index, tooltip)
+        browser_module = sys.modules.get("reader.shell.browser_page")
+        browser_type = getattr(browser_module, "BrowserPage", None)
+        for widget in document.page.findChildren(QWidget):
+            if isinstance(widget, (MarkdownTextView, CodeTextView)):
+                self._bind_editable_view(document_id, widget)
+            elif browser_type is not None and isinstance(widget, browser_type):
+                widget.title_changed.connect(
+                    lambda text, did=document_id: self._set_tool_tab_title(
+                        did, text, "浏览器"
+                    )
+                )
+        editor = self._markdown_editor(document)
+        if editor is not None:
+            self._adopt_markdown_editor(document_id, editor)
+        if visual_widget is not None:
+            self._bind_visual_events(document_id, document.generation, visual_widget)
+        self._tabs.setCurrentWidget(document.page)
+        self._refresh_content_stack()
+        self._refresh_preview_actions()
+
     def _focus(self, path: Path) -> None:
         for document in self._documents.values():
             if document.path == path:
@@ -2081,9 +2279,9 @@ class MainWindow(QMainWindow):
     def _adopt_markdown_editor(self, document_id: str, editor: QWidget) -> None:
         if editor.property("readerLivePush") is not True:
             editor.setProperty("readerLivePush", True)
-            editor._editor.textChanged.connect(
-                lambda did=document_id: self._schedule_markdown_push(did)
-            )
+            slot = lambda did=document_id: self._schedule_markdown_push(did)
+            editor._editor.textChanged.connect(slot)
+            editor._reader_live_push_slot = slot
         self._schedule_markdown_preview(document_id)
 
     def _schedule_markdown_push(self, document_id: str) -> None:
