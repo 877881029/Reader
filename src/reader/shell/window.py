@@ -1812,6 +1812,16 @@ class MainWindow(QMainWindow):
         if self._tabs.count() == 0:
             self._welcome.reload_recent()
 
+    def show_open_path(self, path: Path) -> bool:
+        """Make the tab showing ``path`` current; False when this window lacks it."""
+        if self._closing:
+            return False
+        for document in self._documents.values():
+            if document.path is not None and document.path == path:
+                self._tabs.setCurrentWidget(document.page)
+                return True
+        return False
+
     def _focus(self, path: Path) -> None:
         for document in self._documents.values():
             if document.path == path:

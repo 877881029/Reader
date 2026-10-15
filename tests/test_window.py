@@ -3373,166 +3373,116 @@ def test_shared_executor_routes_office_availability_to_owner_windows(
     assert second_office.calls == [".xlsx"]
 
 
-def test_ipc_paths_reuse_latest_window(reader_app, qtbot, tmp_path: Path):
+def _track_new_windows(app, monkeypatch):
+    created = []
+    real_new_window = app.new_window
+
+    def new_window(**kwargs):
+        window = real_new_window(**kwargs)
+        window._preview_fn = (
+            lambda source, office=None, mode="builtin": builtin_result(source.name)
+        )
+        window._viewer_factory = label_viewer
+        window._cache_factory = FakeCache
+        created.append(window)
+        return window
+
+    monkeypatch.setattr(app, "new_window", new_window)
+    return created
+
+
+def test_ipc_paths_open_in_a_new_window(reader_app, qtbot, tmp_path: Path, monkeypatch):
     app, ipc = reader_app
+    created = _track_new_windows(app, monkeypatch)
     path = tmp_path / "ipc.docx"
     path.write_bytes(b"x")
-    window = app.new_window()
-    window._preview_fn = lambda _path, office=None, mode="builtin": builtin_result("IPC")
-    window._viewer_factory = label_viewer
-    window._cache_factory = FakeCache
+    existing = app.new_window()
 
     ipc.on_paths([str(path)])
 
-    assert app.window_count() == 1
-    assert window.tab_count() == 1
-    qtbot.waitUntil(lambda: "IPC" in page_text(window, 0))
+    assert app.window_count() == 2
+    assert existing.tab_count() == 0
+    opened = created[-1]
+    assert opened is not existing
+    assert opened.isVisible()
+    assert opened.tab_count() == 1
+    qtbot.waitUntil(lambda: "ipc.docx" in page_text(opened, 0), timeout=10_000)
 
 
-def test_ipc_paths_follow_refocused_active_window(reader_app, qapp, qtbot, tmp_path: Path):
-    app, ipc = reader_app
-    path = tmp_path / "active.docx"
-    path.write_bytes(b"x")
-    first = app.new_window()
-    second = app.new_window()
-    for window in (first, second):
-        window._preview_fn = (
-            lambda source, office=None, mode="builtin": builtin_result(source.name)
-        )
-        window._viewer_factory = label_viewer
-        window._cache_factory = FakeCache
-    first.activateWindow()
-    qtbot.waitUntil(lambda: qapp.activeWindow() is first)
-
-    ipc.on_paths([str(path)])
-
-    assert first.tab_count() == 1
-    assert second.tab_count() == 0
-    qtbot.waitUntil(lambda: "active.docx" in page_text(first, 0), timeout=10_000)
-
-
-def test_ipc_paths_follow_active_child_dialog_to_parent_window(
-    reader_app, qapp, qtbot, tmp_path: Path
+def test_ipc_batch_opens_all_paths_in_one_new_window(
+    reader_app, qtbot, tmp_path: Path, monkeypatch
 ):
     app, ipc = reader_app
-    path = tmp_path / "dialog-parent.docx"
-    path.write_bytes(b"x")
-    first = app.new_window()
-    second = app.new_window()
-    first._preview_fn = (
-        lambda source, office=None, mode="builtin": builtin_result(source.name)
-    )
-    first._viewer_factory = label_viewer
-    first._cache_factory = FakeCache
-    dialog = QDialog(first)
-    qtbot.addWidget(dialog)
-    dialog.show()
-    dialog.activateWindow()
-    qtbot.waitUntil(lambda: qapp.activeWindow() is dialog)
-
-    ipc.on_paths([str(path)])
-
-    assert first.tab_count() == 1
-    assert second.tab_count() == 0
-    qtbot.waitUntil(lambda: "dialog-parent.docx" in page_text(first, 0), timeout=10_000)
-
-
-def test_ipc_paths_follow_last_activated_window_when_external_app_is_active(
-    reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
-):
-    app, ipc = reader_app
-    path = tmp_path / "last-activated.docx"
-    path.write_bytes(b"x")
-    first = app.new_window()
-    second = app.new_window()
-    for window in (first, second):
-        window._preview_fn = (
-            lambda source, office=None, mode="builtin": builtin_result(source.name)
-        )
-        window._viewer_factory = label_viewer
-        window._cache_factory = FakeCache
-    first.activateWindow()
-    qtbot.waitUntil(lambda: qapp.activeWindow() is first)
-    qapp.processEvents()
-    monkeypatch.setattr(app._qapp, "activeWindow", lambda: None)
-
-    ipc.on_paths([str(path)])
-
-    assert first.tab_count() == 1
-    assert second.tab_count() == 0
-    qtbot.waitUntil(lambda: "last-activated.docx" in page_text(first, 0), timeout=10_000)
-
-
-def test_closing_last_activated_window_drops_weak_history_and_routes_to_survivor(
-    reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
-):
-    app, ipc = reader_app
-    path = tmp_path / "after-close.docx"
-    path.write_bytes(b"x")
-    first = app.new_window()
-    second = app.new_window()
-    second._preview_fn = (
-        lambda source, office=None, mode="builtin": builtin_result(source.name)
-    )
-    second._viewer_factory = label_viewer
-    second._cache_factory = FakeCache
-    first.activateWindow()
-    qtbot.waitUntil(lambda: qapp.activeWindow() is first)
-    qapp.processEvents()
-    assert app._activation_history
-    assert all(isinstance(item, weakref.ReferenceType) for item in app._activation_history)
-
-    first.close()
-    first.event(QEvent(QEvent.Type.WindowActivate))
-    monkeypatch.setattr(app._qapp, "activeWindow", lambda: None)
-    ipc.on_paths([str(path)])
-
-    assert all(item() is not first for item in app._activation_history)
-    assert second.tab_count() == 1
-    qtbot.waitUntil(lambda: "after-close.docx" in page_text(second, 0), timeout=10_000)
-
-
-def test_ipc_without_activation_history_falls_back_to_latest_eligible_window(
-    reader_app, tmp_path: Path, monkeypatch
-):
-    app, ipc = reader_app
-    path = tmp_path / "fallback.docx"
-    path.write_bytes(b"x")
-    first = app.new_window()
-    second = app.new_window()
-    second._preview_fn = (
-        lambda source, office=None, mode="builtin": builtin_result(source.name)
-    )
-    second._viewer_factory = label_viewer
-    second._cache_factory = FakeCache
-    app._activation_history.clear()
-    monkeypatch.setattr(app._qapp, "activeWindow", lambda: None)
-
-    ipc.on_paths([str(path)])
-
-    assert first.tab_count() == 0
-    assert second.tab_count() == 1
-
-
-def test_ipc_callback_opens_all_forwarded_paths(reader_app, qtbot, tmp_path: Path):
-    app, ipc = reader_app
+    created = _track_new_windows(app, monkeypatch)
     first = tmp_path / "a.docx"
     second = tmp_path / "二号.docx"
     first.write_bytes(b"a")
     second.write_bytes(b"b")
-    window = app.new_window()
-    window._preview_fn = (
-        lambda path, office=None, mode="builtin": builtin_result(path.name)
-    )
-    window._viewer_factory = label_viewer
-    window._cache_factory = FakeCache
+    app.new_window()
 
     ipc.on_paths([str(first), str(second)])
 
-    assert window.tab_count() == 2
-    assert window.tab_title(0) == first.name
-    assert window.tab_title(1) == second.name
-    qtbot.waitUntil(lambda: second.name in page_text(window, 1))
+    assert app.window_count() == 2
+    opened = created[-1]
+    assert opened.tab_count() == 2
+    assert opened.tab_title(0) == first.name
+    assert opened.tab_title(1) == second.name
+    qtbot.waitUntil(lambda: second.name in page_text(opened, 1), timeout=10_000)
+
+
+def test_ipc_already_open_path_focuses_its_window(
+    reader_app, qtbot, tmp_path: Path, monkeypatch
+):
+    app, ipc = reader_app
+    _track_new_windows(app, monkeypatch)
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    first.write_bytes(b"a")
+    second.write_bytes(b"b")
+    owner = app.new_window()
+    other = app.new_window()
+    owner.open_paths([str(first), str(second)])
+    assert owner._tabs.currentIndex() == 1
+
+    ipc.on_paths([str(first)])
+
+    assert app.window_count() == 2
+    assert other.tab_count() == 0
+    assert owner.tab_count() == 2
+    assert owner._tabs.currentIndex() == 0
+
+
+def test_ipc_mixed_batch_focuses_open_file_and_opens_the_rest(
+    reader_app, qtbot, tmp_path: Path, monkeypatch
+):
+    app, ipc = reader_app
+    created = _track_new_windows(app, monkeypatch)
+    known = tmp_path / "known.docx"
+    fresh = tmp_path / "fresh.docx"
+    known.write_bytes(b"a")
+    fresh.write_bytes(b"b")
+    owner = app.new_window()
+    owner.open_paths([str(known)])
+
+    ipc.on_paths([str(known), str(fresh)])
+
+    assert app.window_count() == 2
+    assert owner.tab_count() == 1
+    assert created[-1].tab_count() == 1
+    assert created[-1].tab_title(0) == fresh.name
+
+
+def test_ipc_empty_batch_opens_a_welcome_window(reader_app, monkeypatch):
+    app, ipc = reader_app
+    created = _track_new_windows(app, monkeypatch)
+    existing = app.new_window()
+
+    ipc.on_paths([])
+
+    assert app.window_count() == 2
+    assert created[-1] is not existing
+    assert created[-1].isVisible()
+    assert created[-1].tab_count() == 0
 
 
 def test_initial_and_ipc_batches_are_logged_separately_before_open(
@@ -3551,27 +3501,29 @@ def test_initial_and_ipc_batches_are_logged_separately_before_open(
     for path in [*(Path(item) for item in initial), *forwarded_paths]:
         path.write_text(path.name, encoding="utf-8")
     append_smoke_batch(initial)
-    window = app.new_window()
-    window._preview_fn = (
-        lambda path, office=None, mode="builtin": builtin_result(path.name)
-    )
-    window._viewer_factory = label_viewer
-    window._cache_factory = FakeCache
+    created = _track_new_windows(app, monkeypatch)
     log_seen_at_open: list[list[str]] = []
-    real_open_paths = window.open_paths
+    tracked_new_window = app.new_window
 
-    def open_after_log(paths, **kwargs):
-        log_seen_at_open.extend(
-            json.loads(line)
-            for line in log_path.read_text(encoding="utf-8").splitlines()
-        )
-        real_open_paths(paths, **kwargs)
+    def new_window(**kwargs):
+        window = tracked_new_window(**kwargs)
+        real_open_paths = window.open_paths
 
-    window.open_paths = open_after_log
+        def open_after_log(paths, **open_kwargs):
+            log_seen_at_open.extend(
+                json.loads(line)
+                for line in log_path.read_text(encoding="utf-8").splitlines()
+            )
+            real_open_paths(paths, **open_kwargs)
+
+        window.open_paths = open_after_log
+        return window
+
+    monkeypatch.setattr(app, "new_window", new_window)
 
     ipc.on_paths([str(path) for path in forwarded_paths])
 
-    qtbot.waitUntil(lambda: window.tab_count() == 2)
+    qtbot.waitUntil(lambda: created[-1].tab_count() == 2)
     lines = log_path.read_text(encoding="utf-8").splitlines()
     assert [json.loads(line) for line in lines] == [
         initial,
@@ -3604,30 +3556,24 @@ def test_closing_last_window_drops_count_and_releases_ipc(reader_app, qtbot):
         second.close_all()
 
 
-def test_closing_window_is_removed_before_ipc_routing(
-    reader_app, qapp, qtbot, tmp_path: Path
+def test_closing_window_is_not_a_focus_target_for_ipc(
+    reader_app, qapp, qtbot, tmp_path: Path, monkeypatch
 ):
     app, ipc = reader_app
+    created = _track_new_windows(app, monkeypatch)
     path = tmp_path / "raced.docx"
     path.write_bytes(b"x")
     closing = app.new_window()
     survivor = app.new_window()
-    survivor._preview_fn = (
-        lambda source, office=None, mode="builtin": builtin_result(source.name)
-    )
-    survivor._viewer_factory = label_viewer
-    survivor._cache_factory = FakeCache
-    closing.activateWindow()
-    qtbot.waitUntil(lambda: qapp.activeWindow() is closing)
+    closing.open_paths([str(path)])
 
     closing.close()
     ipc.on_paths([str(path)])
 
     assert closing.is_closing() is True
-    assert closing.tab_count() == 0
-    assert closing._executor._pending == {}
-    assert survivor.tab_count() == 1
-    qtbot.waitUntil(lambda: "raced.docx" in page_text(survivor, 0), timeout=10_000)
+    assert survivor.tab_count() == 0
+    assert created[-1].tab_count() == 1
+    qtbot.waitUntil(lambda: "raced.docx" in page_text(created[-1], 0), timeout=10_000)
 
 
 def test_closing_window_open_paths_and_start_preview_are_noops(qtbot, tmp_path: Path):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication
 
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
@@ -61,7 +61,6 @@ class ReaderApp:
         )
         _load_icon_if_exists(icon_path, icon_applier or self._qapp.setWindowIcon)
         self._windows: list[MainWindow] = []
-        self._activation_history: list[weakref.ReferenceType[MainWindow]] = []
         self._executor = PreviewExecutor(parent=qapp)
         self._ipc = ipc if ipc is not None else SingleInstance()
         self._is_primary = self._ipc.become_server(self._on_ipc_paths)
@@ -74,8 +73,20 @@ class ReaderApp:
             print(f"Reader smoke batch log failed during IPC: {exc}", file=sys.stderr)
             self._qapp.exit(2)
             return
-        window = self._ipc_target_window()
-        window.open_paths(paths)
+        unopened: list[str] = []
+        focused: MainWindow | None = None
+        for raw_path in paths:
+            owner = self._window_showing(raw_path)
+            if owner is None:
+                unopened.append(raw_path)
+            else:
+                focused = owner
+        if unopened or focused is None:
+            window = self.new_window(show=False)
+            window.open_paths(unopened)
+            window.show()
+        else:
+            window = focused
         window.setWindowState(
             window.windowState() & ~Qt.WindowState.WindowMinimized
             | Qt.WindowState.WindowActive
@@ -83,21 +94,16 @@ class ReaderApp:
         window.raise_()
         window.activateWindow()
 
-    def _ipc_target_window(self) -> MainWindow:
-        active: QWidget | None = self._qapp.activeWindow()
-        while active is not None and not isinstance(active, MainWindow):
-            active = active.parentWidget()
-        if isinstance(active, MainWindow) and self._is_eligible(active):
-            return active
-        self._prune_activation_history()
-        for window_ref in reversed(self._activation_history):
-            window = window_ref()
-            if window is not None and self._is_eligible(window):
+    def _window_showing(self, raw_path: str) -> MainWindow | None:
+        """Focus an already-open file in whichever window holds it."""
+        try:
+            path = Path(raw_path).resolve()
+        except OSError:
+            return None
+        for window in self._windows:
+            if self._is_eligible(window) and window.show_open_path(path):
                 return window
-        for window in reversed(self._windows):
-            if self._is_eligible(window):
-                return window
-        return self.new_window()
+        return None
 
     def _is_eligible(self, window: MainWindow) -> bool:
         if not any(window is candidate for candidate in self._windows):
@@ -107,28 +113,10 @@ class ReaderApp:
         except RuntimeError:
             return False
 
-    def _remember_activation(self, window: MainWindow) -> None:
-        if not self._is_eligible(window):
-            return
-        self._activation_history = [
-            item
-            for item in self._activation_history
-            if item() is not None and item() is not window
-        ]
-        self._activation_history.append(weakref.ref(window))
-
-    def _prune_activation_history(self, dropped: MainWindow | None = None) -> None:
-        self._activation_history = [
-            item
-            for item in self._activation_history
-            if item() is not None and item() is not dropped
-        ]
-
     def new_window(self, *, show: bool = True) -> MainWindow:
         window = MainWindow(
             on_new_window=self.new_window,
             on_closing=self._drop,
-            on_activated=self._remember_activation,
             executor=self._executor,
         )
         window_ref = weakref.ref(window)
@@ -151,7 +139,6 @@ class ReaderApp:
 
     def _drop(self, window: MainWindow) -> None:
         self._windows = [item for item in self._windows if item is not window]
-        self._prune_activation_history(window)
         if not self._windows:
             self._close_ipc()
 
@@ -160,10 +147,8 @@ class ReaderApp:
         window_ref: weakref.ReferenceType[MainWindow],
     ) -> None:
         window = window_ref()
-        if window is None:
-            self._prune_activation_history()
-            return
-        self._drop(window)
+        if window is not None:
+            self._drop(window)
 
     def _close_ipc(self) -> None:
         if self._ipc_closed:
