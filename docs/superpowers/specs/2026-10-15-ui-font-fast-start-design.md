@@ -1,7 +1,7 @@
 # UI Font: Faster First Paint
 
 Date: 2026-10-15
-Status: Approved (user: "换，越快越好" — switch the UI font, as fast as possible)
+Status: Implemented (2026-10-15) (user: "换，越快越好" — switch the UI font, as fast as possible)
 Progress ledger: `docs/STATUS.md`
 
 ## 1. Goal

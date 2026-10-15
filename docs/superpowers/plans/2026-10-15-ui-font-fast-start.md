@@ -1,7 +1,7 @@
 # Plan: UI Font Faster First Paint
 
 Date: 2026-10-15
-Status: Approved
+Status: Implemented (2026-10-15)
 Spec: `docs/superpowers/specs/2026-10-15-ui-font-fast-start-design.md`
 
 ## Task 1: Font coverage tests and fix
