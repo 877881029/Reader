@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from reader.shell.recent import visible_recent
 from reader.sniff import SUPPORTED_EXTENSIONS
 from reader.theme import PAPER as PAPER_HEX
+from reader.theme import UI_FONT_STACK
 from reader.version import product_version
 
 PAPER = QColor(PAPER_HEX)
@@ -35,7 +36,7 @@ HOVER_HEX = "#f0ebe3"
 SELECTED_HEX = "#e9e3d9"
 FOCUS_HEX = "#b9b0a3"
 RULE = QColor(HAIRLINE_HEX)
-_UI_FONT = '"Segoe UI Variable Text", "Segoe UI", sans-serif'
+_UI_FONT = UI_FONT_STACK
 
 _BADGE_BY_SUFFIX = {
     ".md": "MD",
@@ -199,7 +200,7 @@ class WelcomePage(QWidget):
             }}
             QLabel#welcomeBrand {{
                 color: {INK_HEX};
-                font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+                font-family: "Segoe UI Variable Display";
                 font-size: 46px;
                 font-weight: 600;
                 letter-spacing: -0.5px;

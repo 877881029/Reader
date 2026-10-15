@@ -12,6 +12,15 @@ HOVER = "#e4dccf"
 PRESSED = "#d4cbb8"
 CLOSE_HOVER = "#e81123"
 
+# The UI font must contain every glyph it shows: a missing glyph makes Qt search
+# all installed fonts on the GUI thread (seconds per search). YaHei UI covers
+# Chinese and takes its Latin glyphs from Segoe UI. Name exactly one family in
+# stylesheets: each extra family costs about 2 s to build a fallback chain.
+UI_FONT_FAMILY = "Microsoft YaHei UI"
+UI_FONT_STACK = f'"{UI_FONT_FAMILY}"'
+# Caption/toolbar symbols (✕ ❐ ⟳ ...) that the UI font lacks.
+SYMBOL_FONT_FAMILY = "Segoe UI Symbol"
+
 
 def document_style() -> str:
     return (

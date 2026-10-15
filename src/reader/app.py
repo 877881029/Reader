@@ -8,13 +8,14 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
 from reader.shell.window import MainWindow, PreviewExecutor
 from reader.smoke import append_smoke_batch
+from reader.theme import UI_FONT_FAMILY
 
 APP_USER_MODEL_ID = "Reader.Desktop"
 
@@ -56,6 +57,9 @@ class ReaderApp:
         icon_applier: Callable[[QIcon], None] | None = None,
     ) -> None:
         self._qapp = qapp
+        ui_font = QFont(qapp.font())
+        ui_font.setFamily(UI_FONT_FAMILY)
+        qapp.setFont(ui_font)
         icon_path = (
             icon_path_provider() if icon_path_provider is not None else _reader_icon_path()
         )

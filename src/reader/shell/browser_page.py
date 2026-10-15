@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from reader.theme import CARD, HOVER, INK, LINE, MUTED, PAPER
+from reader.theme import CARD, HOVER, INK, LINE, MUTED, PAPER, SYMBOL_FONT_FAMILY
 
 SEARCH_URL = "https://www.bing.com/search?q="
 _DIRECT_SCHEMES = {"http", "https", "file"}
@@ -102,6 +102,7 @@ class BrowserPage(QWidget):
                 border-radius: 4px;
                 padding: 2px 8px;
                 color: {INK};
+                font-family: "{SYMBOL_FONT_FAMILY}";
                 font-size: 14px;
             }}
             QToolButton#browserBack:hover, QToolButton#browserForward:hover,

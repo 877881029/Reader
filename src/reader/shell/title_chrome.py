@@ -19,7 +19,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from reader.theme import CARD, CHROME, CLOSE_HOVER, HOVER, INK, LINE, MUTED, PAPER, PRESSED
+from reader.theme import (
+    CARD,
+    CHROME,
+    CLOSE_HOVER,
+    HOVER,
+    INK,
+    LINE,
+    MUTED,
+    PAPER,
+    PRESSED,
+    SYMBOL_FONT_FAMILY,
+)
 
 HTCLIENT = 1
 HTCAPTION = 2
@@ -305,6 +316,7 @@ class TitleChrome(QWidget):
                 border: none;
                 border-radius: 0;
                 padding: 0;
+                font-family: "{SYMBOL_FONT_FAMILY}";
                 font-size: 12px;
                 color: {INK};
             }}

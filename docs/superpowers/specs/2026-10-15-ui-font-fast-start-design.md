@@ -27,8 +27,11 @@ from opening the first Browser tab.
 
 1. Application UI font becomes **Microsoft YaHei UI** (its Latin glyphs come from
    Segoe UI), set once on the `QApplication` by `ReaderApp`, same point size.
-2. Welcome page text uses the same stack: `"Microsoft YaHei UI", "Segoe UI", sans-serif`.
-   The large Latin "Reader" heading keeps Segoe UI Variable Display.
+2. Welcome page text uses exactly one family, `"Microsoft YaHei UI"`.
+   The large Latin "Reader" heading uses only Segoe UI Variable Display.
+   Stylesheets name exactly **one** family: each extra family in a CSS list makes
+   Qt build a fallback chain on first use (measured 1.8–2.5 s each), even when the
+   first family covers every glyph.
 3. Title bar min/max/close buttons and Browser back/forward/reload buttons use
    **Segoe UI Symbol**, which contains every glyph they show (same glyph shapes).
 4. Constants live in `reader/theme.py` (`UI_FONT_FAMILY`, `UI_FONT_STACK`,
@@ -42,4 +45,13 @@ from opening the first Browser tab.
 - Every text shown by a new window's widgets and actions (including the maximized
   restore glyph and the Browser toolbar) exists in that widget's own primary font,
   checked with GDI glyph indices.
+- Every widget resolves to exactly one font family.
 - Release gate, then frozen-build cold-start measurement.
+
+## 5. Known limit
+
+Qt WebEngine's first initialisation calls `QFont.defaultFamily()`, which fills
+Qt's fallback-font table (2–3.5 s). Segoe UI used to pay this earlier through
+the Chinese fallback search, so web-rendered documents (`.md`, `.pptx`, ...) keep
+about the same total time; the window just appears sooner. Native documents
+defer Chromium warmup, so the cost leaves their first paint.

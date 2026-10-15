@@ -11,6 +11,8 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - 实测根因：某个字符在当前字体里没有字形时，Qt 会在 GUI 线程上遍历本机全部约 364 个字体家族找替代，每次 1.2–5.8s。界面主字体 Segoe UI 没有中文；标题栏关闭 `✕`、还原 `❐` 两个符号在 Segoe UI 和 YaHei UI 里都没有（单 `✕` 实测 5.8s）；浏览器刷新 `⟳` 也没有（首次开 Browser 标签同样卡）。字形覆盖用 Windows GDI `GetGlyphIndicesW` 判断（Qt 的 `inFontUcs4` 会把回退字体算进去，`QRawFont` 读 YaHei 字体集合会误报，都不能用）。
 - 方案：应用字体改为 Microsoft YaHei UI（英文字形来自 Segoe UI）；欢迎页同栈；标题栏最小化/最大化/关闭与浏览器前进/后退/刷新按钮改用含这些符号的 Segoe UI Symbol（字形不变）；文档渲染、代码编辑器、Hex 视图字体不动。
 - 规格：`docs/superpowers/specs/2026-10-15-ui-font-fast-start-design.md`；计划：`docs/superpowers/plans/2026-10-15-ui-font-fast-start.md`（2 任务）。
+- Task 1 完成：`reader/theme.py` 新增 `UI_FONT_FAMILY`（Microsoft YaHei UI）、`UI_FONT_STACK`（只含这一个字体）、`SYMBOL_FONT_FAMILY`（Segoe UI Symbol）；`ReaderApp` 把应用字体设为 YaHei UI（字号不变）；欢迎页同字体，大标题 "Reader" 只留 Segoe UI Variable Display；标题栏三个窗口按钮与浏览器前进/后退/刷新按钮改用 Segoe UI Symbol。实测中的第二个发现：CSS `font-family` 列表里每多一个字体，Qt 首次使用时要建回退链约 1.8–2.5s（即使第一个字体已覆盖所有字），所以界面样式表只写一个字体。新测试 `tests/test_ui_font.py`：GDI 字形覆盖辅助函数自检；应用字体为 YaHei UI；新窗口（含最大化后的还原符号）与浏览器标签里每个标签、按钮、标签页、菜单项文字在其自身主字体中都有字形；所有控件只解析到一个字体家族。RED：`3 failed`，补单字体测试再 `1 failed`；GREEN：`5 passed`，全量 `660 passed, 1 skipped`。
+- 实测（开发环境，本机其他程序占 CPU 约 81%，取多次交错运行的最小值）：窗口从创建到显示 4.0–6.5s → 1.8–2.7s；`.txt` 冷启动最小值 11.7s → 8.8s。Chromium 启动变慢 1.5s → 3.3–4s：Qt WebEngine 初始化要调用 `QFont.defaultFamily()`，第一次调用会让 Qt 填满回退字体表（单测 2–3.5s），以前这笔开销提前花在了 Segoe UI 的中文回退搜索上，所以 `.md`/`.pptx` 等网页类文档总时间基本不变（窗口+Chromium 合计最小值 5.45s → 5.28s），但窗口先出现；文本/代码/图片/`.bin` 的 Chromium 预热已推迟，整段开销移出首屏。另外最大化（`❐`）和首次打开 Browser（`⟳`）不再各卡一次回退搜索。
 
 ## 上一目标：快速打开 + 每次双击新窗口 + 标签可拖动（已完成）
 
