@@ -58,6 +58,7 @@ from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
 from reader.shell.goto_bar import GotoLineBar
 from reader.shell.recent import remember_recent
+from reader.shell.tab_drag import ReaderTabBar
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
 from reader.shell.title_chrome import TitleChrome, hit_test_local, lparam_to_local
 from reader.shell.welcome import WelcomePage
@@ -68,6 +69,8 @@ from reader.smoke import (
 )
 
 MARKDOWN_PUSH_DELAY_MS = 150
+# Where the cursor sits on a torn-off window: over its first tab.
+TEAR_OFF_GRAB = QPoint(120, 18)
 MARKDOWN_PRECREATE_DELAY_MS = 300
 WM_NCHITTEST = 0x0084
 WM_NCCALCSIZE = 0x0083
@@ -99,6 +102,7 @@ class ChromeTabWidget(QTabWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setTabBar(ReaderTabBar(self))
         self._resize_stretch_timer = QTimer(self)
         self._resize_stretch_timer.setSingleShot(True)
         self._resize_stretch_timer.setInterval(16)
@@ -681,6 +685,9 @@ class MainWindow(QMainWindow):
         self._title_chrome.adopt_tab_bar(self._tabs.tabBar())
         self._tabs.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tabs.tabBar().customContextMenuRequested.connect(self._show_tab_menu)
+        self._tabs.tabBar().detach_finished.connect(
+            lambda index, pos: self._finish_tab_drag(index, pos)
+        )
         self._tabs._stretch_pane()
         self._title_chrome.minimize_requested.connect(self.showMinimized)
         self._title_chrome.maximize_requested.connect(self._toggle_maximize)
@@ -1856,12 +1863,49 @@ class MainWindow(QMainWindow):
         )
         return menu
 
-    def move_tab_to_new_window(self, index: int) -> MainWindow | None:
-        page = self._tabs.widget(index)
-        document_id = next(
+    def _document_id_for_page(self, page: QWidget | None) -> str | None:
+        return next(
             (key for key, document in self._documents.items() if document.page is page),
             None,
         )
+
+    def _window_at(self, global_pos: QPoint) -> MainWindow | None:
+        widget = QApplication.widgetAt(global_pos)
+        window = widget.window() if widget is not None else None
+        if isinstance(window, MainWindow) and not window.is_closing():
+            return window
+        return None
+
+    def _finish_tab_drag(self, index: int, global_pos: QPoint) -> None:
+        """Land a tab dragged off the strip: another window, a new window, or here."""
+        document_id = self._document_id_for_page(self._tabs.widget(index))
+        if document_id is None or self._closing:
+            return
+        target = self._window_at(global_pos)
+        if target is self:
+            return
+        if target is not None:
+            bar = target._tabs.tabBar()
+            slot = bar.tabAt(bar.mapFromGlobal(global_pos))
+            if self.move_document_to(document_id, target, index=slot if slot >= 0 else None):
+                target.raise_()
+                target.activateWindow()
+            return
+        if self._tabs.count() == 1:
+            self._place_by_tab(self, global_pos)
+            return
+        torn = self.move_tab_to_new_window(index)
+        if torn is not None:
+            self._place_by_tab(torn, global_pos)
+
+    @staticmethod
+    def _place_by_tab(window: MainWindow, global_pos: QPoint) -> None:
+        if window.isMaximized():
+            window.showNormal()
+        window.move(global_pos - TEAR_OFF_GRAB)
+
+    def move_tab_to_new_window(self, index: int) -> MainWindow | None:
+        document_id = self._document_id_for_page(self._tabs.widget(index))
         if document_id is None or self._on_new_window is None or self._closing:
             return None
         target = self._on_new_window()

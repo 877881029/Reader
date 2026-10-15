@@ -5229,3 +5229,148 @@ def test_move_tab_to_new_window_from_tab_menu(reader_app, qtbot, monkeypatch):
     moved_to = [w for w in app._windows if w is not window][0]
     assert moved_to.tab_count() == 1
     assert moved_to.isVisible()
+
+
+
+# --- dragging tabs out of / between windows ----------------------------------------
+
+
+def test_window_uses_detachable_tab_bar(reader_app, monkeypatch):
+    from PySide6.QtCore import QPoint
+
+    from reader.shell.tab_drag import ReaderTabBar
+
+    app, _ipc = reader_app
+    window = app.new_window()
+    window.add_untitled_text_tab()
+    calls: list[tuple[int, QPoint]] = []
+    monkeypatch.setattr(window, "_finish_tab_drag", lambda i, pos: calls.append((i, pos)))
+
+    bar = window._tabs.tabBar()
+    assert isinstance(bar, ReaderTabBar)
+    bar.detach_finished.emit(0, QPoint(5, 6))
+
+    assert calls == [(0, QPoint(5, 6))]
+
+
+def test_tab_dropped_on_another_window_joins_its_tab_strip(reader_app, monkeypatch):
+    app, _ipc = reader_app
+    source = app.new_window()
+    target = app.new_window()
+    source.add_untitled_text_tab()
+    source.add_untitled_markdown_tab()
+    target.add_untitled_text_tab()
+    bar = target._tabs.tabBar()
+    drop_at = bar.mapToGlobal(bar.tabRect(0).center())
+    monkeypatch.setattr(source, "_window_at", lambda _pos: target)
+
+    source._finish_tab_drag(1, drop_at)
+
+    assert source.tab_count() == 1
+    assert target.tab_count() == 2
+    assert target.tab_title(0) == "未命名.md"
+    assert target._tabs.currentIndex() == 0
+
+
+def test_tab_dropped_on_empty_space_tears_off_at_cursor(reader_app, monkeypatch):
+    from PySide6.QtCore import QPoint
+
+    app, _ipc = reader_app
+    source = app.new_window()
+    source.add_untitled_text_tab()
+    source.add_untitled_markdown_tab()
+    monkeypatch.setattr(source, "_window_at", lambda _pos: None)
+    drop_at = source.frameGeometry().topLeft() + QPoint(260, 180)
+
+    source._finish_tab_drag(1, drop_at)
+
+    assert app.window_count() == 2
+    torn = next(w for w in app._windows if w is not source)
+    assert torn.tab_count() == 1
+    assert torn.tab_title(0) == "未命名.md"
+    assert torn.frameGeometry().contains(drop_at)
+    assert source.tab_count() == 1
+
+
+def test_only_tab_dropped_on_empty_space_moves_its_window(reader_app, monkeypatch):
+    from PySide6.QtCore import QPoint
+
+    app, _ipc = reader_app
+    window = app.new_window()
+    window.add_untitled_text_tab()
+    monkeypatch.setattr(window, "_window_at", lambda _pos: None)
+    drop_at = window.frameGeometry().topLeft() + QPoint(400, 300)
+
+    window._finish_tab_drag(0, drop_at)
+
+    assert app.window_count() == 1
+    assert window.tab_count() == 1
+    assert window.frameGeometry().contains(drop_at)
+
+
+def test_only_tab_dropped_on_another_window_merges_and_closes_source(
+    reader_app, monkeypatch
+):
+    app, _ipc = reader_app
+    source = app.new_window()
+    target = app.new_window()
+    source.add_untitled_text_tab()
+    target.add_untitled_markdown_tab()
+    monkeypatch.setattr(source, "_window_at", lambda _pos: target)
+
+    source._finish_tab_drag(0, target.frameGeometry().center())
+
+    assert source.is_closing() is True
+    assert target.tab_count() == 2
+    assert app.window_count() == 1
+
+
+def test_window_at_resolves_the_reader_window_under_the_cursor(reader_app, monkeypatch):
+    from PySide6.QtCore import QPoint
+
+    app, _ipc = reader_app
+    window = app.new_window()
+    other = app.new_window()
+    window.add_untitled_text_tab()
+    under: list = [window._tabs.tabBar()]
+    monkeypatch.setattr(QApplication, "widgetAt", staticmethod(lambda _pos: under[0]))
+
+    assert window._window_at(QPoint(1, 1)) is window
+    under[0] = other._content_stack
+    assert window._window_at(QPoint(1, 1)) is other
+    under[0] = None
+    assert window._window_at(QPoint(1, 1)) is None
+    other.close()
+    under[0] = other._content_stack
+    assert window._window_at(QPoint(1, 1)) is None
+
+
+def test_window_level_drag_out_of_tab_strip_tears_off(reader_app, qtbot, monkeypatch):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+
+    app, _ipc = reader_app
+    window = app.new_window()
+    window.add_untitled_text_tab()
+    window.add_untitled_markdown_tab()
+    qtbot.waitExposed(window)
+    monkeypatch.setattr(window, "_window_at", lambda _pos: None)
+    handle = window.windowHandle()
+    bar = window._tabs.tabBar()
+
+    def tab_center():
+        return bar.mapTo(window, bar.tabRect(1).center())
+
+    qtbot.waitUntil(lambda: window.childAt(tab_center()) is bar)
+    start = tab_center()
+    # QTest drops events outside the window; on Windows the OS capture delivers them.
+    below = QPoint(start.x() + 40, window.height() - 40)
+
+    QTest.mousePress(handle, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start)
+    for step in range(1, 9):
+        QTest.mouseMove(handle, QPoint(start.x() + 5 * step, start.y() + 20 * step))
+    QTest.mouseMove(handle, below)
+    QTest.mouseRelease(handle, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, below)
+
+    qtbot.waitUntil(lambda: app.window_count() == 2)
+    assert window.tab_count() == 1
