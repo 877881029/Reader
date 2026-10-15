@@ -5,7 +5,15 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 
 ## 当前目标
 
-**同步远端更新（2026-10-15）**
+**快速打开 + 每次双击新窗口 + 标签可在窗口间拖动**（执行中）
+
+- 用户需求：像记事本一样从资源管理器快速打开；功能页能像记事本一样把标签单独拉出成窗口。用户决定：每次双击打开新窗口，共用一个后台进程，标签可在窗口间拖动。
+- 实测（已安装构建）：冷启动打开 `.txt` 14.1s；已运行时再双击 5.0s 才显示，转发用的临时进程仅导入模块就要 6–8s。根因：每次启动都经 `reader.preview.pipeline` 导入 python-docx / python-pptx / openpyxl（含 numpy），开发环境占总导入 3.9s 中的 2.7s，冻结版因杀软逐个扫描 DLL 更慢；转发进程在检查是否已有实例前就导入整套 GUI。
+- 规格：`docs/superpowers/specs/2026-10-15-fast-launch-movable-tabs-design.md`；计划：`docs/superpowers/plans/2026-10-15-fast-launch-movable-tabs.md`（6 任务）。
+
+## 上一目标：同步远端更新（已完成）
+
+**同步远端更新（2026-10-15）**（已完成）
 
 - 远端 `main` 新增 1 个提交 `abb2d6f`「fix(reader): stop opening default apps settings on startup」（2026-10-14 19:45，作者 877881029），本地快进合并。
 - 内容：启动时不再延迟 2.5s 调用 `claim_protected_defaults` 打开 Windows「默认应用」设置；`register_open_with` 不再删除各扩展名的 `UserChoice` / `UserChoiceLatest`（即不再清掉用户已选的默认应用），只注册「打开方式」候选；README 补充说明；相关测试改为断言不清除、不调度。
