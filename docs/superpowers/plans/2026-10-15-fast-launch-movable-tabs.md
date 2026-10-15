@@ -1,6 +1,6 @@
 # Fast Launch, New Window per Open, Movable Tabs Implementation Plan
 
-Status: Approved
+Status: Implemented (2026-10-15)
 
 **Spec:** `docs/superpowers/specs/2026-10-15-fast-launch-movable-tabs-design.md`
 

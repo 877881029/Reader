@@ -1,6 +1,6 @@
 # Fast Launch, New Window per Open, Movable Tabs Design
 
-Status: Approved
+Status: Implemented (2026-10-15)
 Progress ledger: `docs/STATUS.md`
 
 ## Problem (measured on the installed build, 2026-10-15)
