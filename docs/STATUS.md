@@ -11,7 +11,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - 实测（已安装构建）：冷启动打开 `.txt` 14.1s；已运行时再双击 5.0s 才显示，转发用的临时进程仅导入模块就要 6–8s。根因：每次启动都经 `reader.preview.pipeline` 导入 python-docx / python-pptx / openpyxl（含 numpy），开发环境占总导入 3.9s 中的 2.7s，冻结版因杀软逐个扫描 DLL 更慢；转发进程在检查是否已有实例前就导入整套 GUI。
 - 规格：`docs/superpowers/specs/2026-10-15-fast-launch-movable-tabs-design.md`；计划：`docs/superpowers/plans/2026-10-15-fast-launch-movable-tabs.md`（6 任务）。
 - Task 1 完成：`formats/docx.py`、`pptx.py`、`xlsx.py` 把 `python-docx` / `python-pptx` / `openpyxl` 改为在 `to_html` 内按需导入。新测试 `tests/test_startup_imports.py` 在新子进程中断言导入 `reader.preview.pipeline` 与 `reader.shell.window` 后 `sys.modules` 里没有 docx/pptx/openpyxl/numpy。RED：`1 failed`；GREEN：相关测试 `105 passed, 1 skipped`。`reader.__main__` 累计导入时间从 3.9s 降到 1.95s。
-## 上一目标：同步远端更新（已完成）
+- Task 2 完成：新入口 `src/reader/launcher.py`（`reader.spec` 与 `pyproject` 脚本改指向它）。不导入 Qt，用 ctypes 直接连命名管道 `\\.\pipe\<server_name>`，发送与 `ipc.py` 相同的帧（4 字节大端长度 + JSON 绝对路径），阻塞读 `ACK`（独立线程，15s 超时），并对服务端进程 `AllowSetForegroundWindow` 以便新窗口能到前台。结果三态：`delivered` → 退出 0；`no-server`（管道不存在或帧没写完，服务端不会处理）→ 启动完整应用；`failed`（帧已送达但没有 ACK）→ 退出 2，不重开，避免重复打开。带 `-` 的参数（如 `--pty-selftest`）直接走完整应用。实例名提取到无 Qt 的 `reader/instance_name.py`，`ipc.server_name()` 仍读本模块 `SERVER_NAME`（测试依赖它隔离）。RED：收集错误；GREEN：launcher+ipc+packaging `61 passed`（含子进程断言转发时 `PySide6` 未导入、无服务端 <1s 返回、服务端不 ACK 时 `failed`）。开发环境实测转发 0.51s（旧路径 1.94s）。## 上一目标：同步远端更新（已完成）
 
 **同步远端更新（2026-10-15）**（已完成）
 

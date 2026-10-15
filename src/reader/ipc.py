@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import struct
 import tempfile
@@ -12,7 +11,8 @@ from pathlib import Path
 from PySide6.QtCore import QCoreApplication, QLockFile
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
-SERVER_NAME = "Reader.SingleInstance.v1"
+from reader.instance_name import SERVER_NAME, qualified_server_name
+
 LOCK_DIR = Path(tempfile.gettempdir()) / "reader-single-instance-locks"
 _LOCK_TIMEOUT_MS = 0
 _CONNECT_TIMEOUT_MS = 1000
@@ -30,11 +30,7 @@ MAX_CONSECUTIVE_ZERO_WRITES = 3
 
 
 def server_name() -> str:
-    namespace = os.environ.get("READER_IPC_NAMESPACE", "").strip()
-    if not namespace:
-        return SERVER_NAME
-    safe_namespace = re.sub(r"[^A-Za-z0-9_.-]", "_", namespace)
-    return f"{SERVER_NAME}.{safe_namespace}"
+    return qualified_server_name(SERVER_NAME)
 
 
 class SingleInstance:

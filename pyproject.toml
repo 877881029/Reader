@@ -27,7 +27,7 @@ dev = [
 ]
 
 [project.scripts]
-reader = "reader.__main__:main"
+reader = "reader.launcher:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

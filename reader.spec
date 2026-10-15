@@ -26,7 +26,7 @@ winpty_binaries = collect_dynamic_libs('winpty')
 winpty_datas = collect_data_files('winpty', includes=['*.exe'])
 
 a = Analysis(
-    [str(ROOT / 'src/reader/__main__.py')],
+    [str(ROOT / 'src/reader/launcher.py')],
     pathex=[str(ROOT / 'src')],
     binaries=winpty_binaries,
     datas=pyside6_datas
