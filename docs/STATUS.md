@@ -10,7 +10,8 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - 远端 `main` 新增 1 个提交 `abb2d6f`「fix(reader): stop opening default apps settings on startup」（2026-10-14 19:45，作者 877881029），本地快进合并。
 - 内容：启动时不再延迟 2.5s 调用 `claim_protected_defaults` 打开 Windows「默认应用」设置；`register_open_with` 不再删除各扩展名的 `UserChoice` / `UserChoiceLatest`（即不再清掉用户已选的默认应用），只注册「打开方式」候选；README 补充说明；相关测试改为断言不清除、不调度。
 - 验证：associate / main_launch / packaging / settings_claim `78 passed`。
-- 遗留：`src/reader/shell/settings_claim.py` 已无调用方（仅剩模块与其测试）；已安装的 `Reader.exe`（`B61E22FF…`）构建于该提交之前，尚不含此修复，需下次发布门 + `install_local.ps1` 后生效。
+- 已发布（2026-10-15）：`verify.ps1 -Release` 一次通过（Python `625 passed, 1 skipped`、PPTX/MD/Terminal Web、冻结构建、PTY 自检、全部 GUI smoke）；`install_local.ps1` 安装到 `%LOCALAPPDATA%\Programs\Reader`，SHA256 `706E9D355B24FC691E84402C207CA482AAA6515559D910EA78D67F92D60FCFE4`，桌面快捷方式指向该处。已安装版本包含 `abb2d6f`。
+- 遗留：`src/reader/shell/settings_claim.py` 已无调用方（仅剩模块与其测试）。
 
 ## 上一目标：Markdown 编辑/预览无缝切换（已完成）
 
