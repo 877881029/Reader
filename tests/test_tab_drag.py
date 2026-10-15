@@ -76,3 +76,17 @@ def test_moving_without_a_pressed_tab_never_detaches(qtbot):
 
     assert finished == []
     assert bar.is_detaching() is False
+
+
+def test_drag_starting_from_a_double_click_press_still_detaches(qtbot):
+    bar = _bar(qtbot)
+    finished: list[int] = []
+    bar.detach_finished.connect(lambda index, _pos: finished.append(index))
+    start = bar.tabRect(0).center()
+    outside = QPoint(start.x(), bar.height() + DETACH_MARGIN + 30)
+
+    _send(bar, QEvent.Type.MouseButtonDblClick, start)
+    _send(bar, QEvent.Type.MouseMove, outside)
+    _send(bar, QEvent.Type.MouseButtonRelease, outside, Qt.MouseButton.NoButton)
+
+    assert finished == [0]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
+from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor
@@ -11,12 +13,24 @@ from reader.theme import PAPER
 _WARMED = False
 _VIEW = None
 WARMUP_DELAY_MS = 50
+# Opening only natively drawn files: let them paint before Chromium starts.
+DEFERRED_WARMUP_MS = 2000
 _SKIP_VALUES = {"1", "true", "yes", "on"}
 
 
 def _skip_warmup() -> bool:
     value = os.environ.get("READER_SKIP_WEBENGINE_WARMUP", "")
     return value.strip().lower() in _SKIP_VALUES
+
+
+def needs_webengine(paths: Iterable[str]) -> bool:
+    """True when any path is shown through Chromium (not a native Qt viewer)."""
+    from reader.formats.binary import BINARY_SUFFIXES
+    from reader.formats.code import CODE_SUFFIXES
+    from reader.formats.image import IMAGE_SUFFIXES
+
+    native = CODE_SUFFIXES | IMAGE_SUFFIXES | BINARY_SUFFIXES | {".svg"}
+    return any(Path(path).suffix.lower() not in native for path in paths)
 
 
 def kept_view():

@@ -74,7 +74,7 @@ def test_empty_primary_launch_does_not_create_untitled(monkeypatch):
         def is_primary_instance(self):
             return True
 
-        def new_window(self, *, show=True):
+        def new_window(self, *, show=True, warm_for=None):
             return FakeWindow()
 
     monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
@@ -122,7 +122,7 @@ def test_primary_launch_records_initial_batch_after_server_ownership(monkeypatch
         def is_primary_instance(self):
             return True
 
-        def new_window(self, *, show=True):
+        def new_window(self, *, show=True, warm_for=None):
             return FakeWindow()
 
     monkeypatch.setattr(main_module, "QApplication", FakeQApplication)
@@ -180,7 +180,7 @@ def test_empty_primary_launch_shows_window_from_new_window(monkeypatch):
         def is_primary_instance(self):
             return True
 
-        def new_window(self, *, show=True):
+        def new_window(self, *, show=True, warm_for=None):
             events.append(("new_window", show))
             window = FakeWindow()
             if show:
@@ -231,8 +231,8 @@ def test_primary_file_launch_opens_paths_before_showing_window(monkeypatch):
         def is_primary_instance(self):
             return True
 
-        def new_window(self, *, show=True):
-            events.append(("new_window", show))
+        def new_window(self, *, show=True, warm_for=None):
+            events.append(("new_window", show, warm_for))
             window = FakeWindow()
             if show:
                 window.show()
@@ -247,7 +247,7 @@ def test_primary_file_launch_opens_paths_before_showing_window(monkeypatch):
     assert events == [
         "server",
         ("log", [r"C:\Desktop\note.md"]),
-        ("new_window", False),
+        ("new_window", False, [r"C:\Desktop\note.md"]),
         ("open", [r"C:\Desktop\note.md"]),
         "show",
         "exec",
@@ -361,7 +361,7 @@ def _run_primary_with_shell_failure(monkeypatch, *, association_error=False, sho
         def is_primary_instance(self):
             return True
 
-        def new_window(self, *, show=True):
+        def new_window(self, *, show=True, warm_for=None):
             return FakeWindow()
 
     def register(*_args, **_kwargs):
@@ -464,7 +464,7 @@ def test_default_apps_settings_claim_is_not_scheduled_on_startup(monkeypatch):
         def is_primary_instance(self):
             return True
 
-        def new_window(self, *, show=True):
+        def new_window(self, *, show=True, warm_for=None):
             return FakeWindow()
 
     monkeypatch.setattr(main_module, "QApplication", FakeQApplication)

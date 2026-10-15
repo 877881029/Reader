@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         app.close_all()
         return 2
 
-    win = app.new_window(show=not bool(files))
+    win = app.new_window(show=not bool(files), warm_for=files or None)
     if files:
         win.open_paths(files)
         win.show()

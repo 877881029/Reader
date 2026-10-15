@@ -1582,6 +1582,40 @@ def test_hidden_first_window_schedules_immediate_warmup(monkeypatch, qapp) -> No
         app.close_all()
 
 
+def test_hidden_first_window_defers_warmup_for_native_documents(monkeypatch, qapp) -> None:
+    from reader.preview.webengine_warmup import DEFERRED_WARMUP_MS
+
+    delays: list[int | None] = []
+    monkeypatch.setattr(
+        "reader.preview.webengine_warmup.schedule_webengine_warmup",
+        lambda _app=None, delay_ms=None: delays.append(delay_ms),
+    )
+    from reader.app import ReaderApp
+
+    app = ReaderApp(qapp, ipc=FakeIpc())
+    try:
+        app.new_window(show=False, warm_for=["C:/a.txt", "D:/b.png", "E:/c.bin", "F:/d.svg"])
+        assert delays == [DEFERRED_WARMUP_MS]
+    finally:
+        app.close_all()
+
+
+def test_hidden_first_window_warms_immediately_for_web_documents(monkeypatch, qapp) -> None:
+    delays: list[int | None] = []
+    monkeypatch.setattr(
+        "reader.preview.webengine_warmup.schedule_webengine_warmup",
+        lambda _app=None, delay_ms=None: delays.append(delay_ms),
+    )
+    from reader.app import ReaderApp
+
+    app = ReaderApp(qapp, ipc=FakeIpc())
+    try:
+        app.new_window(show=False, warm_for=["C:/a.txt", "C:/deck.pptx"])
+        assert delays == [0]
+    finally:
+        app.close_all()
+
+
 def test_shown_first_window_uses_default_warmup_delay(monkeypatch, qapp) -> None:
     delays: list[int | None] = []
     monkeypatch.setattr(

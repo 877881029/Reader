@@ -113,7 +113,12 @@ class ReaderApp:
         except RuntimeError:
             return False
 
-    def new_window(self, *, show: bool = True) -> MainWindow:
+    def new_window(
+        self,
+        *,
+        show: bool = True,
+        warm_for: list[str] | None = None,
+    ) -> MainWindow:
         window = MainWindow(
             on_new_window=self.new_window,
             on_closing=self._drop,
@@ -128,9 +133,19 @@ class ReaderApp:
         if show:
             window.show()
         if len(self._windows) == 1:
-            from reader.preview.webengine_warmup import schedule_webengine_warmup
+            from reader.preview.webengine_warmup import (
+                DEFERRED_WARMUP_MS,
+                needs_webengine,
+                schedule_webengine_warmup,
+            )
 
-            schedule_webengine_warmup(self._qapp, delay_ms=0 if not show else None)
+            if show:
+                delay_ms = None
+            elif warm_for is not None and not needs_webengine(warm_for):
+                delay_ms = DEFERRED_WARMUP_MS
+            else:
+                delay_ms = 0
+            schedule_webengine_warmup(self._qapp, delay_ms=delay_ms)
         return window
 
     def _place_window(self, window: MainWindow) -> None:
