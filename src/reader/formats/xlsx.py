@@ -1,13 +1,12 @@
 from html import escape
 from pathlib import Path
 
-from openpyxl import load_workbook
-
 from reader.preview.result import PreviewResult
 from reader.theme import wrap_document_html
 
 
 def to_html(path: Path, max_rows: int = 1000) -> PreviewResult:
+    from openpyxl import load_workbook  # deferred: heavy import slows startup
     wb = load_workbook(str(path), read_only=True, data_only=True)
     nav = ["<nav>"]
     bodies: list[str] = []

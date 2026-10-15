@@ -1,13 +1,12 @@
 from html import escape
 from pathlib import Path
 
-from pptx import Presentation
-
 from reader.preview.result import PreviewResult
 from reader.theme import wrap_document_html
 
 
 def to_html(path: Path) -> PreviewResult:
+    from pptx import Presentation  # deferred: heavy import slows startup
     prs = Presentation(str(path))
     sections: list[str] = []
     for index, slide in enumerate(prs.slides, start=1):

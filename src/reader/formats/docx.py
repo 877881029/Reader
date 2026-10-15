@@ -1,13 +1,12 @@
 from html import escape
 from pathlib import Path
 
-from docx import Document
-
 from reader.preview.result import PreviewResult
 from reader.theme import wrap_document_html
 
 
 def to_html(path: Path) -> PreviewResult:
+    from docx import Document  # deferred: heavy import slows startup
     doc = Document(str(path))
     parts: list[str] = []
     for p in doc.paragraphs:

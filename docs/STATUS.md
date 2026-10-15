@@ -10,7 +10,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - 用户需求：像记事本一样从资源管理器快速打开；功能页能像记事本一样把标签单独拉出成窗口。用户决定：每次双击打开新窗口，共用一个后台进程，标签可在窗口间拖动。
 - 实测（已安装构建）：冷启动打开 `.txt` 14.1s；已运行时再双击 5.0s 才显示，转发用的临时进程仅导入模块就要 6–8s。根因：每次启动都经 `reader.preview.pipeline` 导入 python-docx / python-pptx / openpyxl（含 numpy），开发环境占总导入 3.9s 中的 2.7s，冻结版因杀软逐个扫描 DLL 更慢；转发进程在检查是否已有实例前就导入整套 GUI。
 - 规格：`docs/superpowers/specs/2026-10-15-fast-launch-movable-tabs-design.md`；计划：`docs/superpowers/plans/2026-10-15-fast-launch-movable-tabs.md`（6 任务）。
-
+- Task 1 完成：`formats/docx.py`、`pptx.py`、`xlsx.py` 把 `python-docx` / `python-pptx` / `openpyxl` 改为在 `to_html` 内按需导入。新测试 `tests/test_startup_imports.py` 在新子进程中断言导入 `reader.preview.pipeline` 与 `reader.shell.window` 后 `sys.modules` 里没有 docx/pptx/openpyxl/numpy。RED：`1 failed`；GREEN：相关测试 `105 passed, 1 skipped`。`reader.__main__` 累计导入时间从 3.9s 降到 1.95s。
 ## 上一目标：同步远端更新（已完成）
 
 **同步远端更新（2026-10-15）**（已完成）
