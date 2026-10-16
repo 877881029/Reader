@@ -65,6 +65,7 @@
 - 发布 1.2.17 途中发现并修复已有崩溃：发布门在 `test_pptx_webengine` 进程崩溃（`0xC0000005`）。复现：PPTX 或 Markdown 视觉预览启动超过 15 秒限时（本机负载高时容易发生）走文本回退时，`_show_fallback` 先清空页面的 user scripts 再 `setHtml`，Qt WebEngine 访问冲突，Reader 整个崩溃；在本系列改动之前的提交 `632020d` 上同样复现，属原有缺陷。逐步排查确认只有「清空 scripts」这一步导致崩溃。修复：两种视图的回退都不再清空 scripts（仍注销 bridge、断开 WebChannel、关闭 JavaScript，脚本无法运行）；关闭标签时的 `shutdown` 路径不变。新回归测试 `tests/test_webengine_fallback.py` 在子进程里对 PPTX、Markdown 各在启动后 50ms / 300ms 触发超时（崩溃不会拖垮整个测试进程），断言进程存活、已显示回退并发出 `render_failed`；两条旧断言「回退后 scripts 为空」改为说明。RED：`4 failed`（子进程崩溃）；GREEN：`4 passed`，`test_md_view` + `test_pptx_view` + 新测试 `45 passed`。更新日志 1.2.17 加修复说明。
 - B2 完成，1.2.17 已发布（2026-10-16）：`bump_version.py --set 1.2.17`；功能全解（多窗口一节、快捷键表）与更新日志已写；修复崩溃后发布门通过（Python `735 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke），`Reader.exe` 文件版本 1.2.17；用户关闭正在运行的 Reader 后安装，SHA256 `04EB487056168A1A4AE42DC091ECFEAF8B541EB1EF9C7A1FB46A9255582797C1`，桌面快捷方式已指向；安装版冒烟正常（新安装后首次冷启动 11.9s 为杀软扫描，已知现象）。规格与计划标为已实施。下一步：B3（保存前保留旧版本历史副本）先写规格。
 - B3 规格已定（2026-10-16，用户决定）：保存覆盖前把旧内容存到 `<数据目录>\history`（每个文件 20 份、30 天、超过 10 MB 不存）；右键标签「历史版本」列出版本，点开只读查看，可「恢复为此版本」。规格：`docs/superpowers/specs/2026-10-16-file-history-design.md`；计划：`docs/superpowers/plans/2026-10-16-file-history.md`（4 任务）。
+- B3 任务 1 完成：新模块 `reader/history.py`：`FileHistory`（`<数据目录>\history\<路径摘要 16 位>\`，`source.txt` 记原路径，版本文件名为「年月日-时分秒-微秒 + 原扩展名」，原子写入；`record` 跳过不存在、超过 10 MB 和与最新版本内容相同的情况，写后清理到最多 20 份、30 天内；`versions` 新到旧；`restore` 先记录当前内容再原子写回）。时钟、上限可注入以便测试。RED：收集错误；GREEN：`tests/test_history.py` `8 passed`。
 
 ## 历史要点
 
