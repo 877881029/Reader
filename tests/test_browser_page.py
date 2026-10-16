@@ -72,7 +72,9 @@ def test_browser_page_address_enter_loads_local_file_and_reports_title(qtbot, tm
         address = page.findChild(QLineEdit, "browserAddress")
         address.setText(html.as_uri())
         address.returnPressed.emit()
-        qtbot.waitUntil(lambda: "Hi there" in titles, timeout=10000)
+        # A fresh off-the-record profile starts its own Chromium renderer: 6–8 s
+        # on a busy machine with endpoint scanning, so leave real headroom.
+        qtbot.waitUntil(lambda: "Hi there" in titles, timeout=30000)
         qtbot.waitUntil(lambda: address.text() == html.as_uri(), timeout=5000)
     finally:
         page.shutdown()

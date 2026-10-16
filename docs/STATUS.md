@@ -51,6 +51,7 @@
 - A4 第三步完成（精简 STATUS）：本页从约 980 行精简为约 120 行：当前状态、每次更新必做、当前目标、历史要点（约 50 个已完成目标各一行并附规格文件）、环境与经验、接手检查清单；逐步证据留在 git 历史与规格/计划。新卫生测试断言前四节顺序且总行数 < 250。RED：`1 failed`；GREEN：卫生测试 `9 passed`。
 - A4 完成：GitHub 仓库简介设为「Windows 桌面文档查看器：双击即读 Word / PPT / Excel / Markdown / PDF / 源码 / 图片 / 二进制，像记事本一样轻快，无需 Office」，标签 windows、document-viewer、markdown、pptx、docx、xlsx、pdf、hex-viewer、pyside6、qt（`gh repo view` 已核对）。
 - A5 完成：新模块 `preview/link_click.py`：`url_at` / `url_spans` 只识别 http(s)，遇空白、引号、尖括号和中文标点即止，去掉结尾的英文标点，括号不成对才去掉（维基式 `Foo_(bar)` 保留）；`LinkClicker` 事件过滤器挂在 `CodeTextView` 和 `MarkdownTextView` 的编辑器上：按住 Ctrl 悬停在网址上显示手形和蓝色下划线（与当前行高亮共存），Ctrl+单击用默认浏览器打开（Markdown 只读状态下不会因此进入编辑），按下/松开 Ctrl 即时刷新；编辑器销毁后的迟到事件安全忽略。README 与功能全解加说明。RED：收集错误（模块不存在）；GREEN：`tests/test_link_click.py` `16 passed`，全量 `687 passed, 1 skipped`。阶段 A 代码全部完成，下一步：发布验证 → 升版本 0.1.1 → 安装。
+- 发布 0.1.1：先运行 `bump_version.py`（0.1.0 → 0.1.1）并填写更新日志。第一次发布门在 `test_browser_page_address_enter_loads_local_file_and_reports_title` 超时（等网页标题 10s）：该测试新建隐私配置和 Chromium 渲染进程，单独运行实测 6.3–7.9s（本机其他程序占 CPU 约 82%），10s 余量不足，属环境负载导致的偶发失败而非功能问题；把这一处等待放宽到 30s（标题一到就返回）。
 
 ## 历史要点
 
