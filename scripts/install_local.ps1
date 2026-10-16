@@ -47,7 +47,7 @@ $icon = Join-Path $destinationFull "_internal\assets\icons\reader.ico"
 $register = @"
 from reader.shell.associate import create_desktop_shortcut, register_open_with
 exe = r'$installedExe'
-register_open_with(exe, args=(), protected_claimer=lambda: None)
+register_open_with(exe, args=())
 print(create_desktop_shortcut(exe, args=(), icon=r'$icon', overwrite=True))
 "@
 $previousPath = $env:PYTHONPATH

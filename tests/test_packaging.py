@@ -669,3 +669,29 @@ def test_smoke_runs_frozen_pty_selftest() -> None:
     assert "--pty-selftest" in script
     assert "Reader PTY selftest" in script
     assert "PTY-ready" in script
+
+
+
+def test_install_script_registration_snippet_matches_current_api(monkeypatch) -> None:
+    import inspect
+    import re
+
+    import reader.shell.associate as associate
+
+    script = (ROOT / "scripts" / "install_local.ps1").read_text(encoding="utf-8")
+    snippet = re.search(r'\$register = @"\n(.*?)\n"@', script, re.S).group(1)
+    snippet = snippet.replace("$installedExe", r"C:\Reader\Reader.exe").replace("$icon", r"C:\Reader\reader.ico")
+    calls = []
+    for name in ("register_open_with", "create_desktop_shortcut"):
+        original = getattr(associate, name)
+
+        def record(*args, _name=name, _signature=inspect.signature(original), **kwargs):
+            _signature.bind(*args, **kwargs)
+            calls.append(_name)
+            return "ok"
+
+        monkeypatch.setattr(associate, name, record)
+
+    exec(compile(snippet, "install_local.ps1", "exec"), {})
+
+    assert calls == ["register_open_with", "create_desktop_shortcut"]

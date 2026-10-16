@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 版本：`VERSION` = 0.1.0（规则见下节，阶段 A 发布时升到 0.1.1）。
-- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe`，SHA256 `2D6F8BCB5E9A28E0DD7D57DA4367016862FECE245790321AA10F843D20DA4EBC`（2026-10-15，界面字体版本），桌面快捷方式指向它。
+- 版本：`VERSION` = 0.1.1（规则见下节）。
+- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 0.1.1，SHA256 `8FF1A89399F6C90A8647ED8BC8C3115A72FF115A1A5CC32D447372D59FD7B7EE`（2026-10-16，阶段 A），桌面快捷方式指向它。
 - 技术：Python 3.12 + PySide6 6.11.2（依赖全部固定版本）；PyInstaller onedir；入口 `src/reader/launcher.py`（不导入 Qt，经命名管道把文件转给已运行的 Reader，否则启动完整应用）；每次打开一个新窗口，标签可在窗口间拖动；Markdown / PPTX / PDF / Office 预览走 Qt WebEngine，文本/代码/图片/`.bin` 是原生视图；终端为 ConPTY + xterm.js。
 - 测试：Python 约 670 个 + 三个前端 vitest；`scripts\verify.ps1` 快速质量门，`-Release` 发布门（冻结构建 + GUI 冒烟，约 20–35 分钟，不要中途打断）。
 
@@ -52,6 +52,7 @@
 - A4 完成：GitHub 仓库简介设为「Windows 桌面文档查看器：双击即读 Word / PPT / Excel / Markdown / PDF / 源码 / 图片 / 二进制，像记事本一样轻快，无需 Office」，标签 windows、document-viewer、markdown、pptx、docx、xlsx、pdf、hex-viewer、pyside6、qt（`gh repo view` 已核对）。
 - A5 完成：新模块 `preview/link_click.py`：`url_at` / `url_spans` 只识别 http(s)，遇空白、引号、尖括号和中文标点即止，去掉结尾的英文标点，括号不成对才去掉（维基式 `Foo_(bar)` 保留）；`LinkClicker` 事件过滤器挂在 `CodeTextView` 和 `MarkdownTextView` 的编辑器上：按住 Ctrl 悬停在网址上显示手形和蓝色下划线（与当前行高亮共存），Ctrl+单击用默认浏览器打开（Markdown 只读状态下不会因此进入编辑），按下/松开 Ctrl 即时刷新；编辑器销毁后的迟到事件安全忽略。README 与功能全解加说明。RED：收集错误（模块不存在）；GREEN：`tests/test_link_click.py` `16 passed`，全量 `687 passed, 1 skipped`。阶段 A 代码全部完成，下一步：发布验证 → 升版本 0.1.1 → 安装。
 - 发布 0.1.1：先运行 `bump_version.py`（0.1.0 → 0.1.1）并填写更新日志。第一次发布门在 `test_browser_page_address_enter_loads_local_file_and_reports_title` 超时（等网页标题 10s）：该测试新建隐私配置和 Chromium 渲染进程，单独运行实测 6.3–7.9s（本机其他程序占 CPU 约 82%），10s 余量不足，属环境负载导致的偶发失败而非功能问题；把这一处等待放宽到 30s（标题一到就返回）。
+- 0.1.1 已发布（2026-10-16）：第二次发布门通过（Python `687 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke）；`Reader.exe` 文件版本 0.1.1，安装目录含 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`。安装时发现 A4 的回归：`install_local.ps1` 内嵌 Python 仍传已删除的 `protected_claimer` 参数，注册失败（exe 已复制但关联与快捷方式未刷新）。补回归测试：把脚本里的内嵌 Python 按当前函数签名实际执行（用记录替身，不碰注册表）。RED：`TypeError: unexpected keyword argument 'protected_claimer'`；GREEN：打包/卫生 `37 passed`；修复只改安装脚本，未改 exe，直接安装已验证的构建：SHA256 `8FF1A89399F6C90A8647ED8BC8C3115A72FF115A1A5CC32D447372D59FD7B7EE`，桌面快捷方式已指向。安装版冒烟：冷启动 `.txt` 3.2–5.4s，已运行时再打开 1.5–1.6s（CPU 负载高），转发退出码 0。阶段 A 全部完成；规格与计划标为已实施。下一步：B1（未保存内容自动暂存与恢复）先写规格。
 
 ## 历史要点
 
