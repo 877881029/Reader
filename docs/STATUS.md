@@ -13,7 +13,7 @@
 
 1. 用户确认目标 → 写规格（`specs/`）和计划（`plans/`）→ 更新本页 → 提交并推送。
 2. 每个任务按 TDD：先写测试并看到失败（RED），再写最小实现（GREEN）；每次代码修改验证后立即更新本页、单独提交并推送 `origin/main`（账号 `877881029`）。
-3. 发布：`scripts\verify.ps1 -Release` 通过 → `python scripts\bump_version.py`（修订号加 1）→ 把 `CHANGELOG.md` 新版本下的「（待补充）」换成本次改动 → `scripts\install_local.ps1` 安装（Reader 正在运行时会拒绝覆盖，先请用户关闭）→ 本页记录版本与 SHA256 → 提交推送。
+3. 发布：`python scripts\bump_version.py`（修订号加 1，必须在打包前，安装包才带新版本号）→ 把 `CHANGELOG.md` 新版本下的「（待补充）」换成本次改动 → `scripts\verify.ps1 -Release` 通过 → `scripts\install_local.ps1` 安装（Reader 正在运行时会拒绝覆盖，先请用户关闭）→ 本页记录版本与 SHA256 → 提交推送。
 4. 规则原文：`AGENTS.md`、`docs/superpowers/process.md`、`.cursor/rules/git-progress-handoff.mdc`。
 
 ## 当前目标

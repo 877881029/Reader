@@ -1,6 +1,6 @@
 # Reader
 
-Windows 桌面文档查看器：双击就能读 Word、PPT、Excel、Markdown、PDF、源码、图片和二进制文件，记事本一样轻快，不需要安装 Office。当前版本 **0.1.0**。
+Windows 桌面文档查看器：双击就能读 Word、PPT、Excel、Markdown、PDF、源码、图片和二进制文件，记事本一样轻快，不需要安装 Office。当前版本 **0.1.1**。
 
 ![欢迎页](docs/images/welcome.png)
 
