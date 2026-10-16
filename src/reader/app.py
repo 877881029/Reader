@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication
 from reader.drafts import DraftStore, default_drafts_dir
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
+from reader.shell.closed_tabs import ClosedTabs
 from reader.shell.window import MainWindow, PreviewExecutor
 from reader.smoke import append_smoke_batch
 from reader.theme import UI_FONT_FAMILY
@@ -69,6 +70,7 @@ class ReaderApp:
         _load_icon_if_exists(icon_path, icon_applier or self._qapp.setWindowIcon)
         self._windows: list[MainWindow] = []
         self._executor = PreviewExecutor(parent=qapp)
+        self._closed_tabs = ClosedTabs()
         self._ipc = ipc if ipc is not None else SingleInstance()
         self._is_primary = self._ipc.become_server(self._on_ipc_paths)
         self._ipc_closed = False
@@ -106,12 +108,24 @@ class ReaderApp:
             window.show()
         else:
             window = focused
+        self._activate(window)
+
+    @staticmethod
+    def _activate(window: MainWindow) -> None:
         window.setWindowState(
             window.windowState() & ~Qt.WindowState.WindowMinimized
             | Qt.WindowState.WindowActive
         )
         window.raise_()
         window.activateWindow()
+
+    def _show_open_elsewhere(self, path: Path) -> bool:
+        """Ctrl+Shift+T: a file already open in some window is focused, not duplicated."""
+        window = self._window_showing(str(path))
+        if window is None:
+            return False
+        self._activate(window)
+        return True
 
     def _window_showing(self, raw_path: str) -> MainWindow | None:
         """Focus an already-open file in whichever window holds it."""
@@ -143,6 +157,8 @@ class ReaderApp:
             on_closing=self._drop,
             executor=self._executor,
             drafts=self._drafts,
+            closed_tabs=self._closed_tabs,
+            show_elsewhere=self._show_open_elsewhere,
         )
         window_ref = weakref.ref(window)
         window.destroyed.connect(

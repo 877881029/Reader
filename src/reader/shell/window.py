@@ -59,6 +59,7 @@ from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
 from reader.shell.goto_bar import GotoLineBar
 from reader.drafts import Draft, DraftStore
+from reader.shell.closed_tabs import ClosedTabs
 from reader.shell.recent import remember_recent
 from reader.shell.tab_drag import ReaderTabBar
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
@@ -610,8 +611,12 @@ class MainWindow(QMainWindow):
         icon_applier: Callable[[QIcon], None] | None = None,
         unsaved_prompt: Callable[[str], str] | None = None,
         drafts: DraftStore | None = None,
+        closed_tabs: ClosedTabs | None = None,
+        show_elsewhere: Callable[[Path], bool] | None = None,
     ) -> None:
         super().__init__()
+        self._closed_tabs = closed_tabs if closed_tabs is not None else ClosedTabs()
+        self._show_elsewhere = show_elsewhere
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
         self._drafts = drafts
         self._keep_drafts_on_close = False
@@ -824,6 +829,11 @@ class MainWindow(QMainWindow):
         self.actionNewText.setShortcut(QKeySequence.StandardKey.New)
         self.actionNewText.triggered.connect(self.add_untitled_text_tab)
         self.addAction(self.actionNewText)
+        self.actionReopenClosedTab = QAction("重新打开关闭的标签", self)
+        self.actionReopenClosedTab.setObjectName("actionReopenClosedTab")
+        self.actionReopenClosedTab.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        self.actionReopenClosedTab.triggered.connect(self.reopen_closed_tab)
+        self.addAction(self.actionReopenClosedTab)
 
         self.actionFind = QAction("查找", self)
         self.actionFind.setObjectName("actionFind")
@@ -1455,6 +1465,8 @@ class MainWindow(QMainWindow):
         )
         if document_id is not None and not self._confirm_discard(document_id):
             return
+        if document_id is not None:
+            self._record_closed(self._documents[document_id])
         self._forget_document_for_page(page)
         self._tabs.removeTab(index)
         page.deleteLater()
@@ -1636,6 +1648,20 @@ class MainWindow(QMainWindow):
             self._drafts.remove(document_id)
         except OSError:
             pass
+
+    def _record_closed(self, document: _Document) -> None:
+        # Only tabs backed by a real file; untitled drafts and tool tabs use relative names.
+        if document.path.is_absolute():
+            self._closed_tabs.push(document.path)
+
+    def reopen_closed_tab(self) -> None:
+        path = self._closed_tabs.pop()
+        if path is None:
+            self.statusBar().showMessage("没有可重新打开的标签")
+            return
+        if self._show_elsewhere is not None and self._show_elsewhere(path):
+            return
+        self.open_paths([str(path)])
 
     def restore_drafts(self, drafts: list[Draft]) -> None:
         """Reopen unsaved edits left by sign-out, shutdown or a crash (no prompt)."""
@@ -1973,6 +1999,8 @@ class MainWindow(QMainWindow):
             )
         )
         menu.addSeparator()
+        reopen = menu.addAction("重新打开关闭的标签")
+        reopen.triggered.connect(lambda _checked=False: self.reopen_closed_tab())
         close = menu.addAction("关闭标签")
         close.triggered.connect(
             lambda _checked=False, tab=page: self.close_tab(self._tabs.indexOf(tab))
@@ -3168,6 +3196,10 @@ class MainWindow(QMainWindow):
                     return
             for document_id in list(self._documents):
                 self._discard_draft(document_id)
+            for index in range(self._tabs.count()):
+                document_id = self._document_id_for_page(self._tabs.widget(index))
+                if document_id is not None:
+                    self._record_closed(self._documents[document_id])
         if self._draft_timer is not None:
             self._draft_timer.stop()
         self._closing = True

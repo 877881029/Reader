@@ -39,6 +39,7 @@ Windows 桌面文档查看器：双击就能读 Word、PPT、Excel、Markdown、
 |---|---|
 | `Ctrl+O` | 打开文件 |
 | `Ctrl+N` | 新建文本 |
+| `Ctrl+Shift+T` | 重新打开刚关闭的标签（对应磁盘文件的标签，所有窗口共享最近 20 个） |
 | `Ctrl+S` / `Ctrl+Shift+S` | 保存 / 另存为 |
 | `Ctrl+F` / `F3` / `Shift+F3` / `Esc` | 查找 / 下一个 / 上一个 / 关闭查找 |
 | `Ctrl+H` | 替换 |
