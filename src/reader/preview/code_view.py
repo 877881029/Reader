@@ -298,6 +298,31 @@ class CodeTextView(QWidget):
         self._editor.document().setModified(False)
         self.path_changed.emit(self._path)
 
+    def draft_state(self) -> dict:
+        """Everything needed to restore this unsaved edit after a restart."""
+        fmt = self._format or default_text_file()
+        suffix = self._suffix or ".txt"
+        return {
+            "kind": "text",
+            "path": self._path,
+            "suffix": suffix,
+            "title": self._path.name if self._path is not None else f"未命名{suffix}",
+            "text": self.text(),
+            "encoding": fmt.encoding,
+            "bom": fmt.bom,
+            "newline": fmt.newline,
+            "lossless": fmt.lossless,
+        }
+
+    def restore_draft(
+        self, *, kind: str, path, suffix: str, title: str, text: str,
+        encoding: str, bom: bool, newline: str, lossless: bool,
+    ) -> None:
+        self._path = Path(path).resolve() if path is not None else None
+        self._format = TextFile(text="", encoding=encoding, bom=bom, newline=newline, lossless=lossless)
+        self._show_text(text, suffix or ".txt", editable=lossless)
+        self._editor.document().setModified(True)
+
     def load_untitled(self, suffix: str = ".txt") -> None:
         self._path = None
         self._format = default_text_file()

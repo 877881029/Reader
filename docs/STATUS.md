@@ -55,6 +55,7 @@
 - 0.1.1 已发布（2026-10-16）：第二次发布门通过（Python `687 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke）；`Reader.exe` 文件版本 0.1.1，安装目录含 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`。安装时发现 A4 的回归：`install_local.ps1` 内嵌 Python 仍传已删除的 `protected_claimer` 参数，注册失败（exe 已复制但关联与快捷方式未刷新）。补回归测试：把脚本里的内嵌 Python 按当前函数签名实际执行（用记录替身，不碰注册表）。RED：`TypeError: unexpected keyword argument 'protected_claimer'`；GREEN：打包/卫生 `37 passed`；修复只改安装脚本，未改 exe，直接安装已验证的构建：SHA256 `8FF1A89399F6C90A8647ED8BC8C3115A72FF115A1A5CC32D447372D59FD7B7EE`，桌面快捷方式已指向。安装版冒烟：冷启动 `.txt` 3.2–5.4s，已运行时再打开 1.5–1.6s（CPU 负载高），转发退出码 0。阶段 A 全部完成；规格与计划标为已实施。下一步：B1（未保存内容自动暂存与恢复）先写规格。
 - B1 规格已定（2026-10-16，用户决定）：被注销/关机/崩溃打断后，下次启动像 Win11 记事本一样直接恢复未保存的标签，不询问；正常点 × 关闭仍询问「保存 / 不保存 / 取消」。规格：`docs/superpowers/specs/2026-10-16-draft-recovery-design.md`；计划：`docs/superpowers/plans/2026-10-16-draft-recovery.md`（5 任务）。
 - B1 任务 1 完成：新模块 `reader/drafts.py`：`Draft`（文档编号、类型、路径、扩展名、标题、正文、编码/BOM/换行/是否无损、原文件修改时间与大小、暂存时间；`file_changed()` 判断原文件在暂存后是否被改或删）与 `DraftStore`（`<数据目录>\drafts\<编号>.json`，临时文件 + fsync + 原子替换；`load_all` 按时间排序并跳过损坏或版本不认识的文件且不删除；文档编号只允许字母数字 `_-`，防止路径穿越）。RED：收集错误；GREEN：`tests/test_drafts.py` `12 passed`（提交 `0ba19e5`）。
+- B1 任务 2 完成：`MarkdownTextView` 与 `CodeTextView` 新增 `draft_state()`（类型、路径、扩展名、标题、正文、编码/BOM/换行/是否无损）与 `restore_draft(...)`（恢复后可编辑、标签带 `*`、路径与原编码换行保留，`Ctrl+S` 按原格式写回原文件；未命名草稿保留「未命名.md / 未命名.txt」标题）。RED：`6 failed`；GREEN：新测试 + 代码视图 + Markdown 文本视图 `41 passed`。
 
 ## 历史要点
 

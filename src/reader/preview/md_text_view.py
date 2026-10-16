@@ -96,6 +96,38 @@ class MarkdownTextView(QWidget):
         self._mark_clean()
         self.path_changed.emit(self._path)
 
+    def draft_state(self) -> dict:
+        """Everything needed to restore this unsaved edit after a restart."""
+        fmt = self._format
+        title = self._path.name if self._path is not None else str(
+            self.property("readerUntitledTitle") or "未命名.md"
+        )
+        return {
+            "kind": "markdown",
+            "path": self._path,
+            "suffix": ".md",
+            "title": title,
+            "text": self.text(),
+            "encoding": fmt.encoding,
+            "bom": fmt.bom,
+            "newline": fmt.newline,
+            "lossless": fmt.lossless,
+        }
+
+    def restore_draft(
+        self, *, kind: str, path, suffix: str, title: str, text: str,
+        encoding: str, bom: bool, newline: str, lossless: bool,
+    ) -> None:
+        self._path = Path(path).resolve() if path is not None else None
+        self._format = TextFile(text="", encoding=encoding, bom=bom, newline=newline, lossless=lossless)
+        self._replace_text(text)
+        if self._path is None:
+            self.setProperty("readerUntitledTitle", title or "未命名.md")
+        self._set_editable(True)
+        self._editor.document().setModified(True)
+        self._set_dirty(True)
+        self.path_changed.emit(self._path)
+
     def display_title(self) -> str:
         if self._path is not None:
             name = self._path.name
