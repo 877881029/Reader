@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 版本：`VERSION` = 0.1.2（规则见下节）。
-- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 0.1.2，SHA256 `A2401562BE4EF373D99111C60831C4C2C616125A48ADA8981B04F2797EE4882E`（2026-10-16，B1 未保存内容恢复），桌面快捷方式指向它。
+- 版本：`VERSION` = 1.2.17（2026-10-16 按用户要求从 0.1.2 推进；之后每次发布修订号加 1，规则见下节）。
+- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 1.2.17，SHA256 `04EB487056168A1A4AE42DC091ECFEAF8B541EB1EF9C7A1FB46A9255582797C1`（2026-10-16，B2 + 预览回退崩溃修复），桌面快捷方式指向它。
 - 技术：Python 3.12 + PySide6 6.11.2（依赖全部固定版本）；PyInstaller onedir；入口 `src/reader/launcher.py`（不导入 Qt，经命名管道把文件转给已运行的 Reader，否则启动完整应用）；每次打开一个新窗口，标签可在窗口间拖动；Markdown / PPTX / PDF / Office 预览走 Qt WebEngine，文本/代码/图片/`.bin` 是原生视图；终端为 ConPTY + xterm.js。
 - 测试：Python 约 670 个 + 三个前端 vitest；`scripts\verify.ps1` 快速质量门，`-Release` 发布门（冻结构建 + GUI 冒烟，约 20–35 分钟，不要中途打断）。
 
@@ -33,7 +33,7 @@
 | A4 | 基础 | 删除无用代码；精简 STATUS；README 按实际功能重写并加截图；仓库简介和标签 | 小 | 已完成 |
 | A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 已完成 |
 | B1 | 数据安全 | 未保存修改和未命名草稿后台自动暂存，注销、关机或崩溃后下次启动恢复 | 大 | 已完成（0.1.2） |
-| B2 | 数据安全 | Ctrl+Shift+T 重新打开刚关闭的标签 | 小 | 待开始 |
+| B2 | 数据安全 | Ctrl+Shift+T 重新打开刚关闭的标签 | 小 | 已完成（1.2.17） |
 | B3 | 数据安全 | 保存前保留旧版本的历史副本，自动清理 | 中 | 待开始 |
 | C1 | 设置 | 设置窗口：通用 / 快捷键 / 功能说明 / 数据 | 中 | 待开始 |
 | C2 | 设置 | 快捷键可自定义，冲突提示，恢复默认 | 中 | 待开始 |
@@ -63,6 +63,7 @@
 - B2 任务 1 完成：新模块 `shell/closed_tabs.py`：`ClosedTabs`（`push` 只记录存在的文件并解析为绝对路径，同路径去重置顶，最多 `MAX_CLOSED`=20 条；`pop` 后进先出并跳过已删除的文件）。RED：收集错误；GREEN：`tests/test_closed_tabs.py` `5 passed`。
 - B2 任务 2 完成：`MainWindow` 新动作 `actionReopenClosedTab`（`Ctrl+Shift+T`，标签右键菜单同名项）与 `reopen_closed_tab()`；关闭标签（确认后）和正常关闭整个窗口时按标签顺序把绝对路径的文档记入列表（未命名草稿与工具标签用相对名，自然不记录）；列表为空时提示「没有可重新打开的标签」。`ReaderApp` 让所有窗口共享一个 `ClosedTabs`，并提供 `_show_open_elsewhere`：文件已在某个窗口打开时切到那里并激活（激活代码抽成 `_activate`，与双击转发共用）。README 快捷键表加 `Ctrl+Shift+T`（README 测试要求每个快捷键都列出）。RED：`6 failed`；GREEN：`tests/test_reopen_tab.py` `6 passed`，全量 `731 passed, 1 skipped`。
 - 发布 1.2.17 途中发现并修复已有崩溃：发布门在 `test_pptx_webengine` 进程崩溃（`0xC0000005`）。复现：PPTX 或 Markdown 视觉预览启动超过 15 秒限时（本机负载高时容易发生）走文本回退时，`_show_fallback` 先清空页面的 user scripts 再 `setHtml`，Qt WebEngine 访问冲突，Reader 整个崩溃；在本系列改动之前的提交 `632020d` 上同样复现，属原有缺陷。逐步排查确认只有「清空 scripts」这一步导致崩溃。修复：两种视图的回退都不再清空 scripts（仍注销 bridge、断开 WebChannel、关闭 JavaScript，脚本无法运行）；关闭标签时的 `shutdown` 路径不变。新回归测试 `tests/test_webengine_fallback.py` 在子进程里对 PPTX、Markdown 各在启动后 50ms / 300ms 触发超时（崩溃不会拖垮整个测试进程），断言进程存活、已显示回退并发出 `render_failed`；两条旧断言「回退后 scripts 为空」改为说明。RED：`4 failed`（子进程崩溃）；GREEN：`4 passed`，`test_md_view` + `test_pptx_view` + 新测试 `45 passed`。更新日志 1.2.17 加修复说明。
+- B2 完成，1.2.17 已发布（2026-10-16）：`bump_version.py --set 1.2.17`；功能全解（多窗口一节、快捷键表）与更新日志已写；修复崩溃后发布门通过（Python `735 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke），`Reader.exe` 文件版本 1.2.17；用户关闭正在运行的 Reader 后安装，SHA256 `04EB487056168A1A4AE42DC091ECFEAF8B541EB1EF9C7A1FB46A9255582797C1`，桌面快捷方式已指向；安装版冒烟正常（新安装后首次冷启动 11.9s 为杀软扫描，已知现象）。规格与计划标为已实施。下一步：B3（保存前保留旧版本历史副本）先写规格。
 
 ## 历史要点
 
