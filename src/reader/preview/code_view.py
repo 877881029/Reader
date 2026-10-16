@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from reader.preview.link_click import LinkClicker
 from reader.preview.syntax import highlighter_for
 from reader.text_io import TextFile, default_text_file, read_text_file, write_text_file
 from reader.theme import CHROME, HOVER, INK, LINE, MUTED, PAPER
@@ -204,6 +205,7 @@ class CodeTextView(QWidget):
         self._format: TextFile | None = None
         self._highlighter = None
         self._editor = CodeEditor(self)
+        LinkClicker(self._editor)
         self._status_bar = QFrame(self)
         self._status_bar.setObjectName("codeStatusBar")
         status_layout = QHBoxLayout(self._status_bar)

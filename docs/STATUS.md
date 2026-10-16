@@ -31,7 +31,7 @@
 | A2 | 基础 | 依赖固定为当前测试通过的版本 | 小 | 已完成 |
 | A3 | 基础 | 更新日志 + 许可证（含第三方许可说明） | 小 | 已完成 |
 | A4 | 基础 | 删除无用代码；精简 STATUS；README 按实际功能重写并加截图；仓库简介和标签 | 小 | 已完成 |
-| A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 待开始 |
+| A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 已完成 |
 | B1 | 数据安全 | 未保存修改和未命名草稿后台自动暂存，注销、关机或崩溃后下次启动恢复 | 大 | 待开始 |
 | B2 | 数据安全 | Ctrl+Shift+T 重新打开刚关闭的标签 | 小 | 待开始 |
 | B3 | 数据安全 | 保存前保留旧版本的历史副本，自动清理 | 中 | 待开始 |
@@ -50,6 +50,7 @@
 - A4 第二步完成（README）：按实际功能重写 README（能打开什么、主要功能、按窗口动作逐项核对的快捷键表、安装运行、开发、文档、许可），加 4 张截图 `docs/images/{welcome,markdown,code,hex}.png`（示例文件放在公共文档目录，截图里不含个人路径，截完已删除）；`AGENTS.md` 第 4 条改为指向 STATUS。新测试 `tests/test_readme.py`：窗口每个快捷键都出现在 README（临时删掉 `F3` 时测试失败，已验证能防止文档漂移）；README 引用的图片都存在。
 - A4 第三步完成（精简 STATUS）：本页从约 980 行精简为约 120 行：当前状态、每次更新必做、当前目标、历史要点（约 50 个已完成目标各一行并附规格文件）、环境与经验、接手检查清单；逐步证据留在 git 历史与规格/计划。新卫生测试断言前四节顺序且总行数 < 250。RED：`1 failed`；GREEN：卫生测试 `9 passed`。
 - A4 完成：GitHub 仓库简介设为「Windows 桌面文档查看器：双击即读 Word / PPT / Excel / Markdown / PDF / 源码 / 图片 / 二进制，像记事本一样轻快，无需 Office」，标签 windows、document-viewer、markdown、pptx、docx、xlsx、pdf、hex-viewer、pyside6、qt（`gh repo view` 已核对）。
+- A5 完成：新模块 `preview/link_click.py`：`url_at` / `url_spans` 只识别 http(s)，遇空白、引号、尖括号和中文标点即止，去掉结尾的英文标点，括号不成对才去掉（维基式 `Foo_(bar)` 保留）；`LinkClicker` 事件过滤器挂在 `CodeTextView` 和 `MarkdownTextView` 的编辑器上：按住 Ctrl 悬停在网址上显示手形和蓝色下划线（与当前行高亮共存），Ctrl+单击用默认浏览器打开（Markdown 只读状态下不会因此进入编辑），按下/松开 Ctrl 即时刷新；编辑器销毁后的迟到事件安全忽略。README 与功能全解加说明。RED：收集错误（模块不存在）；GREEN：`tests/test_link_click.py` `16 passed`，全量 `687 passed, 1 skipped`。阶段 A 代码全部完成，下一步：发布验证 → 升版本 0.1.1 → 安装。
 
 ## 历史要点
 

@@ -139,6 +139,7 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 - 底部记事本式状态栏，只显示、不可点击：`Ln 87, Col 19 | Size 12 pt | Type JSON`（类型：JSON、YAML、XML、C、C++、C/C++ Header、C++ Header、Plain text）
 - `Ctrl+J` 转到行（与 `Ctrl+F` 同样在标题栏下方出现输入条）；超过范围时自动限制到首尾行
 - `Alt+Z` 在横向滚动和按窗口宽度折行之间切换
+- 文本里的 `http://` / `https://` 网址：按住 Ctrl 悬停会显示下划线和手形，`Ctrl+单击` 用默认浏览器打开（Markdown 编辑视图同样适用；不打开其他协议）
 - `Ctrl+=` / `Ctrl+-` / `Ctrl+0`（恢复 12pt）或 `Ctrl+滚轮` 在 8–24pt 内调整等宽字体，状态栏同步显示
 - 语法高亮（轻量着色，不是校验器；坏掉的 JSON/XML 仍当文本显示；C 不是编译器）  
 - 可选中、可复制  
@@ -254,6 +255,7 @@ Chromium 内置阅读器，只读。直接读你的原文件，不另拷一份�
 | `Ctrl+J` | 转到行（纯文本页；`Ctrl+G` 同效） |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | 代码/TXT/BIN：字号放大 / 缩小 / 恢复（BIN 恢复为自动适配）；PPTX：放大 / 缩小 / 适合窗口 |
 | `Alt+Z` | 代码/TXT：自动换行开关 |
+| `Ctrl+单击` 网址 | 代码/TXT/Markdown 编辑：用默认浏览器打开 http(s) 链接 |
 | `Esc` | 关闭查找条 |
 | `Ctrl+S` | 保存当前编辑页（Markdown 编辑、TXT、JSON/YAML/XML/C/C++） |
 | `Ctrl+Shift+S` | 另存为 |

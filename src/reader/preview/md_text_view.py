@@ -6,6 +6,7 @@ from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QFrame, QPlainTextEdit, QVBoxLayout, QWidget
 
+from reader.preview.link_click import LinkClicker
 from reader.text_io import TextFile, read_text_file, write_text_file
 from reader.theme import INK, PAPER
 
@@ -37,6 +38,8 @@ class MarkdownTextView(QWidget):
         self._editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self._editor.viewport().installEventFilter(self)
         self._editor.installEventFilter(self)
+        # Installed last so Ctrl+click on a link is handled before the edit-mode switch.
+        LinkClicker(self._editor)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._editor)

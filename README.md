@@ -46,6 +46,7 @@ Windows 桌面文档查看器：双击就能读 Word、PPT、Excel、Markdown、
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | 代码与文本字号（8–24pt） |
 | `Ctrl+滚轮` | 代码、文本、BIN 调字号；图片、SVG、PPTX 缩放 |
 | `Alt+Z` | 代码与文本自动换行 |
+| `Ctrl+单击` 网址 | 在文本、代码和 Markdown 编辑视图里用默认浏览器打开 http(s) 链接（按住 Ctrl 悬停时显示下划线） |
 | `←` `→` / `PageUp` `PageDown` / `Home` `End` | PPTX 翻页 |
 
 ## 安装与运行
