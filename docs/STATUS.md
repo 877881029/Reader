@@ -57,6 +57,7 @@
 - B1 任务 1 完成：新模块 `reader/drafts.py`：`Draft`（文档编号、类型、路径、扩展名、标题、正文、编码/BOM/换行/是否无损、原文件修改时间与大小、暂存时间；`file_changed()` 判断原文件在暂存后是否被改或删）与 `DraftStore`（`<数据目录>\drafts\<编号>.json`，临时文件 + fsync + 原子替换；`load_all` 按时间排序并跳过损坏或版本不认识的文件且不删除；文档编号只允许字母数字 `_-`，防止路径穿越）。RED：收集错误；GREEN：`tests/test_drafts.py` `12 passed`（提交 `0ba19e5`）。
 - B1 任务 2 完成：`MarkdownTextView` 与 `CodeTextView` 新增 `draft_state()`（类型、路径、扩展名、标题、正文、编码/BOM/换行/是否无损）与 `restore_draft(...)`（恢复后可编辑、标签带 `*`、路径与原编码换行保留，`Ctrl+S` 按原格式写回原文件；未命名草稿保留「未命名.md / 未命名.txt」标题）。RED：`6 failed`；GREEN：新测试 + 代码视图 + Markdown 文本视图 `41 passed`。
 - B1 任务 3 完成：`MainWindow(drafts=DraftStore)`（默认不传则完全不暂存）。所有可编辑视图统一经 `_bind_editable_view` 绑定（顺带合并了三处重复的 Markdown 绑定代码）：文本变化且有未保存修改时加入待写集合，`DRAFT_SAVE_DELAY_MS`（1000ms）空闲后写入；窗口失去激活时立即写；保存成功、撤销回干净、关闭标签、正常关闭窗口时删除暂存；首次暂存时记录原文件修改时间与大小（保存后重置）。标签移到别的窗口前先把它的待写暂存写完，目标窗口重新绑定（文本变化槽与实时推送槽一样精确断开）。RED：`8 failed`；GREEN：`tests/test_window_drafts.py` `8 passed`，全量 `714 passed, 1 skipped`。
+- B1 任务 4 完成：`ReaderApp` 主实例默认使用 `<数据目录>\drafts` 的暂存（转发用的临时实例不读不写）；启动时读出上次留下的暂存，第一个创建的窗口在显示前用 `MainWindow.restore_drafts` 为每份暂存开一个可编辑标签（带 `*`、原路径与编码，状态提示「已恢复 N 个未保存的标签（其中 M 个原文件已在别处修改）」），新编号的暂存写好后再删旧文件；之后的窗口不再恢复。连接 `commitDataRequest`（Windows 注销/关机）：所有窗口立即写完暂存并标记，随后关闭不弹保存询问、保留暂存。RED：`6 failed`；GREEN：`tests/test_app_drafts.py` + 窗口暂存 `14 passed`，全量 `720 passed, 1 skipped`。端到端验证（两个真实进程）：进程 1 编辑一个 Markdown 草稿和一个文本草稿后 2.5s 模拟崩溃（`os._exit`），磁盘上 2 份暂存；进程 2 启动即出现「*未命名.md」「*未命名.txt」，内容一字不差，提示「已恢复 2 个未保存的标签」。
 
 ## 历史要点
 

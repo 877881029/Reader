@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
+from reader.drafts import DraftStore, default_drafts_dir
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
 from reader.shell.window import MainWindow, PreviewExecutor
@@ -18,6 +19,7 @@ from reader.smoke import append_smoke_batch
 from reader.theme import UI_FONT_FAMILY
 
 APP_USER_MODEL_ID = "Reader.Desktop"
+_DEFAULT = object()
 
 
 def set_app_user_model_id(
@@ -55,6 +57,7 @@ class ReaderApp:
         ipc: SingleInstance | None = None,
         icon_path_provider: Callable[[], Path] | None = None,
         icon_applier: Callable[[QIcon], None] | None = None,
+        drafts: DraftStore | None | object = _DEFAULT,
     ) -> None:
         self._qapp = qapp
         ui_font = QFont(qapp.font())
@@ -69,6 +72,18 @@ class ReaderApp:
         self._ipc = ipc if ipc is not None else SingleInstance()
         self._is_primary = self._ipc.become_server(self._on_ipc_paths)
         self._ipc_closed = False
+        # Only the primary instance owns drafts; a forwarding launch exits at once.
+        if drafts is _DEFAULT:
+            drafts = DraftStore(default_drafts_dir()) if self._is_primary else None
+        self._drafts: DraftStore | None = drafts if self._is_primary else None
+        self._restore_queue = self._drafts.load_all() if self._drafts is not None else []
+        qapp.commitDataRequest.connect(self._on_commit_data)
+
+    def _on_commit_data(self, _manager) -> None:
+        """Windows sign-out / shutdown: save unsaved edits as drafts, close without asking."""
+        for window in list(self._windows):
+            if self._is_eligible(window):
+                window.prepare_for_session_end()
 
     def _on_ipc_paths(self, paths: list[str]) -> None:
         try:
@@ -127,6 +142,7 @@ class ReaderApp:
             on_new_window=self.new_window,
             on_closing=self._drop,
             executor=self._executor,
+            drafts=self._drafts,
         )
         window_ref = weakref.ref(window)
         window.destroyed.connect(
@@ -134,6 +150,11 @@ class ReaderApp:
         )
         self._windows.append(window)
         self._place_window(window)
+        if self._restore_queue:
+            restore, self._restore_queue = self._restore_queue, []
+            window.restore_drafts(restore)
+            for draft in restore:
+                self._drafts.remove(draft.doc_id)
         if show:
             window.show()
         if len(self._windows) == 1:
@@ -182,6 +203,10 @@ class ReaderApp:
         return len(self._windows)
 
     def close_all(self) -> None:
+        try:
+            self._qapp.commitDataRequest.disconnect(self._on_commit_data)
+        except (RuntimeError, TypeError):
+            pass
         for window in list(self._windows):
             window.close()
         self._close_ipc()

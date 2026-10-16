@@ -614,6 +614,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
         self._drafts = drafts
+        self._keep_drafts_on_close = False
         self._draft_pending: set[str] = set()
         self._draft_timer: QTimer | None = None
         if drafts is not None:
@@ -1635,6 +1636,36 @@ class MainWindow(QMainWindow):
             self._drafts.remove(document_id)
         except OSError:
             pass
+
+    def restore_drafts(self, drafts: list[Draft]) -> None:
+        """Reopen unsaved edits left by sign-out, shutdown or a crash (no prompt)."""
+        changed = 0
+        for draft in drafts:
+            if draft.kind == "markdown":
+                self.add_untitled_markdown_tab()
+            else:
+                self.add_untitled_text_tab()
+            document_id = self._current_document_id()
+            document = self._documents[document_id]
+            if draft.file_mtime_ns is not None and draft.file_size is not None:
+                document.draft_base = (draft.file_mtime_ns, draft.file_size)
+            changed += draft.file_changed()
+            self._editable_view(document).restore_draft(
+                kind=draft.kind, path=draft.path, suffix=draft.suffix, title=draft.title,
+                text=draft.text, encoding=draft.encoding, bom=draft.bom,
+                newline=draft.newline, lossless=draft.lossless,
+            )
+        self.flush_drafts()
+        if drafts:
+            message = f"已恢复 {len(drafts)} 个未保存的标签"
+            if changed:
+                message += f"（其中 {changed} 个原文件已在别处修改）"
+            self.statusBar().showMessage(message)
+
+    def prepare_for_session_end(self) -> None:
+        """Windows is signing out or shutting down: keep drafts, close without asking."""
+        self.flush_drafts()
+        self._keep_drafts_on_close = True
 
     def flush_drafts(self) -> None:
         """Write every pending draft now (timer, deactivation, session end)."""
@@ -3128,12 +3159,15 @@ class MainWindow(QMainWindow):
         if self._closing:
             super().closeEvent(event)
             return
-        for document_id in list(self._documents):
-            if not self._confirm_discard(document_id):
-                event.ignore()
-                return
-        for document_id in list(self._documents):
-            self._discard_draft(document_id)
+        if self._keep_drafts_on_close:
+            self.flush_drafts()
+        else:
+            for document_id in list(self._documents):
+                if not self._confirm_discard(document_id):
+                    event.ignore()
+                    return
+            for document_id in list(self._documents):
+                self._discard_draft(document_id)
         if self._draft_timer is not None:
             self._draft_timer.stop()
         self._closing = True
