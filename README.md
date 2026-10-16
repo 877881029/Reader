@@ -1,99 +1,92 @@
 # Reader
 
-Windows 桌面文档查看器，当前版本 **0.1.0**（功能仍在迭代，不是 1.0 完工版）。
+Windows 桌面文档查看器：双击就能读 Word、PPT、Excel、Markdown、PDF、源码、图片和二进制文件，记事本一样轻快，不需要安装 Office。当前版本 **0.1.0**。
 
-## 能力
+![欢迎页](docs/images/welcome.png)
 
-打开并预览：
+| Markdown 预览 | 代码编辑 | 十六进制查看 |
+|---|---|---|
+| ![Markdown](docs/images/markdown.png) | ![代码](docs/images/code.png) | ![十六进制](docs/images/hex.png) |
 
-| 格式 | 默认体验 |
+## 能打开什么
+
+| 格式 | 体验 |
 |---|---|
-| `.pptx` | 本地视觉预览（缩略图、翻页、缩放）；可切文本模式；可选 Office 高保真 |
-| `.md` | 只读渲染（表格、代码、离线 Mermaid、`[[wikilink]]`）；标题栏「编辑 \| 预览」或 `Ctrl+I` 编辑，`Ctrl+S` 保存，`Ctrl+T` 回渲染；编辑/预览无缝切换，预览实时显示未保存内容 |
-| `.pdf` | Chromium 内置阅读器（只读） |
-| `.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h` / `.cpp` / `.hpp` / `.cc` / `.cxx` / `.hh` / `.hxx` / `.inl` / `.ipp` | 记事本式编辑（行号、语法高亮、撤销/重做、`Ctrl+S` 保存） |
-| `.txt` | 记事本式编辑（行号、无语法高亮、`Ctrl+S` 保存）；`Ctrl+N` 新建 |
-| `.svg` | 只读图形预览（纸色适窗，Ctrl+滚轮缩放，不执行脚本） |
-| `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp` | 只读图片预览（纸色适窗，Ctrl+滚轮缩放） |
-| `.docx` / `.xlsx` | 内置 HTML 预览；可选 Office 高保真 |
-| `.bin` | 十六进制查看：每行 16 字节，Byte / Word / DWord（小端）切换，右侧 ASCII，悬停两侧联动高亮；内存映射，GB 级文件也秒开 |
+| `.docx` / `.xlsx` | 内置预览；装了 Office 时可切「Office 高保真」 |
+| `.pptx` | 本地视觉预览（缩略图、翻页、缩放），可切文本模式或 Office 高保真 |
+| `.md` | 渲染预览（表格、代码、离线 Mermaid、`[[wikilink]]`）；标题栏「编辑 \| 预览」或 `Ctrl+I` / `Ctrl+T` 无缝切换，预览直接显示未保存内容 |
+| `.pdf` | 内置 PDF 阅读器（只读） |
+| `.txt` / `.json` / `.yaml` / `.yml` / `.xml` / `.c` / `.h` / `.cpp` / `.hpp` / `.cc` / `.cxx` / `.hh` / `.hxx` / `.inl` / `.ipp` | 记事本式编辑：行号、语法高亮（`.txt` 除外）、撤销/重做、底部状态栏 |
+| `.svg` / `.png` / `.jpg` / `.jpeg` / `.gif` / `.webp` / `.bmp` | 只读预览，适应窗口，`Ctrl+滚轮` 缩放（SVG 不执行脚本） |
+| `.bin` | 十六进制查看：每行 16 字节，Byte / Word / DWord 切换，右侧 ASCII，悬停两侧联动高亮；内存映射，GB 级文件也秒开 |
 
-窗口：记事本式标签、标题栏 `+` 新建菜单（新建文件 / 打开文件 / Browser 标签内网页浏览 / Terminal 标签内真终端：PowerShell / Command Prompt，Copilot 浅色配色）、拖入文件、`Ctrl+O`、`Ctrl+F` 查找、`Ctrl+H` 替换、`Ctrl+J` 转到行、设为当前用户默认打开方式、资源管理器「打开方式」。
+不支持旧版 `.doc` / `.ppt` / `.xls`、HTML 和文件夹。暂不做：翻译、左右对照、格式互转、macOS / Linux。
 
-多窗口（记事本式）：每次在资源管理器双击文件都会弹出一个新窗口，但所有窗口共用一个后台进程，所以第二次起几乎即时打开（启动器不加载界面库，直接把文件交给已运行的 Reader）；已经在某个窗口里打开的文件会直接切到那个标签。标签可以拖出窗口成为新窗口、拖到另一个 Reader 窗口里合并，或右键「移到新窗口」；移动时内容和状态（未保存的编辑、终端会话、预览）原样保留。
+## 主要功能
 
-Reader 启动时只注册为「打开方式」候选，不会清除已有文件默认应用，也不会自动打开 Windows 默认应用设置。需要更改默认应用时，请在 Windows 设置中手动选择。
+- **多窗口，像记事本**：每次在资源管理器双击都开一个新窗口，所有窗口共用一个后台进程，已运行时再打开约 1 秒；已打开的文件直接切到它所在的标签。
+- **标签可以拖动**：拖出成新窗口、拖进别的 Reader 窗口合并，或右键「移到新窗口」；未保存的编辑、终端会话、预览都原样保留。
+- **编辑安全**：保留原编码（UTF-8 / UTF-8 BOM / UTF-16 BOM / GB18030）和换行，原子写入；无法无损识别编码的文件只读；关闭前询问「保存 / 不保存 / 取消」。
+- **标题栏 `+` 菜单**：新建文件（Markdown 草稿）、打开文件、Browser 标签（隐私模式网页浏览）、Terminal 标签（PowerShell / Command Prompt 真终端）。
+- **查找替换**：`Ctrl+F` 查找、`Ctrl+H` 替换、`Ctrl+J` 转到行。
+- **欢迎页**：最近打开的文件、拖入文件打开。
+- 启动时注册为资源管理器「打开方式」候选，并在桌面创建快捷方式；不会改动你已选的默认应用。
 
-文本/代码编辑保留原编码与换行：UTF-8（含 BOM）、UTF-16 BOM、GB18030 和 CRLF/LF 原样写回，原子替换防止写坏；无法无损识别编码的文件显示「只读」并拒绝保存。`Ctrl+Shift+S` 另存为，标签 `*` 提示未保存，关闭标签或窗口前询问「保存 / 不保存 / 取消」。
+## 快捷键
 
-代码页底部是记事本式只读状态栏（`Ln 行, Col 列 | Size 字号 | Type 类型`）；`Ctrl+J` 转到行，`Ctrl+=` / `Ctrl+-` / `Ctrl+0` 或 `Ctrl+滚轮` 调字号（8–24pt），`Alt+Z` 切换自动换行；每个标签页各自保存这些状态。
+| 按键 | 作用 |
+|---|---|
+| `Ctrl+O` | 打开文件 |
+| `Ctrl+N` | 新建文本 |
+| `Ctrl+S` / `Ctrl+Shift+S` | 保存 / 另存为 |
+| `Ctrl+F` / `F3` / `Shift+F3` / `Esc` | 查找 / 下一个 / 上一个 / 关闭查找 |
+| `Ctrl+H` | 替换 |
+| `Ctrl+J`（或 `Ctrl+G`） | 转到行 |
+| `Ctrl+I` / `Ctrl+T` | Markdown 编辑 / 预览 |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | 代码与文本字号（8–24pt） |
+| `Ctrl+滚轮` | 代码、文本、BIN 调字号；图片、SVG、PPTX 缩放 |
+| `Alt+Z` | 代码与文本自动换行 |
+| `←` `→` / `PageUp` `PageDown` / `Home` `End` | PPTX 翻页 |
 
-本机没有 Microsoft Office 也能用。点「Office 高保真」才需要已安装的 Word/PowerPoint/Excel。
+## 安装与运行
 
-**0.1.0 不做：** 翻译、左右对照、格式互转、macOS/Linux。
-
-## 快速运行（同事）
-
-需要 Windows 10/11、**Python 3.12+** 和 **Node.js 18+**（打冻结 exe 用）。没有 Python 时先执行：
+需要 Windows 10/11、**Python 3.12+**；打包成 exe 还需要 **Node.js 18+**。没有 Python 时先执行：
 
 ```text
 winget install Python.Python.3.12
 ```
 
-然后在仓库根目录：
+在仓库根目录运行：
 
 ```text
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
 
-脚本会创建 `.venv`、安装依赖，并调用 `scripts\build_windows.ps1` 打出 `dist\Reader\Reader.exe`（约 600MB，含 Qt WebEngine），然后启动这份 exe。不要把 `dist/` 或 exe 提交进 git。
+脚本会创建 `.venv`、安装固定版本的依赖，调用 `scripts\build_windows.ps1` 打出 `dist\Reader\Reader.exe`（约 600 MB，含 Qt WebEngine）并启动。
 
-只装依赖、打 exe、不启动窗口：
+- 只装依赖并打包、不启动：加 `-SkipLaunch`
+- 只用源码运行、不打包（不需要 Node）：加 `-SkipBuild`
+- 开发者需要测试依赖：加 `-Dev`
 
-```text
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 -SkipLaunch
-```
+## 开发
 
-只要源码运行、不打 exe（不需要 Node）：
-
-```text
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 -SkipBuild
-```
-
-开发者还要测试时加上 `-Dev`。也可以单独再跑 `scripts\build_windows.ps1`。
-
-## 开发验证
-
-每次原子代码修改先按 TDD 完成聚焦测试，再运行统一快速质量门：
+流程见 `AGENTS.md` 和 `docs/superpowers/process.md`：先写规格和计划，按 TDD（先失败的测试，再实现）开发，每次修改单独提交并推送。
 
 ```text
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1            # 快速质量门
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release   # 发布门：冻结构建 + GUI 冒烟
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_local.ps1     # 安装到 %LOCALAPPDATA%\Programs\Reader
+python scripts\bump_version.py                                                    # 发布前：版本号加 1
 ```
 
-它先用锁定依赖运行并构建 PPTX/Markdown Web，再运行 Python 全量测试；
-这样 Python 的供应链和 bundle manifest 检查也基于确定性构建产物。深路径
-worktree 可通过 `-Python C:\短路径\python.exe` 或 `READER_PYTHON` 指定短路径
-虚拟环境。
-
-发布候选还必须运行冻结构建和 GUI smoke：
-
-```text
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -Release
-```
-
-发布门通过后，把这份构建装到固定位置并刷新桌面快捷方式与文件关联：
-
-```text
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_local.ps1
-```
-
-默认安装到 `%LOCALAPPDATA%\Programs\Reader`（运行中会拒绝覆盖），校验 exe 哈希后把桌面 `Reader.lnk` 和「Reader 文档」打开命令指向它。Reader 自身启动时也会把指向**旧版 Reader.exe** 的桌面快捷方式刷新为当前 exe，但不会改动指向其他程序的同名快捷方式。
-
-提交到 `main` 或打开 pull request 时，Windows CI 会在 Python 3.12 和
-Node.js 22 的干净环境中执行同一快速质量门；本地与远端使用同一验收入口。
+`main` 分支和 pull request 在 Windows CI 上运行同一快速质量门。
 
 ## 文档
 
 - 功能全解：`docs/Reader功能全解.md`
-- 规格与进度：`docs/STATUS.md`
-- 0.1.0 源码快照说明：`release/README.md`
+- 当前进度：`docs/STATUS.md`
+- 更新日志：`CHANGELOG.md`
+
+## 许可
+
+Reader 代码采用 [MIT 许可](LICENSE)。打包内含的 Qt / PySide6（LGPL-3.0）等第三方组件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

@@ -34,6 +34,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - A2 完成：`pyproject.toml` 运行与开发依赖全部改为 `==` 当前测试通过的版本（PySide6 6.11.2、python-docx 1.2.0、python-pptx 1.0.2、openpyxl 3.1.5、markdown-it-py 4.2.0、pywin32 312、pywinpty 3.0.5；pytest 9.1.1、pytest-qt 4.5.0、pytest-mock 3.15.1、Pillow 12.3.0、PyInstaller 6.22.3）。新测试断言每个依赖都是精确版本且与已安装版本一致。RED：`1 failed`（`PySide6>=6.7` 未固定）；GREEN：卫生/打包/版本 `46 passed`；`pip install -e ".[dev]" --dry-run` 无冲突。
 - A3 完成：新增 `CHANGELOG.md`（0.1.0 汇总至今主要能力）、`LICENSE`（MIT，`Copyright (c) 2026 877881029`，与 Tasker 一致）、`THIRD_PARTY_NOTICES.md`（按已安装包元数据列出全部 Python 运行时依赖及许可证，说明 Qt/PySide6 为 LGPL-3.0、动态链接未修改，并指向三个前端资源的许可说明）；`reader.spec` 把 `LICENSE` 与 `THIRD_PARTY_NOTICES.md` 打进安装目录；`bump_version.py` 现在会在更新日志顶部插入「## 新版本 — 日期」和「（待补充）」。新测试：更新日志顶部版本 = `VERSION`；许可说明覆盖运行时依赖闭包里的每个包（按元数据动态计算）；打包包含两个文件；脚本插入条目。RED：`3 failed`；GREEN：版本/打包/卫生 `49 passed`。
 - A4 第一步完成（删除无用代码）：删除 `shell/settings_claim.py` 及测试、`ext/`（翻译/转换/分屏空壳）及测试、根目录 4 个 `task-*-report.md`；同时删掉只为它服务的 `register_open_with(protected_claimer=)` 钩子及测试、`test_main_launch` 中依赖该模块的测试。新卫生测试断言这些路径不存在、源码不再引用。RED：`1 failed`；GREEN：全量 `667 passed, 1 skipped` + 该测试通过。`.superpowers/sdd/` 里的历史子任务报告未动。
+- A4 第二步完成（README）：按实际功能重写 README（能打开什么、主要功能、按窗口动作逐项核对的快捷键表、安装运行、开发、文档、许可），加 4 张截图 `docs/images/{welcome,markdown,code,hex}.png`（示例文件放在公共文档目录，截图里不含个人路径，截完已删除）；`AGENTS.md` 第 4 条改为指向 STATUS。新测试 `tests/test_readme.py`：窗口每个快捷键都出现在 README（临时删掉 `F3` 时测试失败，已验证能防止文档漂移）；README 引用的图片都存在。
 
 ## 上一目标：界面字体换成 Microsoft YaHei UI（已完成）
 
