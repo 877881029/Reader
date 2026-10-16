@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 版本：`VERSION` = 1.2.17（2026-10-16 按用户要求从 0.1.2 推进；之后每次发布修订号加 1，规则见下节）。
-- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 1.2.17，SHA256 `04EB487056168A1A4AE42DC091ECFEAF8B541EB1EF9C7A1FB46A9255582797C1`（2026-10-16，B2 + 预览回退崩溃修复），桌面快捷方式指向它。
+- 版本：`VERSION` = 1.2.18（2026-10-16 按用户要求从 0.1.2 推进到 1.2.17；之后每次发布修订号加 1，规则见下节）。
+- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 1.2.18，SHA256 `2469518D1DD911D79683E427B043C3E8EFC0DB3217A6B4E06EAB4C57A8059E70`（2026-10-16，B3 历史版本），桌面快捷方式指向它。
 - 技术：Python 3.12 + PySide6 6.11.2（依赖全部固定版本）；PyInstaller onedir；入口 `src/reader/launcher.py`（不导入 Qt，经命名管道把文件转给已运行的 Reader，否则启动完整应用）；每次打开一个新窗口，标签可在窗口间拖动；Markdown / PPTX / PDF / Office 预览走 Qt WebEngine，文本/代码/图片/`.bin` 是原生视图；终端为 ConPTY + xterm.js。
 - 测试：Python 约 670 个 + 三个前端 vitest；`scripts\verify.ps1` 快速质量门，`-Release` 发布门（冻结构建 + GUI 冒烟，约 20–35 分钟，不要中途打断）。
 
@@ -34,7 +34,7 @@
 | A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 已完成 |
 | B1 | 数据安全 | 未保存修改和未命名草稿后台自动暂存，注销、关机或崩溃后下次启动恢复 | 大 | 已完成（0.1.2） |
 | B2 | 数据安全 | Ctrl+Shift+T 重新打开刚关闭的标签 | 小 | 已完成（1.2.17） |
-| B3 | 数据安全 | 保存前保留旧版本的历史副本，自动清理 | 中 | 待开始 |
+| B3 | 数据安全 | 保存前保留旧版本的历史副本，自动清理 | 中 | 已完成（1.2.18） |
 | C1 | 设置 | 设置窗口：通用 / 快捷键 / 功能说明 / 数据 | 中 | 待开始 |
 | C2 | 设置 | 快捷键可自定义，冲突提示，恢复默认 | 中 | 待开始 |
 | C3 | 提速 | 关闭最后一个窗口后托盘常驻（可选），可选开机自启 | 中 | 待开始 |
@@ -68,6 +68,7 @@
 - B3 任务 1 完成：新模块 `reader/history.py`：`FileHistory`（`<数据目录>\history\<路径摘要 16 位>\`，`source.txt` 记原路径，版本文件名为「年月日-时分秒-微秒 + 原扩展名」，原子写入；`record` 跳过不存在、超过 10 MB 和与最新版本内容相同的情况，写后清理到最多 20 份、30 天内；`versions` 新到旧；`restore` 先记录当前内容再原子写回）。时钟、上限可注入以便测试。RED：收集错误；GREEN：`tests/test_history.py` `8 passed`。
 - B3 任务 2 完成：`MainWindow(history=FileHistory)`；`_save_document`（`Ctrl+S`、关闭时选保存）在可编辑视图写盘前记录原文件内容，`_save_document_as` 在写入目标前记录目标（目标不存在时自动跳过，即首次保存不记录）；`ReaderApp` 为所有窗口提供 `<数据目录>\history` 的同一个实例。RED：`5 failed`；GREEN：`tests/test_window_history.py` `5 passed`，全量 `748 passed, 1 skipped`。
 - B3 任务 3 完成：文件标签右键菜单新增「历史版本」子菜单（新到旧，「月-日 时:分:秒 · 大小」；没有时灰色「没有历史版本」）。点开版本：新开只读工具标签「文件名 · 月-日 时:分」，顶部说明条「这是 文件名 在 时间 的版本（只读）」+「恢复为此版本」按钮，正文为带行号和高亮的只读代码视图（标记 `readerHistoryVersion`，`_editable_view` 对它返回空，保存动作不可用，不会写到历史文件）。恢复：所有窗口（`ReaderApp` 提供 `peer_windows`）里该文件只要有未保存修改就拒绝并提示；否则 `FileHistory.restore`（先记当前内容）后，就地重新加载所有打开该文件的标签（代码视图、Markdown 文本视图、隐藏的 Markdown 编辑器和保留的预览都刷新，其他模式重新预览），提示「已恢复到 … 的版本」。RED：`5 failed`；GREEN：`tests/test_history_ui.py` `5 passed`，全量 `753 passed, 1 skipped`；截图确认版本标签外观。
+- B3 完成，1.2.18 已发布（2026-10-16）：功能全解（「历史版本」小节、右键菜单）、README、更新日志已写；`bump_version.py` 1.2.17 → 1.2.18；发布门一次通过（Python `753 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke）；安装 SHA256 `2469518D1DD911D79683E427B043C3E8EFC0DB3217A6B4E06EAB4C57A8059E70`，文件版本 1.2.18；安装版冒烟正常（新安装首次冷启动 10.6s 含杀软扫描）。规格与计划标为已实施。阶段 B（数据安全）全部完成。下一步：C1 设置窗口先写规格。
 
 ## 历史要点
 
