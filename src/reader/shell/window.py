@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 from collections.abc import Callable
 from ctypes import wintypes
 from dataclasses import dataclass, field, replace
@@ -57,6 +58,7 @@ from reader.resources import resource_path
 from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
 from reader.shell.goto_bar import GotoLineBar
+from reader.drafts import Draft, DraftStore
 from reader.shell.recent import remember_recent
 from reader.shell.tab_drag import ReaderTabBar
 from reader.shell.taskbar import apply_hwnd_app_user_model, force_iconic_representation
@@ -69,6 +71,8 @@ from reader.smoke import (
 )
 
 MARKDOWN_PUSH_DELAY_MS = 150
+# Unsaved edits are written to the draft store after this much idle time.
+DRAFT_SAVE_DELAY_MS = 1000
 # Where the cursor sits on a torn-off window: over its first tab.
 TEAR_OFF_GRAB = QPoint(120, 18)
 MARKDOWN_PRECREATE_DELAY_MS = 300
@@ -497,6 +501,8 @@ class _Document:
     md_preview_result: PreviewResult | None = None
     md_editor: QWidget | None = None
     md_push_timer: QTimer | None = None
+    # (mtime_ns, size) of the file an unsaved draft is based on.
+    draft_base: tuple[int, int] | None = None
 
 
 def _directory_url(path: Path) -> QUrl:
@@ -559,6 +565,11 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
     return web
 
 
+def _text_editor_of(view: QWidget):
+    editor = getattr(view, "editor", None)
+    return editor() if callable(editor) else view._editor
+
+
 def _retire_widget(widget: QWidget) -> None:
     """Remove replaced content: keep it hidden if marked to be kept, else dispose."""
     widget.setProperty("readerRetiring", False)
@@ -598,9 +609,18 @@ class MainWindow(QMainWindow):
         icon_path_provider: Callable[[], Path] | None = None,
         icon_applier: Callable[[QIcon], None] | None = None,
         unsaved_prompt: Callable[[str], str] | None = None,
+        drafts: DraftStore | None = None,
     ) -> None:
         super().__init__()
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
+        self._drafts = drafts
+        self._draft_pending: set[str] = set()
+        self._draft_timer: QTimer | None = None
+        if drafts is not None:
+            self._draft_timer = QTimer(self)
+            self._draft_timer.setSingleShot(True)
+            self._draft_timer.setInterval(DRAFT_SAVE_DELAY_MS)
+            self._draft_timer.timeout.connect(self.flush_drafts)
 
         self.setWindowTitle("Reader")
         self.setWindowFlags(
@@ -1047,6 +1067,8 @@ class MainWindow(QMainWindow):
             callback = getattr(self, "_on_activated", None)
             if callback is not None:
                 callback(self)
+        if event.type() == QEvent.Type.WindowDeactivate and getattr(self, "_drafts", None) is not None:
+            self.flush_drafts()
         if event.type() == QEvent.Type.WindowStateChange:
             chrome = getattr(self, "_title_chrome", None)
             if chrome is not None:
@@ -1374,6 +1396,7 @@ class MainWindow(QMainWindow):
         )
         if document_id is None:
             return
+        self._discard_draft(document_id)
         document = self._documents.pop(document_id)
         if document.request_id is not None:
             self._requests.pop(document.request_id, None)
@@ -1530,12 +1553,7 @@ class MainWindow(QMainWindow):
         self._documents[document_id] = document
         self._tabs.addTab(page, view.display_title())
         self._tabs.setCurrentWidget(page)
-        view.dirty_changed.connect(
-            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
-        )
-        view.path_changed.connect(
-            lambda _path, did=document_id: self._on_markdown_path_changed(did)
-        )
+        self._bind_editable_view(document_id, view)
         self._adopt_markdown_editor(document_id, view)
         self._refresh_content_stack()
         self._refresh_preview_actions()
@@ -1583,6 +1601,78 @@ class MainWindow(QMainWindow):
         view.path_changed.connect(
             lambda _path, did=document_id: self._on_markdown_path_changed(did)
         )
+        if self._drafts is not None:
+            view.dirty_changed.connect(
+                lambda _dirty, did=document_id: self._note_draft_change(did)
+            )
+            slot = lambda did=document_id: self._note_draft_change(did)
+            _text_editor_of(view).textChanged.connect(slot)
+            view._reader_draft_slot = slot
+
+    # -- unsaved-edit drafts (restored after sign-out, shutdown or a crash) ------
+
+    def _note_draft_change(self, document_id: str) -> None:
+        if self._drafts is None or self._closing:
+            return
+        document = self._documents.get(document_id)
+        view = self._editable_view(document)
+        if view is None:
+            return
+        if view.dirty:
+            self._draft_pending.add(document_id)
+            self._draft_timer.start()
+        else:
+            self._discard_draft(document_id)
+
+    def _discard_draft(self, document_id: str) -> None:
+        if self._drafts is None:
+            return
+        self._draft_pending.discard(document_id)
+        document = self._documents.get(document_id)
+        if document is not None:
+            document.draft_base = None
+        try:
+            self._drafts.remove(document_id)
+        except OSError:
+            pass
+
+    def flush_drafts(self) -> None:
+        """Write every pending draft now (timer, deactivation, session end)."""
+        if self._drafts is None:
+            return
+        self._draft_timer.stop()
+        pending, self._draft_pending = self._draft_pending, set()
+        for document_id in sorted(pending):
+            self._write_draft(document_id)
+
+    def _write_draft(self, document_id: str) -> None:
+        document = self._documents.get(document_id)
+        view = self._editable_view(document)
+        if view is None:
+            return
+        if not view.dirty:
+            self._discard_draft(document_id)
+            return
+        state = view.draft_state()
+        if document.draft_base is None and state["path"] is not None:
+            try:
+                stat = Path(state["path"]).stat()
+                document.draft_base = (stat.st_mtime_ns, stat.st_size)
+            except OSError:
+                document.draft_base = None
+        base = document.draft_base
+        try:
+            self._drafts.save(
+                Draft(
+                    doc_id=document_id,
+                    **state,
+                    file_mtime_ns=base[0] if base else None,
+                    file_size=base[1] if base else None,
+                    saved_at=time.time(),
+                )
+            )
+        except OSError:
+            self.statusBar().showMessage("未保存内容暂存失败")
 
     def save_current_tab(self) -> bool:
         document_id = self._current_document_id()
@@ -1769,12 +1859,7 @@ class MainWindow(QMainWindow):
                 old_page.deleteLater()
             self._tabs.insertTab(replace_tab_index, page, view.display_title())
         self._tabs.setCurrentWidget(page)
-        view.dirty_changed.connect(
-            lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
-        )
-        view.path_changed.connect(
-            lambda _path, did=document_id: self._on_markdown_path_changed(did)
-        )
+        self._bind_editable_view(document_id, view)
         self._adopt_markdown_editor(document_id, view)
         self._refresh_content_stack()
         self._refresh_preview_actions()
@@ -1941,6 +2026,9 @@ class MainWindow(QMainWindow):
             self._hide_find_bar()
             self._hide_goto_bar()
         visual_widget = document.visual_widget
+        if document_id in self._draft_pending:
+            self._draft_pending.discard(document_id)
+            self._write_draft(document_id)
         self._release_document_bindings(document)
         restart_mode = self._hand_over_requests(document, target)
 
@@ -1983,6 +2071,13 @@ class MainWindow(QMainWindow):
                         signal.disconnect()
                     except (RuntimeError, TypeError):
                         pass
+                draft_slot = getattr(widget, "_reader_draft_slot", None)
+                if draft_slot is not None:
+                    try:
+                        _text_editor_of(widget).textChanged.disconnect(draft_slot)
+                    except (RuntimeError, TypeError):
+                        pass
+                    del widget._reader_draft_slot
                 slot = getattr(widget, "_reader_live_push_slot", None)
                 if slot is not None:
                     try:
@@ -2279,12 +2374,7 @@ class MainWindow(QMainWindow):
             html="", status_label="文本编辑", kind="html"
         )
         if not reused:
-            view.dirty_changed.connect(
-                lambda _dirty, did=document_id: self._sync_markdown_tab_title(did)
-            )
-            view.path_changed.connect(
-                lambda _path, did=document_id: self._on_markdown_path_changed(did)
-            )
+            self._bind_editable_view(document_id, view)
         self._adopt_markdown_editor(document_id, view)
         self._sync_markdown_tab_title(document_id)
         self._refresh_preview_actions()
@@ -3042,6 +3132,10 @@ class MainWindow(QMainWindow):
             if not self._confirm_discard(document_id):
                 event.ignore()
                 return
+        for document_id in list(self._documents):
+            self._discard_draft(document_id)
+        if self._draft_timer is not None:
+            self._draft_timer.stop()
         self._closing = True
         if self._on_closing is not None:
             self._on_closing(self)
