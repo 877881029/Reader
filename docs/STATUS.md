@@ -62,6 +62,7 @@
 - B2 规格已定（2026-10-16）：只记录对应真实文件的标签（未命名草稿、终端、浏览器不记录），所有窗口共享最近 20 条，已打开则切过去；用户要求本次发布把版本推进到 1.2.17（`bump_version.py --set 1.2.17`，之后照常加 1）。规格：`docs/superpowers/specs/2026-10-16-reopen-closed-tab-design.md`；计划：`docs/superpowers/plans/2026-10-16-reopen-closed-tab.md`（3 任务）。
 - B2 任务 1 完成：新模块 `shell/closed_tabs.py`：`ClosedTabs`（`push` 只记录存在的文件并解析为绝对路径，同路径去重置顶，最多 `MAX_CLOSED`=20 条；`pop` 后进先出并跳过已删除的文件）。RED：收集错误；GREEN：`tests/test_closed_tabs.py` `5 passed`。
 - B2 任务 2 完成：`MainWindow` 新动作 `actionReopenClosedTab`（`Ctrl+Shift+T`，标签右键菜单同名项）与 `reopen_closed_tab()`；关闭标签（确认后）和正常关闭整个窗口时按标签顺序把绝对路径的文档记入列表（未命名草稿与工具标签用相对名，自然不记录）；列表为空时提示「没有可重新打开的标签」。`ReaderApp` 让所有窗口共享一个 `ClosedTabs`，并提供 `_show_open_elsewhere`：文件已在某个窗口打开时切到那里并激活（激活代码抽成 `_activate`，与双击转发共用）。README 快捷键表加 `Ctrl+Shift+T`（README 测试要求每个快捷键都列出）。RED：`6 failed`；GREEN：`tests/test_reopen_tab.py` `6 passed`，全量 `731 passed, 1 skipped`。
+- 发布 1.2.17 途中发现并修复已有崩溃：发布门在 `test_pptx_webengine` 进程崩溃（`0xC0000005`）。复现：PPTX 或 Markdown 视觉预览启动超过 15 秒限时（本机负载高时容易发生）走文本回退时，`_show_fallback` 先清空页面的 user scripts 再 `setHtml`，Qt WebEngine 访问冲突，Reader 整个崩溃；在本系列改动之前的提交 `632020d` 上同样复现，属原有缺陷。逐步排查确认只有「清空 scripts」这一步导致崩溃。修复：两种视图的回退都不再清空 scripts（仍注销 bridge、断开 WebChannel、关闭 JavaScript，脚本无法运行）；关闭标签时的 `shutdown` 路径不变。新回归测试 `tests/test_webengine_fallback.py` 在子进程里对 PPTX、Markdown 各在启动后 50ms / 300ms 触发超时（崩溃不会拖垮整个测试进程），断言进程存活、已显示回退并发出 `render_failed`；两条旧断言「回退后 scripts 为空」改为说明。RED：`4 failed`（子进程崩溃）；GREEN：`4 passed`，`test_md_view` + `test_pptx_view` + 新测试 `45 passed`。更新日志 1.2.17 加修复说明。
 
 ## 历史要点
 

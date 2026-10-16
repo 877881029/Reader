@@ -62,11 +62,13 @@ class _WebEngineResources(QObject):
         page = self.page
         channel = self.channel
         bridge = self.bridge
-        if page is not None:
-            page.scripts().clear()
-            page.setWebChannel(None)
+        # Do not clear the page's user scripts here: doing so on a page that is
+        # still loading and then calling setHtml crashes Qt WebEngine. JavaScript
+        # is disabled below, so the scripts cannot run on the text fallback.
         if channel is not None and bridge is not None:
             channel.deregisterObject(bridge)
+        if page is not None:
+            page.setWebChannel(None)
         self._channel_detached = True
         if page is not None:
             page.settings().setAttribute(

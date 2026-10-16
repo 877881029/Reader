@@ -151,7 +151,8 @@ def test_start_failure_timeout_and_bridge_error_fallback_only_once(
     assert fallback_calls[0][1].isEmpty()
     assert len(fallback_calls) == 1
     assert view.is_fallback
-    assert list(page.scripts().toList()) == []
+    # Scripts stay (clearing them before setHtml crashed Qt WebEngine); they
+    # cannot run: JavaScript is off and the channel/bridge are detached.
     assert page.webChannel() is None
     assert "bridge" not in channel.registeredObjects()
     assert not page.settings().testAttribute(

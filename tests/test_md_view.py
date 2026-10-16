@@ -429,7 +429,8 @@ def test_fallback_is_safe_and_atomic_for_load_timeout_and_bridge_error(
     assert len(fallback_calls) == 1
     assert fallback_calls[0][0] == "<p>markdown fallback</p>"
     assert fallback_calls[0][1].isEmpty()
-    assert list(page.scripts().toList()) == []
+    # Scripts stay (clearing them before setHtml crashed Qt WebEngine); they
+    # cannot run: JavaScript is off and the channel/bridge are detached.
     assert page.webChannel() is None
     assert "bridge" not in channel.registeredObjects()
     assert not page.settings().testAttribute(

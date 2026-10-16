@@ -148,7 +148,7 @@ class _WebEngineResources(QObject):
         self._channel_detached = False
         self._released = False
 
-    def secure_page(self, *, detach_interceptor: bool) -> None:
+    def secure_page(self, *, detach_interceptor: bool, clear_scripts: bool = True) -> None:
         if self._released:
             return
         profile = self.profile
@@ -166,7 +166,11 @@ class _WebEngineResources(QObject):
                 page.setWebChannel(None)
             self._channel_detached = True
         if page is not None:
-            page.scripts().clear()
+            # Clearing user scripts on a page that is still loading and then
+            # calling setHtml crashes Qt WebEngine; with JavaScript disabled the
+            # scripts cannot run, so the text fallback keeps them.
+            if clear_scripts:
+                page.scripts().clear()
             page.settings().setAttribute(
                 QWebEngineSettings.WebAttribute.JavascriptEnabled, False
             )
@@ -433,7 +437,7 @@ class MarkdownVisualView(QWebEngineView):
         self.stop()
         resources = self._resources
         if resources is not None:
-            resources.secure_page(detach_interceptor=False)
+            resources.secure_page(detach_interceptor=False, clear_scripts=False)
         fallback = self._result.fallback_html or _SAFE_FALLBACK_HTML
         if len(fallback.encode("utf-8")) > _SET_HTML_SAFE_BYTES:
             fallback = _SAFE_FALLBACK_HTML
