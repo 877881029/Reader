@@ -29,6 +29,8 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 | C5 | 提速 | 极小原生启动器（C 编写，只负责转发），再省 0.5–0.9s | 中 | 待开始 |
 | D1 | 发布 | GitHub 发布（保留最近 5 个）+ 一行命令安装/升级，PowerShell 5.1 实测 | 中 | 待开始 |
 
+- 阶段 A 规格：`docs/superpowers/specs/2026-10-16-foundations-design.md`；计划：`docs/superpowers/plans/2026-10-16-foundations.md`（5 任务）。版本规则：每次发布前修订号加 1（0.1.0 → 0.1.1 …）。
+
 ## 上一目标：界面字体换成 Microsoft YaHei UI（已完成）
 
 **界面字体换成 Microsoft YaHei UI，去掉首屏字体回退卡顿**（已完成）
