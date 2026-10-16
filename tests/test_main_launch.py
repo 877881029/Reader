@@ -405,31 +405,6 @@ def test_association_failure_shows_hint_and_still_attempts_shortcut(monkeypatch)
     assert "shortcut" in events
 
 
-def test_first_shell_tick_does_not_claim_protected_defaults(monkeypatch):
-    import reader.__main__ as main_module
-
-    claimed = []
-
-    def register(*_args, **kwargs):
-        claimer = kwargs.get("protected_claimer")
-        if claimer is not None:
-            claimer()
-
-    monkeypatch.setattr(main_module, "register_open_with", register)
-    monkeypatch.setattr(main_module, "create_desktop_shortcut", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        "reader.shell.settings_claim.claim_protected_defaults",
-        lambda: claimed.append("claim"),
-    )
-
-    class Window:
-        def show_status(self, _message):
-            pass
-
-    main_module._install_shell_integration(Window())
-    assert claimed == []
-
-
 def test_default_apps_settings_claim_is_not_scheduled_on_startup(monkeypatch):
     import reader.__main__ as main_module
 

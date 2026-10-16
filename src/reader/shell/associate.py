@@ -80,7 +80,6 @@ def register_open_with(
     winreg_module=None,
     *,
     args: tuple[str, ...] = (),
-    protected_claimer=None,
 ) -> None:
     import winreg as default_winreg
 
@@ -116,8 +115,6 @@ def register_open_with(
         _set_reg_sz(wr, r"Software\Reader\Capabilities\FileAssociations", ext, PROGID)
     if winreg_module is None:
         _notify_assoc_changed()
-    if protected_claimer is not None:
-        protected_claimer()
 
 
 def _desktop_known_location() -> Path | None:

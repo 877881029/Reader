@@ -109,3 +109,21 @@ def test_dependencies_are_pinned_to_the_tested_versions():
         assert match, f"not pinned: {requirement}"
         name, pinned = match.groups()
         assert version(name) == pinned, f"{name}: pinned {pinned}, installed {version(name)}"
+
+
+
+def test_dead_code_and_stray_reports_are_removed():
+    root = Path(__file__).resolve().parents[1]
+    for relative in (
+        "src/reader/shell/settings_claim.py",
+        "src/reader/ext",
+        "task-2-report.md",
+        "task-3-report.md",
+        "task-5-report.md",
+        "task-6-report.md",
+    ):
+        assert not (root / relative).exists(), relative
+    for source in (root / "src").rglob("*.py"):
+        text = source.read_text(encoding="utf-8")
+        assert "settings_claim" not in text, source
+        assert "reader.ext" not in text, source
