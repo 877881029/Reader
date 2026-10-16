@@ -12,6 +12,7 @@ from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from reader.drafts import DraftStore, default_drafts_dir
+from reader.history import FileHistory, default_history_dir
 from reader.ipc import SingleInstance
 from reader.resources import resource_path
 from reader.shell.closed_tabs import ClosedTabs
@@ -71,6 +72,7 @@ class ReaderApp:
         self._windows: list[MainWindow] = []
         self._executor = PreviewExecutor(parent=qapp)
         self._closed_tabs = ClosedTabs()
+        self._history = FileHistory(default_history_dir())
         self._ipc = ipc if ipc is not None else SingleInstance()
         self._is_primary = self._ipc.become_server(self._on_ipc_paths)
         self._ipc_closed = False
@@ -159,6 +161,7 @@ class ReaderApp:
             drafts=self._drafts,
             closed_tabs=self._closed_tabs,
             show_elsewhere=self._show_open_elsewhere,
+            history=self._history,
         )
         window_ref = weakref.ref(window)
         window.destroyed.connect(

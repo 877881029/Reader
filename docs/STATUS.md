@@ -66,6 +66,7 @@
 - B2 完成，1.2.17 已发布（2026-10-16）：`bump_version.py --set 1.2.17`；功能全解（多窗口一节、快捷键表）与更新日志已写；修复崩溃后发布门通过（Python `735 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke），`Reader.exe` 文件版本 1.2.17；用户关闭正在运行的 Reader 后安装，SHA256 `04EB487056168A1A4AE42DC091ECFEAF8B541EB1EF9C7A1FB46A9255582797C1`，桌面快捷方式已指向；安装版冒烟正常（新安装后首次冷启动 11.9s 为杀软扫描，已知现象）。规格与计划标为已实施。下一步：B3（保存前保留旧版本历史副本）先写规格。
 - B3 规格已定（2026-10-16，用户决定）：保存覆盖前把旧内容存到 `<数据目录>\history`（每个文件 20 份、30 天、超过 10 MB 不存）；右键标签「历史版本」列出版本，点开只读查看，可「恢复为此版本」。规格：`docs/superpowers/specs/2026-10-16-file-history-design.md`；计划：`docs/superpowers/plans/2026-10-16-file-history.md`（4 任务）。
 - B3 任务 1 完成：新模块 `reader/history.py`：`FileHistory`（`<数据目录>\history\<路径摘要 16 位>\`，`source.txt` 记原路径，版本文件名为「年月日-时分秒-微秒 + 原扩展名」，原子写入；`record` 跳过不存在、超过 10 MB 和与最新版本内容相同的情况，写后清理到最多 20 份、30 天内；`versions` 新到旧；`restore` 先记录当前内容再原子写回）。时钟、上限可注入以便测试。RED：收集错误；GREEN：`tests/test_history.py` `8 passed`。
+- B3 任务 2 完成：`MainWindow(history=FileHistory)`；`_save_document`（`Ctrl+S`、关闭时选保存）在可编辑视图写盘前记录原文件内容，`_save_document_as` 在写入目标前记录目标（目标不存在时自动跳过，即首次保存不记录）；`ReaderApp` 为所有窗口提供 `<数据目录>\history` 的同一个实例。RED：`5 failed`；GREEN：`tests/test_window_history.py` `5 passed`，全量 `748 passed, 1 skipped`。
 
 ## 历史要点
 

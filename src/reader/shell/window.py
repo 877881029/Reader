@@ -59,6 +59,7 @@ from reader.theme import MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
 from reader.shell.goto_bar import GotoLineBar
 from reader.drafts import Draft, DraftStore
+from reader.history import FileHistory
 from reader.shell.closed_tabs import ClosedTabs
 from reader.shell.recent import remember_recent
 from reader.shell.tab_drag import ReaderTabBar
@@ -613,8 +614,10 @@ class MainWindow(QMainWindow):
         drafts: DraftStore | None = None,
         closed_tabs: ClosedTabs | None = None,
         show_elsewhere: Callable[[Path], bool] | None = None,
+        history: FileHistory | None = None,
     ) -> None:
         super().__init__()
+        self._history = history
         self._closed_tabs = closed_tabs if closed_tabs is not None else ClosedTabs()
         self._show_elsewhere = show_elsewhere
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
@@ -1749,6 +1752,8 @@ class MainWindow(QMainWindow):
             return False
         if view.path is None:
             return self._save_document_as(document_id)
+        if self._history is not None and view.is_editable():
+            self._history.record(Path(view.path))
         if not view.save():
             self.statusBar().showMessage("只读文件无法保存")
             return False
@@ -1786,6 +1791,8 @@ class MainWindow(QMainWindow):
         target = Path(path)
         if is_markdown and target.suffix.lower() != ".md":
             target = target.with_suffix(".md")
+        if self._history is not None:
+            self._history.record(target)
         try:
             view.save_as(target)
         except OSError as exc:
