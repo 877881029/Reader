@@ -55,11 +55,11 @@ from reader.preview.find_support import (
     resolve_find_target,
 )
 from reader.resources import resource_path
-from reader.theme import MUTED, PAPER as PAGE_FILL
+from reader.theme import CHROME, INK, LINE, MUTED, PAPER as PAGE_FILL
 from reader.shell.find_bar import FindBar
 from reader.shell.goto_bar import GotoLineBar
 from reader.drafts import Draft, DraftStore
-from reader.history import FileHistory
+from reader.history import FileHistory, Version
 from reader.shell.closed_tabs import ClosedTabs
 from reader.shell.recent import remember_recent
 from reader.shell.tab_drag import ReaderTabBar
@@ -567,6 +567,14 @@ def _default_viewer(result: PreviewResult, source_path: Path) -> QWidget:
     return web
 
 
+def _format_size(size: int) -> str:
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f} KB"
+    return f"{size / (1024 * 1024):.1f} MB"
+
+
 def _text_editor_of(view: QWidget):
     editor = getattr(view, "editor", None)
     return editor() if callable(editor) else view._editor
@@ -615,9 +623,11 @@ class MainWindow(QMainWindow):
         closed_tabs: ClosedTabs | None = None,
         show_elsewhere: Callable[[Path], bool] | None = None,
         history: FileHistory | None = None,
+        peer_windows: Callable[[], list[MainWindow]] | None = None,
     ) -> None:
         super().__init__()
         self._history = history
+        self._peer_windows = peer_windows
         self._closed_tabs = closed_tabs if closed_tabs is not None else ClosedTabs()
         self._show_elsewhere = show_elsewhere
         self.unsaved_prompt: Callable[[str], str] | None = unsaved_prompt
@@ -1583,7 +1593,10 @@ class MainWindow(QMainWindow):
         view = document.page.findChild(MarkdownTextView)
         if view is not None:
             return view
-        return document.page.findChild(CodeTextView)
+        view = document.page.findChild(CodeTextView)
+        if view is not None and view.property("readerHistoryVersion"):
+            return None  # read-only copy of an old version, never saved over
+        return view
 
     def _sync_markdown_tab_title(self, document_id: str) -> None:
         document = self._documents.get(document_id)
@@ -1651,6 +1664,109 @@ class MainWindow(QMainWindow):
             self._drafts.remove(document_id)
         except OSError:
             pass
+
+    # -- file history (versions kept before each save) -----------------------------
+
+    def _add_history_menu(self, menu, page: QWidget | None) -> None:
+        document_id = self._document_id_for_page(page)
+        document = self._documents.get(document_id) if document_id else None
+        if self._history is None or document is None or not document.path.is_absolute():
+            return
+        submenu = menu.addMenu("历史版本")
+        versions = self._history.versions(document.path)
+        if not versions:
+            empty = submenu.addAction("没有历史版本")
+            empty.setEnabled(False)
+            return
+        for version in versions:
+            action = submenu.addAction(f"{version.saved_at:%m-%d %H:%M:%S} · {_format_size(version.size)}")
+            action.triggered.connect(
+                lambda _checked=False, item=version: self.open_history_version(item)
+            )
+
+    def open_history_version(self, version: Version) -> None:
+        from PySide6.QtWidgets import QHBoxLayout, QPushButton
+
+        from reader.preview.code_view import CodeTextView
+
+        container = QWidget()
+        container.setObjectName("historyVersionPage")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        bar = QWidget(container)
+        bar.setObjectName("historyBar")
+        bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        bar.setStyleSheet(
+            f"#historyBar {{ background: {CHROME}; border-bottom: 1px solid {LINE}; }}"
+            f"#historyBar QLabel {{ color: {INK}; }}"
+        )
+        row = QHBoxLayout(bar)
+        row.setContentsMargins(14, 6, 10, 6)
+        name = version.source.name
+        notice = QLabel(f"这是 {name} 在 {version.saved_at:%Y-%m-%d %H:%M:%S} 的版本（只读）", bar)
+        notice.setObjectName("historyNotice")
+        restore = QPushButton("恢复为此版本", bar)
+        restore.setObjectName("historyRestoreButton")
+        restore.clicked.connect(lambda _checked=False, item=version: self.restore_history_version(item))
+        row.addWidget(notice, 1)
+        row.addWidget(restore)
+        view = CodeTextView(container)
+        view.setProperty("readerHistoryVersion", True)
+        view.load_path(version.path)
+        view._set_editable(False)
+        layout.addWidget(bar)
+        layout.addWidget(view, 1)
+        self._add_tool_tab(container, f"{name} · {version.saved_at:%m-%d %H:%M}", "历史版本（只读）")
+
+    def restore_history_version(self, version: Version) -> bool:
+        if self._history is None:
+            return False
+        windows = self._peer_windows() if self._peer_windows is not None else [self]
+        if self not in windows:
+            windows = [self, *windows]
+        holders = [
+            (window, document_id)
+            for window in windows
+            for document_id, document in window._documents.items()
+            if document.path == version.source
+        ]
+        for window, document_id in holders:
+            if window._is_dirty(window._documents[document_id]):
+                self.statusBar().showMessage(
+                    f"请先保存或放弃「{version.source.name}」里未保存的修改，再恢复"
+                )
+                return False
+        try:
+            self._history.restore(version)
+        except OSError as exc:
+            self.statusBar().showMessage(f"恢复失败：{exc}")
+            return False
+        for window, document_id in holders:
+            window._reload_document(document_id)
+        self.statusBar().showMessage(f"已恢复到 {version.saved_at:%m-%d %H:%M:%S} 的版本")
+        return True
+
+    def _reload_document(self, document_id: str) -> None:
+        """Show the file's current disk content again after it was replaced."""
+        from reader.preview.code_view import CodeTextView
+        from reader.preview.md_text_view import MarkdownTextView
+
+        document = self._documents.get(document_id)
+        if document is None:
+            return
+        self._discard_kept_preview(document)
+        editor = document.md_editor
+        if editor is not None:
+            editor.load_path(document.path, editable=True)
+        view = self._editable_view(document)
+        if isinstance(view, CodeTextView):
+            view.load_path(document.path)
+        elif isinstance(view, MarkdownTextView) and document.mode == "text":
+            view.load_path(document.path, editable=view.is_editable())
+        else:
+            self._restart_preview(document_id, document.mode)
+        self._sync_markdown_tab_title(document_id)
 
     def _record_closed(self, document: _Document) -> None:
         # Only tabs backed by a real file; untitled drafts and tool tabs use relative names.
@@ -2006,6 +2122,7 @@ class MainWindow(QMainWindow):
             )
         )
         menu.addSeparator()
+        self._add_history_menu(menu, page)
         reopen = menu.addAction("重新打开关闭的标签")
         reopen.triggered.connect(lambda _checked=False: self.reopen_closed_tab())
         close = menu.addAction("关闭标签")

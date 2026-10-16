@@ -67,6 +67,7 @@
 - B3 规格已定（2026-10-16，用户决定）：保存覆盖前把旧内容存到 `<数据目录>\history`（每个文件 20 份、30 天、超过 10 MB 不存）；右键标签「历史版本」列出版本，点开只读查看，可「恢复为此版本」。规格：`docs/superpowers/specs/2026-10-16-file-history-design.md`；计划：`docs/superpowers/plans/2026-10-16-file-history.md`（4 任务）。
 - B3 任务 1 完成：新模块 `reader/history.py`：`FileHistory`（`<数据目录>\history\<路径摘要 16 位>\`，`source.txt` 记原路径，版本文件名为「年月日-时分秒-微秒 + 原扩展名」，原子写入；`record` 跳过不存在、超过 10 MB 和与最新版本内容相同的情况，写后清理到最多 20 份、30 天内；`versions` 新到旧；`restore` 先记录当前内容再原子写回）。时钟、上限可注入以便测试。RED：收集错误；GREEN：`tests/test_history.py` `8 passed`。
 - B3 任务 2 完成：`MainWindow(history=FileHistory)`；`_save_document`（`Ctrl+S`、关闭时选保存）在可编辑视图写盘前记录原文件内容，`_save_document_as` 在写入目标前记录目标（目标不存在时自动跳过，即首次保存不记录）；`ReaderApp` 为所有窗口提供 `<数据目录>\history` 的同一个实例。RED：`5 failed`；GREEN：`tests/test_window_history.py` `5 passed`，全量 `748 passed, 1 skipped`。
+- B3 任务 3 完成：文件标签右键菜单新增「历史版本」子菜单（新到旧，「月-日 时:分:秒 · 大小」；没有时灰色「没有历史版本」）。点开版本：新开只读工具标签「文件名 · 月-日 时:分」，顶部说明条「这是 文件名 在 时间 的版本（只读）」+「恢复为此版本」按钮，正文为带行号和高亮的只读代码视图（标记 `readerHistoryVersion`，`_editable_view` 对它返回空，保存动作不可用，不会写到历史文件）。恢复：所有窗口（`ReaderApp` 提供 `peer_windows`）里该文件只要有未保存修改就拒绝并提示；否则 `FileHistory.restore`（先记当前内容）后，就地重新加载所有打开该文件的标签（代码视图、Markdown 文本视图、隐藏的 Markdown 编辑器和保留的预览都刷新，其他模式重新预览），提示「已恢复到 … 的版本」。RED：`5 failed`；GREEN：`tests/test_history_ui.py` `5 passed`，全量 `753 passed, 1 skipped`；截图确认版本标签外观。
 
 ## 历史要点
 

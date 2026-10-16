@@ -162,6 +162,7 @@ class ReaderApp:
             closed_tabs=self._closed_tabs,
             show_elsewhere=self._show_open_elsewhere,
             history=self._history,
+            peer_windows=lambda: [w for w in self._windows if self._is_eligible(w)],
         )
         window_ref = weakref.ref(window)
         window.destroyed.connect(
