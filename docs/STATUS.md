@@ -16,7 +16,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 |---|---|---|---|---|
 | A1 | 基础 | 版本号统一：只写在 `VERSION`，脚本每次加 1，规则写进流程文档 | 小 | 已完成 |
 | A2 | 基础 | 依赖固定为当前测试通过的版本 | 小 | 已完成 |
-| A3 | 基础 | 更新日志 + 许可证（含第三方许可说明） | 小 | 待开始 |
+| A3 | 基础 | 更新日志 + 许可证（含第三方许可说明） | 小 | 已完成 |
 | A4 | 基础 | 删除无用代码；精简 STATUS；README 按实际功能重写并加截图；仓库简介和标签 | 小 | 待开始 |
 | A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 待开始 |
 | B1 | 数据安全 | 未保存修改和未命名草稿后台自动暂存，注销、关机或崩溃后下次启动恢复 | 大 | 待开始 |
@@ -32,6 +32,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 - 阶段 A 规格：`docs/superpowers/specs/2026-10-16-foundations-design.md`；计划：`docs/superpowers/plans/2026-10-16-foundations.md`（5 任务）。版本规则：每次发布前修订号加 1（0.1.0 → 0.1.1 …）。
 - A1 完成：新增 `scripts/version_tools.py`（解析、加 1、写 `VERSION` 与 README「当前版本」行、生成 Windows 版本资源）和 `scripts/bump_version.py`（默认修订号加 1，`--minor` / `--major` / `--set X.Y.Z`，格式不对时什么都不改并返回非 0）；`pyproject.toml` 改为 `dynamic = ["version"]` 从 `VERSION` 读取；`reader.spec` 打包时按 `VERSION` 生成 `build/version_info.txt`，删除仓库里的 `version_info.txt`；发布前运行脚本的规则写进 `AGENTS.md`、`process.md`、`.cursor/rules/git-progress-handoff.mdc`。原来写死 `0.1.0` 的测试改为读 `VERSION`。RED：`10 failed, 2 passed`；GREEN：版本/打包/卫生相关 `46 passed`。注意：`AGENTS.md` 第 4 条指向的 PPTX 规格已过时，A4 一并清理。
 - A2 完成：`pyproject.toml` 运行与开发依赖全部改为 `==` 当前测试通过的版本（PySide6 6.11.2、python-docx 1.2.0、python-pptx 1.0.2、openpyxl 3.1.5、markdown-it-py 4.2.0、pywin32 312、pywinpty 3.0.5；pytest 9.1.1、pytest-qt 4.5.0、pytest-mock 3.15.1、Pillow 12.3.0、PyInstaller 6.22.3）。新测试断言每个依赖都是精确版本且与已安装版本一致。RED：`1 failed`（`PySide6>=6.7` 未固定）；GREEN：卫生/打包/版本 `46 passed`；`pip install -e ".[dev]" --dry-run` 无冲突。
+- A3 完成：新增 `CHANGELOG.md`（0.1.0 汇总至今主要能力）、`LICENSE`（MIT，`Copyright (c) 2026 877881029`，与 Tasker 一致）、`THIRD_PARTY_NOTICES.md`（按已安装包元数据列出全部 Python 运行时依赖及许可证，说明 Qt/PySide6 为 LGPL-3.0、动态链接未修改，并指向三个前端资源的许可说明）；`reader.spec` 把 `LICENSE` 与 `THIRD_PARTY_NOTICES.md` 打进安装目录；`bump_version.py` 现在会在更新日志顶部插入「## 新版本 — 日期」和「（待补充）」。新测试：更新日志顶部版本 = `VERSION`；许可说明覆盖运行时依赖闭包里的每个包（按元数据动态计算）；打包包含两个文件；脚本插入条目。RED：`3 failed`；GREEN：版本/打包/卫生 `49 passed`。
 
 ## 上一目标：界面字体换成 Microsoft YaHei UI（已完成）
 

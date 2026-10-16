@@ -45,6 +45,8 @@ a = Analysis(
         (str(ROOT / 'assets/md-viewer'), 'assets/md-viewer'),
         (str(ROOT / 'assets/terminal-viewer'), 'assets/terminal-viewer'),
         (str(ROOT / 'VERSION'), '.'),
+        (str(ROOT / 'LICENSE'), '.'),
+        (str(ROOT / 'THIRD_PARTY_NOTICES.md'), '.'),
     ],
     hiddenimports=pyside6_hidden,
     hookspath=[],

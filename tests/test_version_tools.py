@@ -110,3 +110,59 @@ def test_bump_script_runs_from_command_line(tmp_path):
 def test_release_rule_is_in_handoff_docs():
     for doc in ("AGENTS.md", "docs/superpowers/process.md", ".cursor/rules/git-progress-handoff.mdc"):
         assert "bump_version.py" in (ROOT / doc).read_text(encoding="utf-8"), doc
+
+
+
+def _runtime_distributions() -> set[str]:
+    import tomllib
+    from importlib.metadata import distribution, requires
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    pending = [re.split(r"[=<>! ;\[]", item, maxsplit=1)[0] for item in project["dependencies"]]
+    names: set[str] = set()
+    while pending:
+        name = pending.pop()
+        try:
+            dist = distribution(name)
+        except Exception:
+            continue
+        if dist.metadata["Name"] in names:
+            continue
+        names.add(dist.metadata["Name"])
+        for requirement in requires(name) or []:
+            if "extra ==" not in requirement:
+                pending.append(re.split(r"[=<>! ;\[(~]", requirement, maxsplit=1)[0])
+    return names
+
+
+def test_changelog_top_entry_is_current_version():
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    first = next(line for line in changelog.splitlines() if line.startswith("## "))
+    assert first.startswith(f"## {_current()} ")
+
+
+def test_license_and_third_party_notices_cover_runtime_dependencies():
+    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+    assert license_text.startswith("MIT License")
+    assert "Copyright (c) 2026 877881029" in license_text
+    notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+    for name in sorted(_runtime_distributions()):
+        assert name.lower() in notices.lower(), name
+    assert "LGPL-3.0" in notices
+    spec = (ROOT / "reader.spec").read_text(encoding="utf-8")
+    assert "(str(ROOT / 'LICENSE'), '.')" in spec
+    assert "(str(ROOT / 'THIRD_PARTY_NOTICES.md'), '.')" in spec
+
+
+def test_bump_adds_a_changelog_entry(tmp_path):
+    import datetime
+
+    bump = _load("bump_version")
+    root = _fake_repo(tmp_path)
+    (root / "CHANGELOG.md").write_text("# 更新日志\n\n## 0.1.0 — 2026-10-15\n\n- 旧内容\n", encoding="utf-8")
+
+    assert bump.main(["--root", str(root)]) == 0
+
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    today = datetime.date.today().isoformat()
+    assert changelog.startswith(f"# 更新日志\n\n## 0.1.1 — {today}\n\n- （待补充）\n\n## 0.1.0 — 2026-10-15\n")

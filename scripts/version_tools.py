@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import datetime
 import re
 from pathlib import Path
 
@@ -46,14 +47,24 @@ def _rewrite(path: Path, transform) -> None:
         path.write_bytes(updated.encode("utf-8"))
 
 
+def _add_changelog_entry(text: str, version: str) -> str:
+    nl = "\r\n" if "\r\n" in text else "\n"
+    entry = f"## {version} — {datetime.date.today().isoformat()}{nl}{nl}- （待补充）{nl}{nl}"
+    index = text.find(f"{nl}## ")
+    if index < 0:
+        return text.rstrip() + nl + nl + entry
+    return text[: index + len(nl)] + entry + text[index + len(nl) :]
+
+
 def apply_version(root: Path, version: str) -> None:
-    """Write ``version`` to VERSION and the README "当前版本" line."""
+    """Write ``version`` to VERSION, the README "当前版本" line and a CHANGELOG entry."""
     parse(version)
     (root / "VERSION").write_bytes((version + "\n").encode("utf-8"))
     _rewrite(
         root / "README.md",
         lambda text: _README_LINE.sub(f"当前版本 **{version}**", text, count=1),
     )
+    _rewrite(root / "CHANGELOG.md", lambda text: _add_changelog_entry(text, version))
 
 
 def win32_version_info(version: str) -> str:
