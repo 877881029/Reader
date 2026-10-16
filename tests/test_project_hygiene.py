@@ -127,3 +127,12 @@ def test_dead_code_and_stray_reports_are_removed():
         text = source.read_text(encoding="utf-8")
         assert "settings_claim" not in text, source
         assert "reader.ext" not in text, source
+
+
+
+def test_status_is_a_short_handoff_page():
+    root = Path(__file__).resolve().parents[1]
+    status = (root / "docs" / "STATUS.md").read_text(encoding="utf-8")
+    headings = [line for line in status.splitlines() if line.startswith("## ")]
+    assert headings[:4] == ["## 当前状态", "## 每次更新必做", "## 当前目标", "## 历史要点"]
+    assert len(status.splitlines()) < 250
