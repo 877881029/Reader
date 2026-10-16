@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reader"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Windows multi-format document viewer"
 requires-python = ">=3.12"
 dependencies = [
@@ -28,6 +28,9 @@ dev = [
 
 [project.scripts]
 reader = "reader.launcher:main"
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

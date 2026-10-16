@@ -14,7 +14,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 
 | 编号 | 阶段 | 内容 | 规模 | 状态 |
 |---|---|---|---|---|
-| A1 | 基础 | 版本号统一：只写在 `VERSION`，脚本每次加 1，规则写进流程文档 | 小 | 待开始 |
+| A1 | 基础 | 版本号统一：只写在 `VERSION`，脚本每次加 1，规则写进流程文档 | 小 | 已完成 |
 | A2 | 基础 | 依赖固定为当前测试通过的版本 | 小 | 待开始 |
 | A3 | 基础 | 更新日志 + 许可证（含第三方许可说明） | 小 | 待开始 |
 | A4 | 基础 | 删除无用代码；精简 STATUS；README 按实际功能重写并加截图；仓库简介和标签 | 小 | 待开始 |
@@ -30,6 +30,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 | D1 | 发布 | GitHub 发布（保留最近 5 个）+ 一行命令安装/升级，PowerShell 5.1 实测 | 中 | 待开始 |
 
 - 阶段 A 规格：`docs/superpowers/specs/2026-10-16-foundations-design.md`；计划：`docs/superpowers/plans/2026-10-16-foundations.md`（5 任务）。版本规则：每次发布前修订号加 1（0.1.0 → 0.1.1 …）。
+- A1 完成：新增 `scripts/version_tools.py`（解析、加 1、写 `VERSION` 与 README「当前版本」行、生成 Windows 版本资源）和 `scripts/bump_version.py`（默认修订号加 1，`--minor` / `--major` / `--set X.Y.Z`，格式不对时什么都不改并返回非 0）；`pyproject.toml` 改为 `dynamic = ["version"]` 从 `VERSION` 读取；`reader.spec` 打包时按 `VERSION` 生成 `build/version_info.txt`，删除仓库里的 `version_info.txt`；发布前运行脚本的规则写进 `AGENTS.md`、`process.md`、`.cursor/rules/git-progress-handoff.mdc`。原来写死 `0.1.0` 的测试改为读 `VERSION`。RED：`10 failed, 2 passed`；GREEN：版本/打包/卫生相关 `46 passed`。注意：`AGENTS.md` 第 4 条指向的 PPTX 规格已过时，A4 一并清理。
 
 ## 上一目标：界面字体换成 Microsoft YaHei UI（已完成）
 

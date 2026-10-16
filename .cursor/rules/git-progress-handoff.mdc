@@ -14,3 +14,4 @@ alwaysApply: true
 - 提交信息写目标变化（为什么），并更新 STATUS 的「当前目标 / 已完成 / 下一步」。
 - 未推送不算同步。推送失败要记在 STATUS 阻塞项。
 - 不要只改代码不改 STATUS，也不要只在对话里说“下一步”。
+- 版本号只写在 `VERSION`。每次发布（通过发布验证并安装或公开发布）前运行 `python scripts\bump_version.py`（修订号加 1），同时更新 STATUS（有更新日志后一并更新）。

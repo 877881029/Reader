@@ -1,10 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
 
+import sys
+
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 
 ROOT = Path(SPECPATH)
+sys.path.insert(0, str(ROOT / 'scripts'))
+from version_tools import write_win32_version_info  # noqa: E402
+
+# Windows file version comes from VERSION (the only place the version is written).
+version_file = write_win32_version_info(ROOT, ROOT / 'build' / 'version_info.txt')
 pyside6_datas = collect_data_files('PySide6',
     includes=[
         'Qt/resources/*',
@@ -59,7 +66,7 @@ exe = EXE(
     upx=False,
     console=False,
     icon=str(ROOT / 'assets/icons/reader.ico'),
-    version=str(ROOT / 'version_info.txt'),
+    version=str(version_file),
 )
 coll = COLLECT(
     exe,

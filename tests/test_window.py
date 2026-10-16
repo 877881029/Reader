@@ -2693,7 +2693,9 @@ def test_empty_window_shows_welcome_version_and_recent(qtbot, tmp_path: Path, mo
     assert window.tab_count() == 0
     version = window.findChild(QLabel, "welcomeVersion")
     assert version is not None and version.isVisible()
-    assert "0.1.0" in version.text()
+    from reader.version import product_version
+
+    assert product_version() in version.text()
     assert window.findChild(QWidget, "welcomeOpenButton") is not None
     assert window.findChild(QWidget, "welcomeNewButton") is not None
     recent_list = window.findChild(QListWidget, "welcomeRecentList")

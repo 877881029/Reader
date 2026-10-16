@@ -15,7 +15,7 @@
 - 版本号只写在仓库根目录 `VERSION`（一行 `主.次.修订`）。
 - `pyproject.toml` 改为从 `VERSION` 动态读取，不再写死。
 - Windows 文件版本信息（原 `version_info.txt`）在打包时由 `reader.spec` 按 `VERSION` 生成到 `build/`，仓库里不再保存这个文件。
-- `scripts/bump_version.py`：默认修订号加 1，可选 `--minor` / `--major` / `--set X.Y.Z`；同时改 README 里「当前版本」那一行和 `release/README.md` 的版本说明。
+- `scripts/bump_version.py`：默认修订号加 1，可选 `--minor` / `--major` / `--set X.Y.Z`；同时改 README 里「当前版本」那一行（`release/README.md` 是 0.1.0 源码快照的历史说明，留给 D1 发布时重写）。
 - 规则：每次发布（通过发布验证并安装或公开发布）前运行一次 `bump_version.py`，并同步更新 STATUS（A3 之后还有更新日志）。写进 `AGENTS.md`、`docs/superpowers/process.md` 和 `.cursor/rules/git-progress-handoff.mdc`。
 - 程序内的版本显示（欢迎页）继续读 `VERSION`。
 

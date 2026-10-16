@@ -17,7 +17,7 @@ def test_reader_spec_references_onedir_icon_version_and_webengine() -> None:
     assert "name='Reader'" in spec
     assert "console=False" in spec
     assert "assets/icons/reader.ico" in spec.replace("\\", "/")
-    assert "version_info.txt" in spec
+    assert "write_win32_version_info(" in spec
     assert "collect_data_files('PySide6'" in spec
     assert "QtWebEngine" in spec
     assert "COLLECT(" in spec
@@ -535,18 +535,6 @@ throw $both
     assert output.index("business-original") < output.index("cleanup-appended")
 
 
-def test_version_file_matches_pyproject_and_win32_resource() -> None:
-    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    assert version == "0.1.0"
-    assert version.splitlines() == ["0.1.0"]
-    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "0.1.0"' in pyproject
-    info = (ROOT / "version_info.txt").read_text(encoding="utf-8")
-    assert "filevers=(0, 1, 0, 0)" in info
-    assert "StringStruct('FileVersion', '0.1.0')" in info
-    assert "StringStruct('ProductVersion', '0.1.0')" in info
-
-
 def test_setup_script_installs_runtime_venv_and_launches_reader() -> None:
     script = (ROOT / "scripts" / "setup.ps1").read_text(encoding="utf-8")
     assert "param(" in script
@@ -592,7 +580,8 @@ def test_readme_documents_formats_and_setup_command() -> None:
         r"scripts\setup.ps1",
     ):
         assert token in readme
-    assert "0.1.0" in readme
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    assert version in readme
     assert "翻译" in readme or "左右" in readme
     assert "SkipBuild" in readme
     assert "build_windows.ps1" in readme
