@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 版本：`VERSION` = 0.1.1（规则见下节）。
-- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 0.1.1，SHA256 `8FF1A89399F6C90A8647ED8BC8C3115A72FF115A1A5CC32D447372D59FD7B7EE`（2026-10-16，阶段 A），桌面快捷方式指向它。
+- 版本：`VERSION` = 0.1.2（规则见下节）。
+- 已安装：`%LOCALAPPDATA%\Programs\Reader\Reader.exe` 0.1.2，SHA256 `A2401562BE4EF373D99111C60831C4C2C616125A48ADA8981B04F2797EE4882E`（2026-10-16，B1 未保存内容恢复），桌面快捷方式指向它。
 - 技术：Python 3.12 + PySide6 6.11.2（依赖全部固定版本）；PyInstaller onedir；入口 `src/reader/launcher.py`（不导入 Qt，经命名管道把文件转给已运行的 Reader，否则启动完整应用）；每次打开一个新窗口，标签可在窗口间拖动；Markdown / PPTX / PDF / Office 预览走 Qt WebEngine，文本/代码/图片/`.bin` 是原生视图；终端为 ConPTY + xterm.js。
 - 测试：Python 约 670 个 + 三个前端 vitest；`scripts\verify.ps1` 快速质量门，`-Release` 发布门（冻结构建 + GUI 冒烟，约 20–35 分钟，不要中途打断）。
 
@@ -32,7 +32,7 @@
 | A3 | 基础 | 更新日志 + 许可证（含第三方许可说明） | 小 | 已完成 |
 | A4 | 基础 | 删除无用代码；精简 STATUS；README 按实际功能重写并加截图；仓库简介和标签 | 小 | 已完成 |
 | A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 已完成 |
-| B1 | 数据安全 | 未保存修改和未命名草稿后台自动暂存，注销、关机或崩溃后下次启动恢复 | 大 | 待开始 |
+| B1 | 数据安全 | 未保存修改和未命名草稿后台自动暂存，注销、关机或崩溃后下次启动恢复 | 大 | 已完成（0.1.2） |
 | B2 | 数据安全 | Ctrl+Shift+T 重新打开刚关闭的标签 | 小 | 待开始 |
 | B3 | 数据安全 | 保存前保留旧版本的历史副本，自动清理 | 中 | 待开始 |
 | C1 | 设置 | 设置窗口：通用 / 快捷键 / 功能说明 / 数据 | 中 | 待开始 |
@@ -58,6 +58,7 @@
 - B1 任务 2 完成：`MarkdownTextView` 与 `CodeTextView` 新增 `draft_state()`（类型、路径、扩展名、标题、正文、编码/BOM/换行/是否无损）与 `restore_draft(...)`（恢复后可编辑、标签带 `*`、路径与原编码换行保留，`Ctrl+S` 按原格式写回原文件；未命名草稿保留「未命名.md / 未命名.txt」标题）。RED：`6 failed`；GREEN：新测试 + 代码视图 + Markdown 文本视图 `41 passed`。
 - B1 任务 3 完成：`MainWindow(drafts=DraftStore)`（默认不传则完全不暂存）。所有可编辑视图统一经 `_bind_editable_view` 绑定（顺带合并了三处重复的 Markdown 绑定代码）：文本变化且有未保存修改时加入待写集合，`DRAFT_SAVE_DELAY_MS`（1000ms）空闲后写入；窗口失去激活时立即写；保存成功、撤销回干净、关闭标签、正常关闭窗口时删除暂存；首次暂存时记录原文件修改时间与大小（保存后重置）。标签移到别的窗口前先把它的待写暂存写完，目标窗口重新绑定（文本变化槽与实时推送槽一样精确断开）。RED：`8 failed`；GREEN：`tests/test_window_drafts.py` `8 passed`，全量 `714 passed, 1 skipped`。
 - B1 任务 4 完成：`ReaderApp` 主实例默认使用 `<数据目录>\drafts` 的暂存（转发用的临时实例不读不写）；启动时读出上次留下的暂存，第一个创建的窗口在显示前用 `MainWindow.restore_drafts` 为每份暂存开一个可编辑标签（带 `*`、原路径与编码，状态提示「已恢复 N 个未保存的标签（其中 M 个原文件已在别处修改）」），新编号的暂存写好后再删旧文件；之后的窗口不再恢复。连接 `commitDataRequest`（Windows 注销/关机）：所有窗口立即写完暂存并标记，随后关闭不弹保存询问、保留暂存。RED：`6 failed`；GREEN：`tests/test_app_drafts.py` + 窗口暂存 `14 passed`，全量 `720 passed, 1 skipped`。端到端验证（两个真实进程）：进程 1 编辑一个 Markdown 草稿和一个文本草稿后 2.5s 模拟崩溃（`os._exit`），磁盘上 2 份暂存；进程 2 启动即出现「*未命名.md」「*未命名.txt」，内容一字不差，提示「已恢复 2 个未保存的标签」。
+- B1 完成，0.1.2 已发布（2026-10-16）：README 与功能全解（第 3 节「未保存内容不会丢」）加说明；`bump_version.py` 0.1.1 → 0.1.2 并填写更新日志；发布门一次通过（Python `720 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke）；安装 SHA256 `A2401562BE4EF373D99111C60831C4C2C616125A48ADA8981B04F2797EE4882E`，文件版本 0.1.2。冻结版验证：在隔离数据目录预置一份暂存后启动已安装的 `Reader.exe`，暂存被接管为新编号、内容不变（说明冻结版启动即恢复）。规格与计划已标实施。下一步：B2（`Ctrl+Shift+T` 重新打开刚关闭的标签）。
 
 ## 历史要点
 
