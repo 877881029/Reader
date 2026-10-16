@@ -15,7 +15,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 | 编号 | 阶段 | 内容 | 规模 | 状态 |
 |---|---|---|---|---|
 | A1 | 基础 | 版本号统一：只写在 `VERSION`，脚本每次加 1，规则写进流程文档 | 小 | 已完成 |
-| A2 | 基础 | 依赖固定为当前测试通过的版本 | 小 | 待开始 |
+| A2 | 基础 | 依赖固定为当前测试通过的版本 | 小 | 已完成 |
 | A3 | 基础 | 更新日志 + 许可证（含第三方许可说明） | 小 | 待开始 |
 | A4 | 基础 | 删除无用代码；精简 STATUS；README 按实际功能重写并加截图；仓库简介和标签 | 小 | 待开始 |
 | A5 | 基础 | 文本/代码视图里的网址可 Ctrl+点击打开 | 小 | 待开始 |
@@ -31,6 +31,7 @@ Git：Markdown 切换修复最终状态 `ec4c396` 已同步；本边界提交「
 
 - 阶段 A 规格：`docs/superpowers/specs/2026-10-16-foundations-design.md`；计划：`docs/superpowers/plans/2026-10-16-foundations.md`（5 任务）。版本规则：每次发布前修订号加 1（0.1.0 → 0.1.1 …）。
 - A1 完成：新增 `scripts/version_tools.py`（解析、加 1、写 `VERSION` 与 README「当前版本」行、生成 Windows 版本资源）和 `scripts/bump_version.py`（默认修订号加 1，`--minor` / `--major` / `--set X.Y.Z`，格式不对时什么都不改并返回非 0）；`pyproject.toml` 改为 `dynamic = ["version"]` 从 `VERSION` 读取；`reader.spec` 打包时按 `VERSION` 生成 `build/version_info.txt`，删除仓库里的 `version_info.txt`；发布前运行脚本的规则写进 `AGENTS.md`、`process.md`、`.cursor/rules/git-progress-handoff.mdc`。原来写死 `0.1.0` 的测试改为读 `VERSION`。RED：`10 failed, 2 passed`；GREEN：版本/打包/卫生相关 `46 passed`。注意：`AGENTS.md` 第 4 条指向的 PPTX 规格已过时，A4 一并清理。
+- A2 完成：`pyproject.toml` 运行与开发依赖全部改为 `==` 当前测试通过的版本（PySide6 6.11.2、python-docx 1.2.0、python-pptx 1.0.2、openpyxl 3.1.5、markdown-it-py 4.2.0、pywin32 312、pywinpty 3.0.5；pytest 9.1.1、pytest-qt 4.5.0、pytest-mock 3.15.1、Pillow 12.3.0、PyInstaller 6.22.3）。新测试断言每个依赖都是精确版本且与已安装版本一致。RED：`1 failed`（`PySide6>=6.7` 未固定）；GREEN：卫生/打包/版本 `46 passed`；`pip install -e ".[dev]" --dry-run` 无冲突。
 
 ## 上一目标：界面字体换成 Microsoft YaHei UI（已完成）
 

@@ -318,7 +318,7 @@ def test_reader_spec_is_not_ignored_by_git() -> None:
 def test_pyinstaller_is_a_packaging_development_dependency() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
-    assert '"pyinstaller>=' in pyproject.lower()
+    assert '"pyinstaller==' in pyproject.lower()
 
 
 def test_runtime_icon_paths_use_shared_frozen_aware_resource_helper(monkeypatch) -> None:

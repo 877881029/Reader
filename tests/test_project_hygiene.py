@@ -93,3 +93,19 @@ def test_web_bundle_notices_and_manifests_stay_tracked():
     for bundle in ("pptx-viewer", "md-viewer", "terminal-viewer"):
         for name in ("THIRD_PARTY_NOTICES.txt", "manifest.sha256", "index.html"):
             assert f"assets/{bundle}/{name}" in tracked
+
+
+
+def test_dependencies_are_pinned_to_the_tested_versions():
+    import re
+    import tomllib
+    from importlib.metadata import version
+
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    requirements = project["dependencies"] + project["optional-dependencies"]["dev"]
+    for requirement in requirements:
+        match = re.fullmatch(r"([A-Za-z0-9_.-]+)==([0-9][0-9A-Za-z.]*)", requirement)
+        assert match, f"not pinned: {requirement}"
+        name, pinned = match.groups()
+        assert version(name) == pinned, f"{name}: pinned {pinned}, installed {version(name)}"
