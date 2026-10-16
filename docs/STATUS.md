@@ -59,7 +59,8 @@
 - B1 任务 3 完成：`MainWindow(drafts=DraftStore)`（默认不传则完全不暂存）。所有可编辑视图统一经 `_bind_editable_view` 绑定（顺带合并了三处重复的 Markdown 绑定代码）：文本变化且有未保存修改时加入待写集合，`DRAFT_SAVE_DELAY_MS`（1000ms）空闲后写入；窗口失去激活时立即写；保存成功、撤销回干净、关闭标签、正常关闭窗口时删除暂存；首次暂存时记录原文件修改时间与大小（保存后重置）。标签移到别的窗口前先把它的待写暂存写完，目标窗口重新绑定（文本变化槽与实时推送槽一样精确断开）。RED：`8 failed`；GREEN：`tests/test_window_drafts.py` `8 passed`，全量 `714 passed, 1 skipped`。
 - B1 任务 4 完成：`ReaderApp` 主实例默认使用 `<数据目录>\drafts` 的暂存（转发用的临时实例不读不写）；启动时读出上次留下的暂存，第一个创建的窗口在显示前用 `MainWindow.restore_drafts` 为每份暂存开一个可编辑标签（带 `*`、原路径与编码，状态提示「已恢复 N 个未保存的标签（其中 M 个原文件已在别处修改）」），新编号的暂存写好后再删旧文件；之后的窗口不再恢复。连接 `commitDataRequest`（Windows 注销/关机）：所有窗口立即写完暂存并标记，随后关闭不弹保存询问、保留暂存。RED：`6 failed`；GREEN：`tests/test_app_drafts.py` + 窗口暂存 `14 passed`，全量 `720 passed, 1 skipped`。端到端验证（两个真实进程）：进程 1 编辑一个 Markdown 草稿和一个文本草稿后 2.5s 模拟崩溃（`os._exit`），磁盘上 2 份暂存；进程 2 启动即出现「*未命名.md」「*未命名.txt」，内容一字不差，提示「已恢复 2 个未保存的标签」。
 - B1 完成，0.1.2 已发布（2026-10-16）：README 与功能全解（第 3 节「未保存内容不会丢」）加说明；`bump_version.py` 0.1.1 → 0.1.2 并填写更新日志；发布门一次通过（Python `720 passed, 1 skipped`、前端 vitest、冻结构建、PTY 自检、全部 GUI smoke）；安装 SHA256 `A2401562BE4EF373D99111C60831C4C2C616125A48ADA8981B04F2797EE4882E`，文件版本 0.1.2。冻结版验证：在隔离数据目录预置一份暂存后启动已安装的 `Reader.exe`，暂存被接管为新编号、内容不变（说明冻结版启动即恢复）。规格与计划已标实施。下一步：B2（`Ctrl+Shift+T` 重新打开刚关闭的标签）。
-- B2 规格已定（2026-10-16）：只记录对应真实文件的标签（未命名草稿、终端、浏览器不记录），所有窗口共享最近 20 条，已打开则切过去；用户要求本次发布把版本推进到 1.2.17（`bump_version.py --set 1.2.17`，之后照常加 1）。规格：`docs/superpowers/specs/2026-10-16-reopen-closed-tab-design.md`；计划：`docs/superpowers/plans/2026-10-16-reopen-closed-tab.md`（3 任务）。
+- B2 规格已定（2026-10-16）：只记录对应真实文件的标签（未命名草稿、终端、浏览器不记录），所有窗口共享最近 20 条，已打开则切过去；用户要求本次发布把版本推进到 1.2.17（`bump_version.py --set 1.2.17`，之后照常加 1）。规格：`docs/superpowers/specs/2026-10-16-reopen-closed-tab-design.md`；（3 任务）。
+- B2 任务 1 完成：新模块 `shell/closed_tabs.py`：`ClosedTabs`（`push` 只记录存在的文件并解析为绝对路径，同路径去重置顶，最多 `MAX_CLOSED`=20 条；`pop` 后进先出并跳过已删除的文件）。RED：收集错误；GREEN：`tests/test_closed_tabs.py` `5 passed`。
 
 ## 历史要点
 
